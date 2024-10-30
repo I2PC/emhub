@@ -800,6 +800,7 @@ class PlotCard extends Card {
         super(containerId);
         let self = this;
         this.dataDict = dataDict;
+        this.points = null;
         this.set_default('labelX-select', 'default_x')
         this.set_default('labelY-select', 'default_y')
         this.set_default('labelColor-select', 'default_color')
@@ -880,11 +881,12 @@ class PlotCard extends Card {
         graphDiv.on('plotly_selected', function(eventData) {
             if (!eventData) {
                 $('#selection-label').text("No points selected.");
-                $('#export-btn').hide();
+                $(self.jid('export-btn')).hide();
                 return;
             }
-            let points = eventData.points;
-            $(self.jid('selection-label')).html("Selected <label style='color: firebrick; font-size: medium;'>" + points.length + "</label> points")
+            self.points = eventData.points;
+            console.log("self.points: " + self.points.length);
+            $(self.jid('selection-label')).html("Selected <label style='color: firebrick; font-size: medium;'>" + self.points.length + "</label> points")
             $(self.jid('export-btn')).show();
         });
 
