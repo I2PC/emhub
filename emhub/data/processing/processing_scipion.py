@@ -170,7 +170,7 @@ class ScipionRun(SessionRun):
         """ Get classes information from a class 2d run. """
         it = "%03d" % iteration if iteration else "*"
         pattern = self.join('extra', f"*_it{it}_classes.mrcs")
-        return RelionSessionData.get_classes2d_data(pattern)
+        return RelionSessionData.get_classes2d_data(pattern=pattern)
 
 
 class ScipionSessionData(SessionData):
@@ -378,7 +378,7 @@ class ScipionSessionData(SessionData):
                             break
             runFolder = os.path.join(os.path.dirname(classesSqlite), 'extra',
                                      '*_classes.mrcs')
-            classes2d['items'] = RelionSessionData.get_classes2d_data(runFolder)
+            classes2d['items'] = RelionSessionData.get_classes2d_data(pattern=runFolder)
 
         return classes2d
 

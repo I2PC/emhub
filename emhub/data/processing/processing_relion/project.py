@@ -204,27 +204,41 @@ class RelionSessionData(SessionData):
         }
 
     @classmethod
-    def get_classes2d_data(cls, pattern):
+    def get_classes2d_data(cls, **kwargs):
         """ Get classes information from a relion *classes.mrcs files pattern. """
         items = []
-        if files := glob(pattern):
-            files.sort()
-            avgMrcs = files[-1]
-            dataStar = avgMrcs.replace('_classes.mrcs', '_data.star')
-            modelStar = dataStar.replace('_data.', '_model.')
-            mrc_stack = None
-            avgThumb = Thumbnail(max_size=(128, 128), output_format='base64')
+
+        avgThumb = Thumbnail(max_size=(128, 128), output_format='base64')
+        dataStar = modelStar = None
+
+        if pattern := kwargs.get('pattern', None):
+            if files := glob(pattern):
+                files.sort()
+                avgMrcs = files[-1]
+                dataStar = avgMrcs.replace('_classes.mrcs', '_data.star')
+                modelStar = dataStar.replace('_data.', '_model.')
+                modelTable = 'model_classes'
+        else:
+            dataStar = kwargs.get('dataStar', None)
+            modelStar = kwargs.get('modelStar', None)
+            modelTable = kwargs.get('modelTable', '')
+
+        if dataStar and modelStar:
 
             with StarFile(dataStar) as sf:
                 n = sf.getTableSize('particles')
 
-            with StarFile(modelStar) as sf:
-                modelTable = sf.getTable('model_classes', guessType=False)
+            lastFn = None
+            mrc_stack = None
 
-                for row in modelTable:
+            with StarFile(modelStar) as sf:
+                for row in sf.getTable(modelTable, guessType=False):
                     i, fn = row.rlnReferenceImage.split('@')
-                    if not mrc_stack:
-                        mrc_stack = mrcfile.open(avgMrcs, permissive=True)
+                    if lastFn != fn:
+                        if mrc_stack:
+                            mrc_stack.close()
+                        mrc_stack = mrcfile.open(fn, permissive=True)
+                        lastFn = fn
                     items.append({
                         'id': '%03d' % int(i),
                         'size': round(float(row.rlnClassDistribution) * n),

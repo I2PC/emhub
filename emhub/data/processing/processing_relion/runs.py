@@ -156,7 +156,6 @@ class RelionRun(SessionRun):
         data_values = None
         mics, micsCtf = self._getOutputMics()
 
-        #if self.className == 'motioncorr':
         if mics is not None:
             summary['template'] = 'processing_ctf_summary.html'
             data_values = {}
@@ -168,7 +167,6 @@ class RelionRun(SessionRun):
                     'data': []
                 }
 
-            #mics = self.join('corrected_micrographs.star')
             with StarFile(mics) as sf:
                 for row in sf.iterTable('micrographs'):
                     print(row, type(row))
@@ -177,7 +175,6 @@ class RelionRun(SessionRun):
                         d = row._asdict()
                         data_values[col]['data'].append(d[col])
 
-        #elif self.className == 'ctffind':
         elif micsCtf is not None:
             summary['template'] = 'processing_ctf_summary.html'
             #ctfStar = self.join('micrographs_ctf.star')
@@ -189,7 +186,7 @@ class RelionRun(SessionRun):
             coordStar = self.join(f'{self.className}.star')
             data_values = self.project.load_coordinates_values(coordStar)
 
-        elif self.className == 'class2d':
+        elif self.className in ['class2d', 'select']:
             summary['template'] = 'processing_2d_summary.html'
             data_values = {'iterations': [1, 2, 3]}
 
@@ -240,19 +237,42 @@ class RelionRun(SessionRun):
                 'data': {'volumes': volumes}
             }
             volPath = self.join('initial_model.mrc')
-            if os.path.exists(volPath):
-                #TODO: Load other volumes when more than one class
-                # or when the job is still running
-                data = self.project.get_volume_data(volPath,
-                                                    volume_data='slices',
-                                                    axis='zyx',
-                                                    slice_dim=128,
-                                                    slice_number=32)
-                volumes.append({
-                    'file_path': self.project.relpath(volPath),
-                    'slices': data['slices'],
-                    'slice_dim': 128
-                })
+            iterDict = defaultdict(lambda: [])
+            lastIter = -1
+            import re
+            r = re.compile('.+_it(\d{3,5}?)_.+\.(\w+)')
+
+            for v in glob(self.join('*_it*.*')):
+                if s := r.search(v):
+                    it = int(s.group(1))
+                    if it > lastIter:
+                        lastIter = it
+                    iterDict[it].append(v)
+
+            def _iterVol(fn):
+                return fn.endswith('.mrc') and '_class' in fn
+
+            def _iterStar(fn):
+                return fn.endswith('.star')
+
+            vols = [f for f in iterDict[lastIter] if _iterVol(f)]
+            vols.sort()
+            stars = [f for f in iterDict[lastIter] if _iterStar(f)]
+            stars.sort()
+            summary['data']['files'] = stars
+
+            for v in vols:
+                if os.path.exists(v):
+                    data = self.project.get_volume_data(v,
+                                                        volume_data='slices',
+                                                        axis='zyx',
+                                                        slice_dim=64,
+                                                        slice_number=32)
+                    volumes.append({
+                        'file_path': self.project.relpath(v),
+                        'slices': data['slices'],
+                        'slice_dim': 64
+                    })
 
         if data_values:
             summary['data'] = {'data_values': data_values}
@@ -363,8 +383,13 @@ class RelionRun(SessionRun):
 
     def get_classes2d(self, iteration=None):
         """ Get classes information from a class 2d run. """
+        clsAverages = self.join('class_averages.star')
+        if os.path.exists(clsAverages):  # selection jobs
+            return self.project.get_classes2d_data(modelStar=clsAverages,
+                                                   dataStar=self.join('particles.star'))
+
+        # 2D classification jobs
         it = "%03d" % iteration if iteration else "*"
-        pattern = self.join(f"*_it{it}_classes.mrcs")
-        return self.project.get_classes2d_data(pattern)
+        return self.project.get_classes2d_data(pattern=self.join(f"*_it{it}_classes.mrcs"))
 
 
