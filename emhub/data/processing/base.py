@@ -143,7 +143,7 @@ class SessionData:
             if loc['gs'] == gsId:
                 defocus.append(_microns(mic['ctfDefocus']))
                 resolution.append(round(mic['ctfResolution'], 3))
-                particles += len(self.get_micrograph_coordinates(micName))
+                # particles += len(self.get_micrograph_coordinates(micName))
 
         locData.update({'defocus': defocus,
                         'resolution': resolution,

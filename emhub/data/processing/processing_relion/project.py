@@ -207,7 +207,7 @@ class RelionSessionData(SessionData):
     def get_classes2d_data(cls, **kwargs):
         """ Get classes information from a relion *classes.mrcs files pattern. """
         items = []
-
+        root = kwargs.get('root', './')
         avgThumb = Thumbnail(max_size=(128, 128), output_format='base64')
         dataStar = modelStar = None
 
@@ -224,7 +224,6 @@ class RelionSessionData(SessionData):
             modelTable = kwargs.get('modelTable', '')
 
         if dataStar and modelStar:
-
             with StarFile(dataStar) as sf:
                 n = sf.getTableSize('particles')
 
@@ -237,7 +236,7 @@ class RelionSessionData(SessionData):
                     if lastFn != fn:
                         if mrc_stack:
                             mrc_stack.close()
-                        mrc_stack = mrcfile.open(fn, permissive=True)
+                        mrc_stack = mrcfile.open(os.path.join(root, fn), permissive=True)
                         lastFn = fn
                     items.append({
                         'id': '%03d' % int(i),

@@ -376,20 +376,20 @@ class ScipionSessionData(SessionData):
                             classes2d['selection'] = [int(row.rlnReferenceImage.split('@')[0])
                                                       for row in table if row.rlnEstimatedResolution < 30]
                             break
-            runFolder = os.path.join(os.path.dirname(classesSqlite), 'extra',
-                                     '*_classes.mrcs')
-            classes2d['items'] = RelionSessionData.get_classes2d_data(pattern=runFolder)
+            runFolder = self.join(os.path.dirname(classesSqlite), 'extra', '*_classes.mrcs')
+            classes2d['items'] = RelionSessionData.get_classes2d_data(root=self.path, pattern=runFolder)
 
         return classes2d
 
     def get_micrograph_coordinates(self, micFn):
         self.all_coords = getattr(self, 'all_coords', None)
-        if self.all_coords is None:
+        if self.all_coords is None or micFn not in self.all_coords:
             coords = defaultdict(lambda: [])
-            with Timer():
+            with Timer(message=f"Loading coordinates for {micFn}."):
                 if coordSqlite := self.outputs.get('coordinates', None):
                     with SqliteFile(coordSqlite) as sf:
-                        for row in sf.iterTable('Objects', classes='Classes'):
+                        for row in sf.iterTable('Objects', classes='Classes',
+                                                where=f'c04="{micFn}"'):
                             coords[row['_micName']].append((row['_x'], row['_y']))
             self.all_coords = coords
 
