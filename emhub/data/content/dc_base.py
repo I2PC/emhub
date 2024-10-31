@@ -32,6 +32,7 @@ import json
 import sys
 from collections import defaultdict
 from glob import glob
+from functools import wraps
 
 import flask
 import flask_login
@@ -41,7 +42,7 @@ from emhub.utils import (pretty_datetime, datetime_to_isoformat, pretty_date,
                          datetime_from_isoformat, get_quarter, pretty_quarter,
                          image, shortname)
 
-from emtools.utils import Pretty
+from emtools.utils import Pretty, Timer
 from emtools.metadata import Bins, TsBins, EPU
 
 
@@ -77,7 +78,6 @@ class DataContent:
 
     def content(self, func):
         self._contentDict[func.__name__] = func
-
         # No need for a do-nothing wrapper
         return func
 
@@ -588,12 +588,15 @@ class DataContent:
         ]
         return {'resources': resource_list}
 
+
+    @Timer.timeit
     def get_user_projects(self, user, **kwargs):
         dm = self.app.dm
         status = kwargs.get('status', 'active')
         extra = 'extra' in kwargs
         pid = int(kwargs.get('pid', 0))
         scope = kwargs.get('scope', 'lab')
+        stats = kwargs.get('stats', False)
 
         project_perms = dm.get_config("permissions")['projects']
         project_config = dm.get_config("projects")
@@ -648,39 +651,41 @@ class DataContent:
             p.sessions = []
             projects[p.id] = p
 
-        # Find sessions for each project (based on project_id or booking's project)
-        for s in dm.get_sessions():
-            if p := s.project:
-                if p.id in projects:
-                    projects[p.id].sessions.append(s)
 
         display_table = project_config.get('display_table', {})
         resource_days_tag = display_table.get('resource_days_tag', 'instrument')
         extra_columns = display_table.get('extra_columns',
                                           ['days', 'sessions', 'images', 'data'])
 
-        # Update Sessions stats
-        for p in projects.values():
-            days = sessions = images = size = 0
-            for b in p.bookings:
-                # Only count days for microscopes
+        if stats:
+            # Find sessions for each project (based on project_id or booking's project)
+            for s in dm.get_sessions():
+                if p := s.project:
+                    if p.id in projects:
+                        projects[p.id].sessions.append(s)
 
-                if resource_days_tag not in b.resource.tags:
-                    continue
-                days += b.units(hours=24)
-                for s in b.session:
-                    sessions += 1
-                    images += s.images
-                    size += s.size
+            # Update Sessions stats
+            for p in projects.values():
+                days = sessions = images = size = 0
+                for b in p.bookings:
+                    # Only count days for microscopes
 
-            p.stats = {
-                'days': days,
-                'sessions': sessions,
-                'images': images,
-                'size': Pretty.size(size)
-            }
-            p.user_can_edit = user.can_edit_project(p)
-            p.display_title = 'Hidden title' if (p.is_confidential and not p.user_can_edit) else p.title
+                    if resource_days_tag not in b.resource.tags:
+                        continue
+                    days += b.units(hours=24)
+                    for s in b.session:
+                        sessions += 1
+                        images += s.images
+                        size += s.size
+
+                p.stats = {
+                    'days': days,
+                    'sessions': sessions,
+                    'images': images,
+                    'size': Pretty.size(size)
+                }
+                p.user_can_edit = user.can_edit_project(p)
+                p.display_title = 'Hidden title' if (p.is_confidential and not p.user_can_edit) else p.title
 
         can_create = self.app.dm.user_can_create_projects(self.app.user)
         return {'projects': projects.values(),

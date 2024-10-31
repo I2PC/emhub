@@ -29,6 +29,7 @@
 import os
 import json
 
+from emtools.utils import Timer
 from emhub.utils import datetime_from_isoformat
 
 
@@ -134,7 +135,7 @@ def register_content(dc):
             args.pop('content_id')
             args.update(dates)
             booking = dm.create_basic_booking(args)
-            allowed_resources = [r for r in dm.get_resources()]
+            #allowed_resources = [r for r in dm.get_resources()]
 
         display = dm.get_config('bookings')['display']
         applications = [a for a in dm.get_visible_applications() if a.is_active]

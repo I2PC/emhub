@@ -193,6 +193,8 @@ def register_content(dc):
     def raw_projects_list(**kwargs):
         if 'status' not in kwargs:
             kwargs['status'] = None  # projects with any status
+        if 'stats' not in kwargs:
+            kwargs['stats'] = True
         data = dc.get_user_projects(dc.app.user, **kwargs)
         return data
 

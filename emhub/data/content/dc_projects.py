@@ -35,6 +35,8 @@ def register_content(dc):
 
     @dc.content
     def projects_list(**kwargs):
+        if 'stats' not in kwargs:
+            kwargs['stats'] = True
         return dc.get_user_projects(dc.app.user, **kwargs)
 
     @dc.content
