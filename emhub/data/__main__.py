@@ -57,6 +57,9 @@ def main():
                         "~/.emhub/instances/test. "
                         "If not JSON is provided, a default one will be "
                         "created with some test data. ")
+    g.add_argument('--create_processing', metavar='FOLDER',
+                   help="Create a new instance in FOLDER customized for "
+                        "a data processing workspace. ")
     g.add_argument('--dump', nargs=2,
                    metavar=('KEYS', 'JSON_FILE'),
                    help="Dump data related to an Entity in the data model."
@@ -69,14 +72,16 @@ def main():
 
     args = p.parse_args()
     create = args.create_instance
+    from emhub.data.imports import create_instance, MINIMAL_JSON
 
     if create is not None:
         n = len(create)
         instance_path = create[0] if n > 0 else None
         json_file = create[1] if n > 1 else None
-
-        from emhub.data.imports.test import create_instance
         create_instance(instance_path, json_file, args.force)
+
+    elif instance_path := args.create_processing:
+        dm = create_instance(instance_path, MINIMAL_JSON, args.force)
 
     if args.dump:
         dump(args.dump[0].split(','), args.dump[1])

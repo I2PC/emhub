@@ -218,25 +218,35 @@ def register_content(dc):
         return get_processing_run_func('getOverview', kwargs)
 
     @dc.content
-    def processing_projects_list(**kwargs):
-        project_list = []
-        for project in dc.app.dm.get_projects():
-            entries = []
-            for entry in project.entries:
-                if entry.type == 'data_processing':
-                    project_path = entry.extra['data']['project_path']
-                    entries.append({
-                        'id': entry.id,
-                        'name': os.path.basename(project_path),
-                        'project_path': project_path,
-                    })
-            if entries:
-                project_list.append({
-                    'id': project.id,
-                    'title': project.title,
-                    'entries': entries
-                })
+    def processing_dashboard(**kwargs):
+        workspaces = []
+        for p in dc.app.dm.get_projects():
+            if p.status == 'special:processing':
+                p.project_path = p
+                p.label = p.title or os.path.basename(p.project_path)
+                p.projects = []
+                for e in p.entries:
+                    if e.type == 'data_processing':
+                        data = e.extra['data']
+                        pp = data['project_path']
+                        p.projects.append({
+                            'id': e.id,
+                            'label': e.title or os.path.basename(pp),
+                            'description': e.description,
+                            'project_path': pp
+                        })
+                workspaces.append(p)
 
         return {
-            'project_list': project_list
+            'workspaces': workspaces,
+            'mode': kwargs.get('mode', 'table')
         }
+
+    @dc.content
+    def processing_dashboard_content(**kwargs):
+        return processing_dashboard(**kwargs)
+
+    @dc.content
+    def processing_workspace_form(**kwargs):
+        kwargs['content_id'] = 'project_form'
+        return dc.get(**kwargs)

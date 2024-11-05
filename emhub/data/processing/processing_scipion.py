@@ -170,7 +170,8 @@ class ScipionRun(SessionRun):
         """ Get classes information from a class 2d run. """
         it = "%03d" % iteration if iteration else "*"
         pattern = self.join('extra', f"*_it{it}_classes.mrcs")
-        return RelionSessionData.get_classes2d_data(pattern=pattern)
+        return RelionSessionData.get_classes2d_data(pattern=pattern,
+                                                    root=self.project.path)
 
 
 class ScipionSessionData(SessionData):

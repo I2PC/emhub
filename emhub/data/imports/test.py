@@ -246,11 +246,11 @@ export EMHUB_SERVER_URL=http://127.0.0.1:5000
 
 """)
 
+        useCmd = Color.green(f"source {fn}\nflask run --debug\n")
         print(f"\n"
               f"EMhub instance sucessfully created!!!\n"
               f"To use it do:\n\n"
-              f"source {fn}\n"
-              f"flask run --debug\n\n"
+              f"{useCmd}\n"
               f"And open a browser at: http://127.0.0.1:5000\n"
               f"user: admin, password: admin")
 

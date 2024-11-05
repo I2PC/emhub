@@ -144,9 +144,9 @@ class RelionRun(SessionRun):
         mics = micsCtf = None
         for o in self.getInputsOutputs()['outputs']:
             if o.endswith('ctf.star'):
-                micsCtf = o
+                micsCtf = self.project.join(o)
             elif o.endswith('micrographs.star'):
-                mics = o
+                mics = self.project.join(o)
         return mics, micsCtf
 
     def getSummary(self, **kwargs):
@@ -206,7 +206,8 @@ class RelionRun(SessionRun):
             if iterFile:
                 data['iter_file'] = iterFile
                 ios = self.getInputsOutputs()
-                inputParticles = [i for i in ios['inputs'] if i.endswith('.star')][0]
+                inputParticles = [self.project.join(i) for i in ios['inputs']
+                                  if i.endswith('.star')][0]
                 with StarFile(inputParticles) as sf:
                     nParticles = sf.getTableSize('particles')
 
@@ -216,7 +217,7 @@ class RelionRun(SessionRun):
                         if self.project.exists(volPath):
                             # TODO: Load other volumes when more than one class
                             # or when the job is still running
-                            data = self.project.get_volume_data(volPath,
+                            data = self.project.get_volume_data(self.project.join(volPath),
                                                                 volume_data='slices',
                                                                 axis='zyx',
                                                                 slice_dim=64,
@@ -386,10 +387,12 @@ class RelionRun(SessionRun):
         clsAverages = self.join('class_averages.star')
         if os.path.exists(clsAverages):  # selection jobs
             return self.project.get_classes2d_data(modelStar=clsAverages,
-                                                   dataStar=self.join('particles.star'))
+                                                   dataStar=self.join('particles.star'),
+                                                   root=self.project.path)
 
         # 2D classification jobs
         it = "%03d" % iteration if iteration else "*"
-        return self.project.get_classes2d_data(pattern=self.join(f"*_it{it}_classes.mrcs"))
+        return self.project.get_classes2d_data(pattern=self.join(f"*_it{it}_classes.mrcs"),
+                                               root=self.project.path)
 
 
