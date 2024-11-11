@@ -20,15 +20,15 @@
 
                      {% for p in ws.projects %}
 
-                        {% set card_color = '#caf0f8' if loop.index0 % 2 == 0 else '#fcd9d9'  %}
-                        {% set pid = p['id'] %}
-                        <div class="card w-auto mr-3" style="background-color: {{ card_color }}; min-width: 500px; max-width: 700px">
 
-                            <div class="card-header d-flex" style="background-color: {{ card_color }};">
+                        {% set pid = p['id'] %}
+                        <div class="card w-auto mr-3" style="background-color: {{ p.color }}; min-width: 500px; max-width: 700px">
+
+                            <div class="card-header d-flex" style="background-color: {{ p.color }};">
 
                                 {% set url = url_for_content('processing_flowchart', entry_id=pid) %}
 
-                                <a class="mb-0" href="{{ url }}"><h4>{{ p['label'] }}</h4></a>
+                                <a class="mb-0" href="{{ url }}"><h4>{{ p.label }}</h4></a>
                                 <div class=" ml-auto row">
                                     <a href="{{ url }}"><i class="fas fa-external-link-alt"></i></a>
                                     <div class="dropdown ml-2">
@@ -60,6 +60,7 @@
                                 <tr class="border-0">
                                     <th class="border-0">Actions</th>
                                     <th class="border-0">Project</th>
+                                    <th class="border-0">Type</th>
                                     <th class="border-0">Definition</th>
                                     <th class="border-0">Path</th>
                                 </tr>
@@ -79,6 +80,7 @@
                                     <td id="form_{{ pid }}_name">
                                         <a class="mb-0" href="{{ url }}"><h4 class="pt-2">{{ p['label'] }}</h4></a>
                                     </td>
+                                    <td><span class="p-1 badge" style="background-color: {{ p.color }}">{{ p.type }}</span></td>
                                     <td id="form_{{ pid }}_desc"> {{ p.description }}</td>
                                     <td id="form_{{ pid }}_id"> {{ p.project_path  }} </td>
                                 </tr>

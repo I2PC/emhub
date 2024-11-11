@@ -36,6 +36,7 @@ from emtools.utils import Pretty, Path
 from emtools.metadata import Bins, TsBins, EPU
 
 
+
 def register_content(dc):
 
     @dc.content
@@ -219,6 +220,8 @@ def register_content(dc):
 
     @dc.content
     def processing_dashboard(**kwargs):
+        from emhub.data.processing import get_processing_type
+        colors = {'relion': '#caf0f8', 'scipion': '#fcd9d9'}
         workspaces = []
         for p in dc.app.dm.get_projects():
             if p.status == 'special:processing':
@@ -229,9 +232,13 @@ def register_content(dc):
                     if e.type == 'data_processing':
                         data = e.extra['data']
                         pp = data['project_path']
+                        ptype = get_processing_type(pp)
+                        pcolor = colors.get(ptype, 'gray')
                         p.projects.append({
                             'id': e.id,
                             'label': e.title or os.path.basename(pp),
+                            'type': ptype,
+                            'color': pcolor,
                             'description': e.description,
                             'project_path': pp
                         })

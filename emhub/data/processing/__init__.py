@@ -20,17 +20,33 @@ from .processing_relion import RelionSessionData
 from .processing_scipion import ScipionSessionData
 
 
-def get_processing_project(project_path):
-    """ Create a Processing Project instance from this path. """
-    if not project_path or project_path.endswith('h5'):
-        return None
-    elif not os.path.exists(project_path):
-        raise Exception(f"ERROR: can't load session data path: {project_path}")
+def get_processing_type(project_path):
+    if not os.path.exists(project_path):
+        raise Exception(f"ERROR: can't load processing path: {project_path}")
 
     projectSqlite = os.path.join(project_path, 'project.sqlite')
 
     if os.path.exists(projectSqlite):
-        return ScipionSessionData(project_path)
+        return 'scipion'
 
-    # TODO: check if it is a Relion project
-    return RelionSessionData(project_path)
+    defaultPipeline = os.path.join(project_path, 'default_pipeline.star')
+
+    if os.path.exists(defaultPipeline):
+        return 'relion'
+
+    return 'unknown'
+
+
+def get_processing_project(project_path):
+    """ Create a Processing Project instance from this path. """
+    typeMap = {
+        'scipion': ScipionSessionData,
+        'relion': RelionSessionData
+    }
+    processingType = get_processing_type(project_path)
+
+    if ProcClass := typeMap.get(processingType, None):
+        return ProcClass(project_path)
+
+    return None
+

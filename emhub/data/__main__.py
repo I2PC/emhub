@@ -20,7 +20,12 @@ import sys
 import argparse
 import json
 
+from emtools.utils import Process, Path
 
+from .processing import get_processing_type
+
+
+#TODO: move this functionality to emh-client
 def dump(keys, json_file):
     from emhub.client import open_client, config
 
@@ -45,6 +50,66 @@ def dump(keys, json_file):
             with open(json_file, 'w') as f:
                 json.dump(json_data, f, indent=4)
 
+def setup_processing(dm, instance_folder, workspaces):
+    """ Create a processing instance. """
+    template = """
+    <!-- left sidebar -->
+    <div class="nav-left-sidebar sidebar-dark">
+        <div class="menu-list">
+            <nav class="navbar navbar-expand-lg navbar-light">
+                <a class="d-xl-none d-lg-none" href="#">Dashboard</a>
+                <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="collapse navbar-collapse" id="navbarNav">
+                    <ul class="navbar-nav flex-column">
+
+                        <li class="nav-divider"> MAIN </li>
+
+                        <ul class="nav flex-column submenu">
+                            <li class="nav-item">
+                                <a class="nav-link" href="{{ url_for_content('processing_dashboard') }}">
+                                    <i class="fas fa-tachometer-alt"></i>Processing Dashboard</a>
+                            </li>
+
+                        </ul>
+
+                </div>
+            </nav>
+        </div>
+    </div>
+    <!-- end left sidebar -->
+    """
+    print("processing instance created!")
+    extra_folder = os.path.join(instance_folder, 'extra', 'templates') 
+    Process.Logger().mkdir(extra_folder) 
+    with open(os.path.join(extra_folder, 'main_left_sidebar.html'), 'w') as f:
+        f.write(template)
+
+    for ws in workspaces:
+        projects = []
+        for d in os.listdir(ws):
+            folder = os.path.join(ws, d)
+            if get_processing_type(folder) != 'unknown':
+                projects.append(folder)
+        
+        if projects:
+            
+            print("Creating workspace :", ws)
+            p = dm.create_project(
+                user_id=1,  #FIXME
+                status='special:processing',
+                user_can_edit=True,
+                is_confidential=False,
+                title=os.path.basename(Path.rmslash(ws)),
+                description="Workspace imported from " + ws
+            )
+            for proj_folder in projects:
+                print("   - creating project: ", proj_folder)
+                dm.create_entry(project_id=p.id,
+                        type='data_processing',
+                        extra={"data": {"project_path": proj_folder}})
+
 
 def main():
     p = argparse.ArgumentParser(prog='emh-data')
@@ -57,7 +122,7 @@ def main():
                         "~/.emhub/instances/test. "
                         "If not JSON is provided, a default one will be "
                         "created with some test data. ")
-    g.add_argument('--create_processing', metavar='FOLDER',
+    g.add_argument('--create_processing', nargs='+',  metavar=('FOLDER', 'WORKSPACE_FOLDER'),
                    help="Create a new instance in FOLDER customized for "
                         "a data processing workspace. ")
     g.add_argument('--dump', nargs=2,
@@ -80,8 +145,16 @@ def main():
         json_file = create[1] if n > 1 else None
         create_instance(instance_path, json_file, args.force)
 
-    elif instance_path := args.create_processing:
+    elif processing := args.create_processing:
+        instance_path = processing[0]
+        workspaces = processing[1:]
+
+        for ws in workspaces:
+            if not os.path.exists(ws):
+                raise Exception(f"Workspace folder '{ws}' does not exists!")
+
         dm = create_instance(instance_path, MINIMAL_JSON, args.force)
+        setup_processing(dm, instance_path, workspaces)
 
     if args.dump:
         dump(args.dump[0].split(','), args.dump[1])
