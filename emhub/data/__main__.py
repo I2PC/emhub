@@ -20,35 +20,10 @@ import sys
 import argparse
 import json
 
-from emtools.utils import Process, Path
+from emtools.utils import Process, Path, Color
 
 from .processing import get_processing_type
 
-
-#TODO: move this functionality to emh-client
-def dump(keys, json_file):
-    from emhub.client import open_client, config
-
-    with open_client() as dc:
-        json_data = {}
-
-        if 'forms' in keys:
-            forms = dc.request('get_forms').json()
-            json_data['forms'] = [{
-                'id': f['id'],
-                'name': f['name'],
-                'definition': f['definition']
-            } for f in forms]
-
-        if 'resources' in keys:
-            json_data['resources'] = dc.request('get_resources').json()
-
-        if 'users' in keys:
-            json_data['users'] = dc.request('get_users').json()
-
-        if json_data:
-            with open(json_file, 'w') as f:
-                json.dump(json_data, f, indent=4)
 
 def setup_processing(dm, instance_folder, workspaces):
     """ Create a processing instance. """
@@ -71,9 +46,7 @@ def setup_processing(dm, instance_folder, workspaces):
                                 <a class="nav-link" href="{{ url_for_content('processing_dashboard') }}">
                                     <i class="fas fa-tachometer-alt"></i>Processing Dashboard</a>
                             </li>
-
                         </ul>
-
                 </div>
             </nav>
         </div>
@@ -90,8 +63,11 @@ def setup_processing(dm, instance_folder, workspaces):
         projects = []
         for d in os.listdir(ws):
             folder = os.path.join(ws, d)
-            if get_processing_type(folder) != 'unknown':
-                projects.append(folder)
+            try:
+                if get_processing_type(folder) != 'unknown':
+                    projects.append(folder)
+            except:
+                print(Color.red(f"Error loading project from: {folder}"))
         
         if projects:
             

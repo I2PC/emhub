@@ -201,6 +201,31 @@ def process_entries(args):
                                             date_str(e['date'])))
 
 
+def dump(keys, json_file):
+    from emhub.client import open_client, config
+
+    with open_client() as dc:
+        json_data = {}
+
+        if 'forms' in keys:
+            forms = dc.request('get_forms').json()
+            json_data['forms'] = [{
+                'id': f['id'],
+                'name': f['name'],
+                'definition': f['definition']
+            } for f in forms]
+
+        if 'resources' in keys:
+            json_data['resources'] = dc.request('get_resources').json()
+
+        if 'users' in keys:
+            json_data['users'] = dc.request('get_users').json()
+
+        if json_data:
+            with open(json_file, 'w') as f:
+                json.dump(json_data, f, indent=4)
+
+
 def main():
     p = argparse.ArgumentParser(prog='emh-client')
     p.add_argument('--url', default='')
@@ -255,12 +280,17 @@ def main():
     method_p.add_argument('method', metavar='METHOD_NAME')
     method_p.add_argument('attrs', metavar='ATTRS', nargs='?')
     method_p.add_argument('--extra', action="store_true")
-    # g.add_argument('--transfer', nargs=3, metavar=('FRAMES', 'RAW', 'EPU'),
-    #                help='Transfer (move) files from SRC to DST')
-    # g.add_argument('--parse', metavar='DIR',
-    #                help='Parse and print file stats from DIR')
-    # g.add_argument('--epu', nargs=2, metavar=('SRC', 'DST'),
-    #                help="Parse EPU input folder and makes a backup")
+
+    # ------------------------- Dump subparser -------------------------------
+    dump_p = subparsers.add_parser("dump")
+
+    dump_p.add_argument('keys', metavar='KEYS',
+                        help="Dump data related to an Entity in the data model. "
+                             "Keys should be provided in a comma separated list.\n"
+                             "Example: "
+                             "emh-client dump forms,resources,users backup.json")
+    dump_p.add_argument('jsonfile', metavar='JSON_FILE')
+
     args = p.parse_args()
 
     if args.url:
@@ -294,6 +324,10 @@ def main():
                     pprint(item)
             else:
                 pprint(result)
+
+    elif args.entity == 'dump':
+        dump(args.keys, args.jsonfile)
+
     else:
         for k, v in os.environ.items():
             if k.startswith('EMHUB_'):
