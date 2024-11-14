@@ -1216,14 +1216,14 @@ class DataManager(DbManager):
     def check_resource_access(self, resource, permissionKey):
         """ Check if the user has permission to access bookings for this
         resource based on the resource tags and user's roles. """
-        # FIXME: Now only checking if 'user' in permissions, not based on roles
+
         if self._user.is_manager:
             return True
 
+        # FIXME: Now only checking if 'user' in permissions, not based on roles
         perms = self.get_config('permissions')
-        return (self._user.can_book_resource(resource) or True and
-                any(t in resource.tags and 'user' in u
-                    for t, u in perms.get(permissionKey, {}).items()))
+        return any(t in resource.tags and 'user' in u
+                    for t, u in perms.get(permissionKey, {}).items())
 
     # ------------------- BOOKING helper functions -----------------------------
     def create_basic_booking(self, attrs, **kwargs):
@@ -1318,7 +1318,7 @@ class DataManager(DbManager):
                                 % overlap_noslots)
 
             overlap_slots = [b for b in overlap
-                             if b.is_slot and booking.overlap_slot(b)]
+                             if b.is_slot and booking.inside_slot(b)]
 
             # Always try to find the Application to set in the booking unless
             # the owner is a manager

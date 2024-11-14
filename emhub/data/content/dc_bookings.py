@@ -106,6 +106,7 @@ def register_content(dc):
     def booking_form(**kwargs):
         dm = dc.app.dm  # shortcut
         user = dc.app.user
+        select_resource = int(kwargs.pop('select_resource', 1))
 
         if 'start' in kwargs and 'end' in kwargs:
             dates = {
@@ -135,7 +136,6 @@ def register_content(dc):
             args.pop('content_id')
             args.update(dates)
             booking = dm.create_basic_booking(args)
-            #allowed_resources = [r for r in dm.get_resources()]
 
         display = dm.get_config('bookings')['display']
         applications = [a for a in dm.get_visible_applications() if a.is_active]
@@ -143,7 +143,8 @@ def register_content(dc):
         data = {'booking': booking,
                 'applications': applications,
                 'show_experiment': display['show_experiment'],
-                'read_only': read_only
+                'read_only': read_only,
+                'select_resource': select_resource
                 }
 
         data.update(dc.get_user_projects(user, status='active'))

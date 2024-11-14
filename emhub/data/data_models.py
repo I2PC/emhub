@@ -870,21 +870,32 @@ def create_data_models(dm):
 
             return application.code in self.slot_auth.get('applications', [])
 
-        def overlap(self, b):
+        def overlap(self, b, strict=False):
             """ Check overlap with another booking.
-            Allow events to start/end at the same time without reporting
-            it as overlap.
             Bookings with same ID are not reported as overlap.
-            """
-            s, e = self.start, self.end
-            return self.id != b.id and (s < b.start < e or s < b.end < e)
 
-        def overlap_slot(self, b):
-            """ Check overlap with another booking that is a slot.
-            Start/end at the same time are reported as overlap.
+            Args:
+                b: the other booking to check for the overlap.
+                strict: if True, bookings starting/ending at the same time
+                    will be reported as overlap. This is not desired in some
+                    cases when a booking starts at the same time the other one
+                    is ending.
             """
+            if self.id == b.id:
+                return False
+
             s, e = self.start, self.end
-            return self.id != b.id and (s <= b.start <= e or s <= b.end <= e)
+            if strict:
+                return s <= b.start <= e or s <= b.end <= e
+            else:
+                return s < b.start < e or s < b.end < e
+
+        def inside_slot(self, b):
+            """ Check if the current booking is contained inside another
+            booking that is a Slot.
+            """
+            s, e = b.start, b.end
+            return self.id != b.id and (s <= self.start <= e and s <= self.end <= e)
 
 
     class Session(Base):
