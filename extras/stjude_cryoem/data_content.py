@@ -200,7 +200,7 @@ def register_content(dc):
                 }
 
                 s = dm.Booking(**args)
-                o = [b for b in bookings if b.overlap_slot(s)]
+                o = [b for b in bookings if b.overlap(s)]
                 day_slots.append((s, o))
                 if create_slots and not o:
                     dm.create_booking(**args)
@@ -306,8 +306,7 @@ def register_content(dc):
         for rbookings in resource_bookings.values():
             for k, bookingValues in rbookings.items():
                 def _slot_overlap(s):
-                    return s.is_slot and any(s.overlap_slot(b)
-                                             for b in bookingValues)
+                    return s.is_slot and any(s.overlap(b, strict=True) for b in bookingValues)
 
                 slots_overlap = [s for s in bookingValues if _slot_overlap(s)]
                 for s in slots_overlap:

@@ -38,7 +38,9 @@
                             {% for r in resources %}
                                 {% if r['user_can_book'] %}
                                     {% set selected = 'selected' if r['id'] == booking.resource_id|int else '' %}
-                                    <option {{ selected }} value="{{r['id']}}" data-content="<span class='badge' style='background: {{ r['color'] }}; color: #fff;'>{{r['name']}}</span>">{{r['name']}}</option>
+                                    {% if select_resource or selected %}
+                                        <option {{ selected }} value="{{r['id']}}" data-content="<span class='badge' style='background: {{ r['color'] }}; color: #fff;'>{{r['name']}}</span>">{{r['name']}}</option>
+                                    {% endif %}
                                 {% endif %}
                             {% endfor %}
                             </select>
