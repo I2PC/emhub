@@ -106,22 +106,21 @@ def register_content(dc):
 
     @dc.content
     def session_hourly_plots(**kwargs):
-        session_id = kwargs['session_id']
+        project = dc.app.dm.get_processing_project(**kwargs)['project']
+
         plot = kwargs['plot']
-        session = dc.app.dm.load_session(session_id)
         data = {'plot_data': [],
                 'plot_key': plot
                 }
 
-        if os.path.exists(session.data_path):
+        if project.exists():
             if plot == 'imported':
-                epuData = session.data.getEpuData()
+                epuData = project.getEpuData()
                 items = [{'ts': row.timeStamp} for row in epuData.moviesTable]
             elif plot == 'aligned':
-                sdata = session.data
                 items = []
-                for mic in sdata.get_micrographs():
-                    micFn = sdata.join(mic['micrograph'])
+                for mic in project.get_micrographs():
+                    micFn = project.join(mic['micrograph'])
                     items.append({'ts': os.path.getmtime(micFn)})
                 items.sort(key=lambda item: item['ts'])
             else:
@@ -158,8 +157,7 @@ def register_content(dc):
                 a = s.booking.application
                 if a is None or a.allows_access(dc.app.user):
                     sessions.append(s)
-                    b = dc.booking_to_event(s.booking,
-                                              prettyDate=True, piApp=True)
+                    b = dc.booking_to_event(s.booking, prettyDate=True, piApp=True)
                     bookingDict[s.booking.id] = b
 
         return {

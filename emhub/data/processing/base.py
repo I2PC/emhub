@@ -76,7 +76,7 @@ class SessionData:
     def relpath(self, path):
         return os.path.relpath(path, self._path)
 
-    def exists(self, path):
+    def exists(self, path=''):
         return os.path.exists(self.join(path))
 
     def getEpuData(self):
