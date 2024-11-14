@@ -32,16 +32,17 @@ from ..processing.processing_relion import RelionSessionData
 class ScipionRun(SessionRun):
     """ Helper class to manipulate Scipion run data. """
     def __init__(self, project, runDict):
-        self.dict = runDict
         if '' not in runDict:
             raise Exception("Expecting empty string keyword in runDict.")
 
         runRow = runDict['']  # first protocol row, empty name
         self.id = runRow['id']
         self.className = runRow['classname']
-        wdRow = runDict[f'{self.id}.workingDir']
         self.label = runRow['label']
 
+        idStr = f'{self.id}.'
+        self.dict = {k.replace(idStr, ''): v for k, v in runDict.items()}
+        wdRow = self.dict['workingDir']
         SessionRun.__init__(self, project, project.join(wdRow['value']))
 
     def getInfo(self):
@@ -51,10 +52,21 @@ class ScipionRun(SessionRun):
         return ScipionSessionData.getFormDefinition(self.className)
 
     def getInputsOutputs(self):
+        inputs = []
+        outputs = []
+        outputList = self.dict['_outputs']['value'].split(',')
+
+        for k, v in self.dict.items():
+            if k in outputList:
+                outputs.append(k)
+            if v['classname'] == 'Pointer' and v['value'] is not None:
+                inputs.append(k)
+
         return {
-            'inputs': [],
-            'outputs': []
+            'inputs': inputs,
+            'outputs': outputs
         }
+
 
     def getValues(self):
         values = {}
