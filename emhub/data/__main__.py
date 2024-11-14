@@ -20,35 +20,10 @@ import sys
 import argparse
 import json
 
-from emtools.utils import Process, Path
+from emtools.utils import Process, Path, Color
 
 from .processing import get_processing_type
 
-
-#TODO: move this functionality to emh-client
-def dump(keys, json_file):
-    from emhub.client import open_client, config
-
-    with open_client() as dc:
-        json_data = {}
-
-        if 'forms' in keys:
-            forms = dc.request('get_forms').json()
-            json_data['forms'] = [{
-                'id': f['id'],
-                'name': f['name'],
-                'definition': f['definition']
-            } for f in forms]
-
-        if 'resources' in keys:
-            json_data['resources'] = dc.request('get_resources').json()
-
-        if 'users' in keys:
-            json_data['users'] = dc.request('get_users').json()
-
-        if json_data:
-            with open(json_file, 'w') as f:
-                json.dump(json_data, f, indent=4)
 
 def setup_processing(dm, instance_folder, workspaces):
     """ Create a processing instance. """
@@ -71,9 +46,7 @@ def setup_processing(dm, instance_folder, workspaces):
                                 <a class="nav-link" href="{{ url_for_content('processing_dashboard') }}">
                                     <i class="fas fa-tachometer-alt"></i>Processing Dashboard</a>
                             </li>
-
                         </ul>
-
                 </div>
             </nav>
         </div>
@@ -90,8 +63,11 @@ def setup_processing(dm, instance_folder, workspaces):
         projects = []
         for d in os.listdir(ws):
             folder = os.path.join(ws, d)
-            if get_processing_type(folder) != 'unknown':
-                projects.append(folder)
+            try:
+                if get_processing_type(folder) != 'unknown':
+                    projects.append(folder)
+            except:
+                print(Color.red(f"Error loading project from: {folder}"))
         
         if projects:
             
@@ -122,6 +98,9 @@ def main():
                         "~/.emhub/instances/test. "
                         "If not JSON is provided, a default one will be "
                         "created with some test data. ")
+    g.add_argument('--create_minimal', metavar='FOLDER',
+                   help="Same as --create_instance but using a minimal "
+                        "JSON file for the instance creation. ")
     g.add_argument('--create_processing', nargs='+',  metavar=('FOLDER', 'WORKSPACE_FOLDER'),
                    help="Create a new instance in FOLDER customized for "
                         "a data processing workspace. ")
@@ -144,6 +123,9 @@ def main():
         instance_path = create[0] if n > 0 else None
         json_file = create[1] if n > 1 else None
         create_instance(instance_path, json_file, args.force)
+
+    elif minimal := args.create_minimal:
+        create_instance(minimal, MINIMAL_JSON, args.force)
 
     elif processing := args.create_processing:
         instance_path = processing[0]
