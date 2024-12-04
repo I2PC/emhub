@@ -113,7 +113,8 @@ def pairname(user):
         return ''
     pi = user.get_pi()
     if pi and not user.is_pi:
-        return f"{shortname(pi)} / {shortname(user)}"
+        prefix = pi.extra.get('center', shortname(pi))
+        return f"{prefix} / {shortname(user)}"
     else:
         return shortname(user)
 

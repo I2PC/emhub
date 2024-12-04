@@ -51,6 +51,43 @@ def date_str(datetimeStr):
     return datetimeStr.split('T')[0]
 
 
+def process_users(args):
+    with open_client() as dc:
+        r = dc.request('get_users', jsonData={})
+        usersDict = {u['id']: u for u in r.json()}
+
+    if args.list:  # Print detailed info about specific users
+        for uid in args.list:
+            pprint(usersDict[int(uid)])
+
+    elif args.list is not None:  # Print all in a table
+        headers = ["USERID", "USERNAME", "EMAIL", "PI", "ROLES"]
+        format_str = u'{:<10}{:<40}{:<30}{:<20}{:<20}'
+
+        print(format_str.format(*headers))
+
+        def _filter(f, user):
+            return eval(f, {}, {'u': user})
+
+        filters = args.filters or []
+
+        # filters = [
+        #     lambda u: u['pi_id'] == 76 or u['id'] == 76
+        # ]
+
+        for user in usersDict.values():
+            if pid := user['pi_id']:
+                piStr = "%s (%d)" % (usersDict[pid]['name'], pid)
+            else:
+                piStr = 'None'
+
+            if not all(_filter(f, user) for f in filters):
+                continue
+
+            print(format_str.format(user['id'], user['email'], user['name'],
+                                    piStr, str(user['roles'])))
+
+
 def process_forms(args):
     with open_client() as dc:
         forms = dc.request('get_forms', jsonData=None).json()
@@ -232,6 +269,17 @@ def main():
 
     subparsers = p.add_subparsers(dest='entity')
 
+    # ------------------------- USER subparser -------------------------------
+    user_p = subparsers.add_parser("user")
+
+    g = user_p.add_mutually_exclusive_group()
+    g.add_argument('--update', metavar='USER_JSON_STR',
+                   help="Update user with the given JSON")
+    g.add_argument('--list', '-l', nargs='*', metavar='USER_ID')
+    user_p.add_argument('--filters', '-f', nargs='*', metavar='FILTER',
+                   help="Filter string to be used with list option."
+                        "For example: ")
+
     # ------------------------- Form subparser -------------------------------
     form_p = subparsers.add_parser("form")
 
@@ -297,7 +345,10 @@ def main():
         config.EMHUB_SERVER_URL = args.url
         os.environ['EMHUB_SERVER_URL'] = args.url
 
-    if args.entity == 'form':
+    if args.entity == 'user':
+        process_users(args)
+
+    elif args.entity == 'form':
         process_forms(args)
 
     elif args.entity == 'session':
