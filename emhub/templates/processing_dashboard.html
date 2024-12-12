@@ -1,0 +1,95 @@
+{% import "entry_macros.html" as macros %}
+
+<!-- Header -->
+{% set title = "Processing Dashboard" %}
+{% include 'include_header.html' %}
+
+<!-- ============================================================== -->
+<!-- Processing Dashboard -->
+<!-- ============================================================== -->
+
+<div class="row col-12 p-0 m-0">
+    <div class="col-12 mb-3">
+        </div>
+
+    <div class="row col-12 mb-3">
+        <div class="col col-auto">
+            <a href="javascript:showWorkspaceForm(null)" class="btn btn-primary"><i class="fas fa-plus-circle"></i> Create Workspace</a>
+        </div>
+        <div class="col nopadding">
+
+        </div>
+        <div class="col text-right">
+            <h5> Display </h5>
+        </div>
+        <div class="col col-auto nopadding">
+            <div class="switch-field ml-2 mr-2">
+                 {% set radio_name = "view_mode" %}
+                <input type="radio" id="{{ radio_name }}-one" checked name="{{ radio_name }}" value="table"/>
+                <label for="{{ radio_name }}-one"><i class="fas fa-list-alt"></i></label>
+                <input type="radio" id="{{ radio_name }}-two" name="{{ radio_name }}" value="cards" />
+                <label for="{{ radio_name }}-two"><i class="fas fa-th"></i></label>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12 m-0 p-0" id="dashboard-content">
+
+        {% include "processing_dashboard_content.html" %}
+
+    </div>
+
+</div>
+
+<!-- ============================================================== -->
+<!-- End  of Dashboard right content -->
+<!-- ============================================================== -->
+
+
+<script>
+
+    function showWorkspaceForm(project_id) {
+        show_modal_from_ajax('booking-modal',
+            get_ajax_content("processing_workspace_form", {project_id: project_id}));
+    }  // function showProjectForm
+
+    function onWorkspaceOkButtonClick() {
+            // If this variable exists, it means that the creation user is not manager
+            var user_id = 1;
+            let pid = parseInt($('#ws-id').val());
+            var project = {
+                id: pid,
+                status: 'special:processing',
+                user_id: user_id,
+                user_can_edit: true,
+                is_confidential: false,
+                title: $('#ws-title').val(),
+                description: $('#ws-description').val(),
+            };
+
+            send_ajax_json(Api.get('project', pid), project, projectAjaxDone);
+    }
+
+    function deleteWorkspace(project_id){
+        confirm("Delete Workspace",
+            "Do you want to DELETE Workspace with id=" + project_id + "? This will not delete any data on disk, just the workspace in EMhub.",
+             "Cancel", "Delete", function () {
+            send_ajax_json(Api.urls.project.delete,
+                           {id: project_id}, projectAjaxDone);
+        });
+    }
+
+
+    (function(window, document, $, undefined) {
+        "use strict";
+
+        $('input[name="view_mode"]').change(function () {
+                let mode =  $('input[name="view_mode"]:checked').val();
+                load_html_from_ajax('dashboard-content',
+                    get_ajax_content('processing_dashboard_content', {mode: mode}))
+
+            })
+
+    })(window, document, window.jQuery);
+
+</script>

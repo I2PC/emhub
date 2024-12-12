@@ -32,6 +32,7 @@ import json
 import sys
 from collections import defaultdict
 from glob import glob
+from functools import wraps
 
 import flask
 import flask_login
@@ -41,7 +42,7 @@ from emhub.utils import (pretty_datetime, datetime_to_isoformat, pretty_date,
                          datetime_from_isoformat, get_quarter, pretty_quarter,
                          image, shortname)
 
-from emtools.utils import Pretty
+from emtools.utils import Pretty, Timer
 from emtools.metadata import Bins, TsBins, EPU
 
 
@@ -61,12 +62,14 @@ class DataContent:
     def _dateStr(self, datetime):
         return
 
+    def get_content_func(self, name):
+        return self._contentDict.get(name, getattr(self, name, None))
+
     def get(self, **kwargs):
         content_id = kwargs['content_id']
         get_func_name = content_id.replace('-', '_')
         dataDict = {}
-        get_func = self._contentDict.get(get_func_name,
-                                         getattr(self, get_func_name, None))
+        get_func = self.get_content_func(get_func_name)
         if get_func is None:
             raise Exception(f"Missing content function for '{content_id}'")
 
@@ -74,13 +77,9 @@ class DataContent:
         return dataDict
 
     def content(self, func):
-
-        def wrapper(**kwargs):
-            return func(**kwargs)
-
-        self._contentDict[func.__name__] = wrapper
-
-        return wrapper
+        self._contentDict[func.__name__] = func
+        # No need for a do-nothing wrapper
+        return func
 
     def get_lab_members(self, user):
         unit = user.staff_unit
@@ -552,6 +551,8 @@ class DataContent:
 
         all = kwargs.get('all', False)
         get_image = kwargs.get('image', False)
+        # Return only one resource with that id
+        resource_id = kwargs.get('resource_id', None)
 
         def _image(r):
             if not get_image or r.id is None:
@@ -565,7 +566,7 @@ class DataContent:
                 return flask.url_for('images.static', filename=r.image)
 
         def _filter(r):
-            return all or r.is_active
+            return (all or r.is_active) and ((not resource_id) or r.id == int(resource_id))
 
         resource_list = [
             {'id': r.id,
@@ -587,12 +588,15 @@ class DataContent:
         ]
         return {'resources': resource_list}
 
+
+    @Timer.timeit
     def get_user_projects(self, user, **kwargs):
         dm = self.app.dm
-        status = kwargs.get('status', None)
+        status = kwargs.get('status', 'active')
         extra = 'extra' in kwargs
         pid = int(kwargs.get('pid', 0))
         scope = kwargs.get('scope', 'lab')
+        stats = kwargs.get('stats', False)
 
         project_perms = dm.get_config("permissions")['projects']
         project_config = dm.get_config("projects")
@@ -647,39 +651,41 @@ class DataContent:
             p.sessions = []
             projects[p.id] = p
 
-        # Find sessions for each project (based on project_id or booking's project)
-        for s in dm.get_sessions():
-            if p := s.project:
-                if p.id in projects:
-                    projects[p.id].sessions.append(s)
 
         display_table = project_config.get('display_table', {})
         resource_days_tag = display_table.get('resource_days_tag', 'instrument')
         extra_columns = display_table.get('extra_columns',
                                           ['days', 'sessions', 'images', 'data'])
 
-        # Update Sessions stats
-        for p in projects.values():
-            days = sessions = images = size = 0
-            for b in p.bookings:
-                # Only count days for microscopes
+        if stats:
+            # Find sessions for each project (based on project_id or booking's project)
+            for s in dm.get_sessions():
+                if p := s.project:
+                    if p.id in projects:
+                        projects[p.id].sessions.append(s)
 
-                if resource_days_tag not in b.resource.tags:
-                    continue
-                days += b.units(hours=24)
-                for s in b.session:
-                    sessions += 1
-                    images += s.images
-                    size += s.size
+            # Update Sessions stats
+            for p in projects.values():
+                days = sessions = images = size = 0
+                for b in p.bookings:
+                    # Only count days for microscopes
 
-            p.stats = {
-                'days': days,
-                'sessions': sessions,
-                'images': images,
-                'size': Pretty.size(size)
-            }
-            p.user_can_edit = user.can_edit_project(p)
-            p.display_title = 'Hidden title' if (p.is_confidential and not p.user_can_edit) else p.title
+                    if resource_days_tag not in b.resource.tags:
+                        continue
+                    days += b.units(hours=24)
+                    for s in b.session:
+                        sessions += 1
+                        images += s.images
+                        size += s.size
+
+                p.stats = {
+                    'days': days,
+                    'sessions': sessions,
+                    'images': images,
+                    'size': Pretty.size(size)
+                }
+                p.user_can_edit = user.can_edit_project(p)
+                p.display_title = 'Hidden title' if (p.is_confidential and not p.user_can_edit) else p.title
 
         can_create = self.app.dm.user_can_create_projects(self.app.user)
         return {'projects': projects.values(),
@@ -705,7 +711,7 @@ class DataContent:
         tsRange = {}
         beamshifts = []
 
-        sdata = session.data  # shortcut
+        sdata = self.app.dm.get_processing_project(session_id=session.id)['project']
 
         def _microns(v):
             return round(v * 0.0001, 3)
@@ -728,6 +734,7 @@ class DataContent:
             firstMic = lastMic = None
             dbins = Bins([1, 2, 3])
             rbins = Bins([3, 4, 6])
+            epuData = None
 
             if data['stats']['ctfs']['count'] > 0:
                 for mic in sdata.get_micrographs():
@@ -755,7 +762,7 @@ class DataContent:
                     step = 1000
                     tsLast = tsFirst + len(defocus) * step
 
-                epuData = session.data.getEpuData()
+                epuData = sdata.getEpuData()
                 if epuData is None:
                     beamshifts = []
                 else:
@@ -775,14 +782,43 @@ class DataContent:
                 'defocus_bins': dbins.toList(),
                 'resolution_bins': rbins.toList(),
                 'gridsquares': gridsquares,
+                'gs_info': True, # epuData is not None,
+                'ctfs_run_id': sdata.get_ctfs_runid()
             })
 
         elif result == 'classes2d':
             runId = int(kwargs.get('run_id', -1))
             data['classes2d'] = sdata.get_classes2d(runId=runId)
 
-        sdata.close()
         return data
+
+    def get_news(self, **kwargs):
+        """ Return news after creating HTML markup. """
+        from markupsafe import Markup
+        status = kwargs.get('status', 'all')
+        dm = self.app.dm  # shortcut
+        news = ([], [])  # active/inactive lists
+
+        project = dm.get_project_by(status='special:news')
+        if project is not None:
+            for e in project.entries:
+                data = e.extra['data']
+                active = data.get('active', False)
+                i = 0 if active else 1
+                news[i].append({
+                    'id': e.id,
+                    'title': e.title,
+                    'text': e.description,
+                    'html': Markup(e.description),
+                    'active': active,
+                    'type': data['type']
+                })
+
+        return {
+            'news': news,
+            'display': kwargs.get('display', 'table'),
+            'project_id': project.id if project else 0
+        }
 
 
 def register_content(dc):
@@ -894,6 +930,11 @@ def register_content(dc):
 
                 if start.date() <= now.date() <= end.date():  # also add in today
                     resource_bookings[r.id]["today"].append(b)
+                    bookings[0][1].append(b)
+                elif k == 'next_week':
+                    bookings[1][1].append(b)
+            else:
+                bookings[2][1].append(b)
 
         local_tag = dm.get_config('bookings').get('local_tag', '')
         local_scopes = {}
@@ -906,7 +947,6 @@ def register_content(dc):
                 local_scopes[r.id] = r
                 add_booking(b)
 
-        resource_requests = {rid: [] for rid in local_scopes.keys()}
         scopes = {r.id: r for r in dm.get_resources()}
 
         # Retrieve open requests for each scope from entries and bookings
@@ -937,20 +977,15 @@ def register_content(dc):
             for k, bookingValues in rbookings.items():
                 bookingValues.sort(key=lambda b: b.start)
 
-        from markupsafe import Markup
-        value = Markup('<strong>The HTML String</strong>')
-
-        newsConfig = dm.get_config('news')
-        allNews = newsConfig['news'] if newsConfig else []
-        news = []
-        for n in allNews:
-            if n['status'] == 'active':
-                n['html'] = Markup(n['text'])
-                news.append(n)
-
+        resource_create_session = dm.get_config('sessions').get('create_session', {})
         dataDict.update({'bookings': bookings,
                          'resource_bookings': resource_bookings,
-                         'news': news
+                         'resource_create_session': resource_create_session,
+                         'local_resources': local_scopes
                          })
+        dataDict.update(dc.get_news(**kwargs))
         return dataDict
 
+    @dc.content
+    def news(**kwargs):
+        return dc.get_news(**kwargs)

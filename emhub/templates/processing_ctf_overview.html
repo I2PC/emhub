@@ -1,0 +1,50 @@
+
+
+<div class="row col-12 p-0 m-0">
+
+    <div class="col-6">
+        {% set card_id = 'ctf_plot' %}
+        {% include 'plot_card.html' %}
+    </div>
+
+    <div id="micDiv" class="col-6">
+        <!-- Div for Micrograph -->
+        {% set card_id = 'mic_card_overview' %}
+        {% set has_ctf = data_values.get('has_ctf', False) %}
+        {% set has_particles = data_values.get('has_particles', False) %}
+        {% set show_ctf_plot = True %}
+        {% include 'micrograph_card_big.html' %}
+    </div>
+
+
+</div>
+
+<script>
+    var data_values = {{ data_values|tojson }};
+    var mic_card_overview = null;
+    var plot_card = null;
+
+    function createPlotCard(){
+        plot_card = new PlotCard('ctf_plot', data_values);
+        plot_card.onPointClick = function (index) {
+            mic_card_overview.loadMicData(index + 1) };
+        plot_card.makePlots();
+    }
+
+    function exportSelection(){
+        console.log("Selection exported! " + plot_card.points[0]);
+        printObject(plot_card.points[0]);
+    }
+
+    (function(window, document, $, undefined) {
+    "use strict";
+    $(function() {
+
+        $('.selectpicker').selectpicker();
+        setTimeout(createPlotCard, 500);
+        mic_card_overview = new MicrographCard('mic_card_overview', getArgs({micId: null}));
+        mic_card_overview.loadMicData(1);
+
+});
+})(window, document, window.jQuery);
+</script>

@@ -1,0 +1,99 @@
+{% import "entry_macros.html" as macros %}
+
+
+{% for ws in workspaces %}
+
+    <div class="col-12">
+        <div class="card mt-3">
+            <div class="card-header d-flex">
+                <h3 class="card-header-title">{{ ws.title }}</h3>
+                <div class="toolbar ml-auto">
+                    <a href="javascript:showEntryForm(null, {{ ws.id }}, 'data_processing')" class="btn btn-primary btn-sm ">Import Projects</a>
+                    <a href="javascript:deleteWorkspace({{ ws.id }})" class="btn btn-light btn-sm"><i class="fas fa-trash"></i></a>
+                    <a href="javascript:showWorkspaceForm({{ ws.id }})" class="btn btn-light btn-sm"><i class="fas fa-edit"></i></a>
+                </div>
+
+            </div>
+
+            {% if mode == 'cards' %}
+                 <div class="card-body card-columns ">
+
+                     {% for p in ws.projects %}
+
+
+                        {% set pid = p['id'] %}
+                        <div class="card w-auto mr-3" style="background-color: {{ p.color }}; min-width: 500px; max-width: 700px">
+
+                            <div class="card-header d-flex" style="background-color: {{ p.color }};">
+
+                                {% set url = url_for_content('processing_flowchart', entry_id=pid) %}
+
+                                <a class="mb-0" href="{{ url }}"><h4>{{ p.label }}</h4></a>
+                                <div class=" ml-auto row">
+                                    <a href="{{ url }}"><i class="fas fa-external-link-alt"></i></a>
+                                    <div class="dropdown ml-2">
+                                        <a class="toolbar" href="#" role="button" id="dropdownMenuLink5" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                            <i class="fas fa-ellipsis-v"></i> </a>
+                                        <div class="dropdown-menu dropdown-menu-right" aria-labelledby="dropdownMenuLink5">
+                                            <a class="dropdown-item" href="#">Action</a>
+                                            <a class="dropdown-item" href="#">Another action</a>
+                                            <a class="dropdown-item" href="#">Something else here</a>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="card-body">
+                                <p>Path: <small>{{ p['project_path'] }}</small></p>
+                            </div>
+                        </div>
+
+                    {% endfor %}
+                </div>
+
+            {% else %}
+
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead class="bg-light">
+                                <tr class="border-0">
+                                    <th class="border-0">Actions</th>
+                                    <th class="border-0">Project</th>
+                                    <th class="border-0">Type</th>
+                                    <th class="border-0">Definition</th>
+                                    <th class="border-0">Path</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                            {% for p in ws.projects %}
+                                {% set pid = p['id'] %}
+                                {% set url = url_for_content('processing_flowchart', entry_id=pid) %}
+
+                                <tr>
+                                    <td>
+                                        <a class="btn btn-sm btn-outline-light" href="{{ url }}"><i class="fas fa-eye"></i></a>
+                                         <button class="btn btn-sm btn-outline-light" onclick="javascript:deleteEntry({{ pid }}, 'Delete from EMhub?')"> <i class="far fa-trash-alt"></i></button>
+                                        <button class="btn btn-sm btn-outline-light" onclick="javascript:showEntryForm({{ pid }}, {{ ws.id }}, 'data_processing')"><i class="far fa-edit"></i></button>
+
+                                    </td>
+                                    <td id="form_{{ pid }}_name">
+                                        <a class="mb-0" href="{{ url }}"><h4 class="pt-2">{{ p['label'] }}</h4></a>
+                                    </td>
+                                    <td><span class="p-1 badge" style="background-color: {{ p.color }}">{{ p.type }}</span></td>
+                                    <td id="form_{{ pid }}_desc"> {{ p.description }}</td>
+                                    <td id="form_{{ pid }}_id"> {{ p.project_path  }} </td>
+                                </tr>
+                            {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            {% endif %}
+
+        </div>
+    </div>
+
+{% endfor %}
+

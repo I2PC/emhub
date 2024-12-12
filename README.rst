@@ -32,7 +32,8 @@ Basic Installation
     conda create --name=emhub python=3.8
     conda activate emhub
 
-
+    git clone https://github.com/3dem/emhub.git
+    # OR
     git clone git@github.com:3dem/emhub.git
     cd emhub
 
@@ -55,12 +56,6 @@ Basic Installation
 
     # Then launch a web browser at http://127.0.0.1:5000/
     # user: admin, password: admin
-
-
-Running tests
--------------
-
-`python -m unittest emhub.tests`
 
 
 Publishing the package to PyPI

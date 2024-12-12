@@ -45,9 +45,10 @@ class TestData:
         return self.dm.dt_as_local(dt.datetime(*args))
 
     def _action(self, title):
-        print(Color.bold(f'\n>>> {title}...'))
+        print(Color.bold(f'\n>>> {title}'))
 
     def __init__(self, dm, json_file):
+        self.instance_path = dm._dataPath
         self.json_data = None
         print(f">>> Loading JSON data from {Color.bold(json_file)}")
         with open(json_file) as f:
@@ -69,10 +70,14 @@ class TestData:
         self._populateProjects(dm)
         self._populateBookings(dm)
         self._populateSessions(dm)
+        self._populatePucks(dm)
+        self._populateEntries(dm)
 
         # Create one invoice period
         dm.create_invoice_period(start=firstMonday,
                                  end=firstMonday + dt.timedelta(days=90))
+
+        self._createTemplateFiles()
 
     def _populateForms(self, dm):
         self._action('Populating Forms')
@@ -175,6 +180,80 @@ class TestData:
             sDict['name'] = 'S%05d' % sDict['id']
             dm.create_session(**sDict)
 
+    def _populatePucks(self, dm):
+        self._action('Populating Pucks')
+        for puck in self.json_data.get('pucks', []):
+            dm.create_puck(**puck)
+
+    def _populateEntries(self, dm):
+        self._action('Populating Entries')
+        for entry in self.json_data.get('entries', []):
+            self.__fix_dates(entry, 'date',
+                             'creation_date',
+                             'last_update_date')
+            dm.create_entry(**entry)
+
+    def _createTemplateFiles(self):
+        instance_path = self.instance_path
+
+        # Write Redis config file template and running script
+        fn = os.path.join(instance_path, 'redis.conf.template')
+        self._action(f'Creating Redis configuration template: {fn}')
+        with open(fn, 'w') as f:
+            f.write("""
+# Redis configuration file example.
+#
+# Note that in order to read the configuration file, Redis must be
+# started with the file path as first argument:
+#
+# ./redis-server /path/to/redis.conf
+
+bind 127.0.0.1
+port 5001
+
+save 900 1
+save 300 10
+save 60 1000
+
+dbfilename dump.rdb
+
+# The working directory.
+#
+# The DB will be written inside this directory, with the filename specified
+# above using the 'dbfilename' configuration directive.
+
+dir ./\n""")
+        fn = os.path.join(instance_path, 'run_redis.sh')
+        self._action(f'Creating Redis run script: {fn}')
+        with open(fn, 'w') as f:
+            f.write(f"""
+#!/usr/bin/bash 
+. /software/scipion/conda/etc/profile.d/conda.sh
+conda activate redis-server
+cd {instance_path} && redis-server redis.conf --daemonize yes\n""")
+
+        fn = os.path.join(instance_path, 'bashrc')
+        self._action(f'Creating bashrc script: {fn}')
+        with open(fn, 'w') as f:
+            f.write(f"""
+#!/usr/bin/bash 
+
+export FLASK_APP=emhub
+export EMHUB_INSTANCE={instance_path}
+export EMHUB_USER=admin
+export EMHUB_PASSWORD=admin
+export EMHUB_SERVER_URL=http://127.0.0.1:5000
+
+""")
+
+        useCmd = Color.green(f"source {fn}\nflask run --debug\n")
+        print(f"\n"
+              f"EMhub instance sucessfully created!!!\n"
+              f"To use it do:\n\n"
+              f"{useCmd}\n"
+              f"And open a browser at: http://127.0.0.1:5000\n"
+              f"user: admin, password: admin")
+
 
 def create_instance(instance_path, json_file, force):
     instance_path = instance_path or '~/.emhub/instances/test'
@@ -197,11 +276,6 @@ def create_instance(instance_path, json_file, force):
     dm = DataManager(instance_path, cleanDb=True)
     TestData(dm, json_file)
 
-    print(f"\n"
-          f"EMhub instance sucessfully created!!!\n"
-          f"To use it do:\n\n"
-          f"export FLASK_APP=emhub\n"
-          f"export EMHUB_INSTANCE={instance_path}\n"
-          f"flask run --debug\n\n"
-          f"And open a browser at: http://127.0.0.1:5000\n"
-          f"user: admin, password: admin")
+    return dm
+
+

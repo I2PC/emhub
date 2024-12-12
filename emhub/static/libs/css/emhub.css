@@ -68,5 +68,111 @@ a:active {
     border: none;
 }
 
+.workflow-canvas {
+    width: 100%;
+    height: 700px;
+    border: 1px solid lightgray;
+    background:
+      linear-gradient(90deg, #f0f0f0 21px, transparent 1%) center,
+      linear-gradient(#f0f0f0 21px, transparent 1%) center, #646464;
+       background-size: 22px 22px;
+  }
+
+.logs_editor {
+    position: relative;
+    width: 100%;
+    height: 350px;
+}
+
+.head_span {
+    font-size: 20px;
+    cursor: pointer;
+}
+
 /* Custom, iPhone Retina */
 @media only screen and (max-width:320px) {}
+
+
+/* Cute radiogroups or checkbox with toggle */
+.switch-field {
+	display: flex;
+	/*margin-bottom: 36px */
+	overflow: hidden;
+}
+
+.switch-field input {
+	position: absolute !important;
+	clip: rect(0, 0, 0, 0);
+	height: 1px;
+	width: 1px;
+	border: 0;
+	overflow: hidden;
+}
+
+.switch-field label {
+	background-color: #e4e4e4;
+	color: rgba(0, 0, 0, 0.6);
+	font-size: 14px;
+	line-height: 1;
+	text-align: center;
+	padding: 8px 16px;
+	margin-right: -1px;
+	border: 1px solid rgba(0, 0, 0, 0.2);
+	box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px rgba(255, 255, 255, 0.1);
+	transition: all 0.1s ease-in-out;
+}
+
+.switch-field label:hover {
+	cursor: pointer;
+}
+
+.switch-field input:checked + label {
+	background-color: #d2edc2; /* #a5dc86; */
+	box-shadow: none;
+}
+
+.switch-field label:first-of-type {
+	border-radius: 4px 0 0 4px;
+}
+
+.switch-field label:last-of-type {
+	border-radius: 0 4px 4px 0;
+}
+
+.formgroup {
+  border: 2px groove threedface;
+  border-top: none;
+  padding: 0.5em;
+  margin: 1em 2px;
+}
+
+.formgroup>h1 {
+    font-style: italic;
+    font-size: 14px;
+    font-family: 'Circular Std Book';
+    margin: -1em -0.5em 0;
+}
+
+.formgroup>h1>label {
+  float: left;
+}
+
+.formgroup>h1:before {
+  border-top: 2px groove threedface;
+  content: ' ';
+  float: left;
+  margin: 0.5em 2px 0 -1px;
+  width: 0.75em;
+}
+
+.formgroup>h1:after {
+  border-top: 2px groove threedface;
+  content: ' ';
+  display: block;
+  height: 1.5em;
+  left: 2px;
+  margin: 0 1px 0 0;
+  overflow: hidden;
+  position: relative;
+  top: 0.5em;
+}

@@ -40,6 +40,7 @@ import time
 import json
 from glob import glob
 import datetime as dt
+import traceback
 
 import flask
 from flask import request
@@ -337,7 +338,6 @@ def import_application():
 
     except Exception as e:
         print(e)
-        import traceback
         traceback.print_exc()
 
         return send_error('ERROR from Server: %s' % e)
@@ -412,7 +412,6 @@ def get_bookings_range():
         datetime_from_isoformat(d['end'])
     )
     funcName = d.get('func', 'to_event')
-    print(d)
     if funcName == 'to_event':
         func = app.dc.booking_to_event
     elif funcName == 'to_json':
@@ -572,26 +571,39 @@ def get_session_users():
 
 
 def _loadFileLines(fn):
-    lines = ''
     if os.path.exists(fn):
-        for line in open(fn):
-            lines += line
+        with open(fn) as f:
+            lines = f.readlines()
+            o = len(lines) - 2000
+            if o > 0:
+                result = ''.join(lines[:1000])
+                result += f'\n=============== OMITTED {o} LINES ============\n\n'
+                result += ''.join(lines[-1000:])
+            else:
+                result = ''.join(lines)
 
-    return lines
+    return result
 
 
 @api_bp.route('/get_session_run', methods=['POST'])
 @flask_login.login_required
 def get_session_run():
+    """
+    This method will retrieve a run instance.
+    Processing project can be loaded from a session_id
+    or an entry_id
+    """
+    dm = app.dm
 
     def _get_run(**attrs):
-        session = app.dm.load_session(attrs['sessionId'])
-        run = session.data.get_run(attrs['runId'])
+        run = dm.get_processing_project(**attrs)['run']
         outputs = attrs.get('output', ['json'])
         results = {}
 
         if 'json' in outputs:
-            results['json'] = {'dict': run.dict, 'values': run.getValues()}
+            results['json'] = {'values': run.getValues(),
+                               'info': run.getInfo()}
+            results['json'].update(run.getInputsOutputs())
 
         if 'stdout' in outputs:
             results['stdout'] = _loadFileLines(run.getStdOut())
@@ -607,8 +619,25 @@ def get_session_run():
     return _handle_item(_get_run, 'run')
 
 
+@api_bp.route("/get_classes2d", methods=['POST'])
+def get_classes2d():
+    """ Load 2d classification data. """
+    kwargs = request.form.to_dict()
+    run = app.dm.get_processing_project(**kwargs)['run']
+    classes = run.get_classes2d(iteration=kwargs.get('iteration', None))
+    return send_json_data(classes)
+
+
+@api_bp.route("/get_file_info", methods=['POST'])
+def get_file_info():
+    """ Load 2d classification data. """
+    kwargs = request.form.to_dict()
+    project = app.dm.get_processing_project(**kwargs)['project']
+    file_info = project.get_file_info(kwargs['path'])
+    return send_json_data(file_info)
+
+
 def get_worker_token(worker):
-    print(f"app.config['SECRET_KEY'] = {app.config['SECRET_KEY']}, type: {type(app.config['SECRET_KEY'])}")
     return jwt.encode(
         {'worker': worker},
         app.config['SECRET_KEY'], algorithm='HS256')
@@ -809,7 +838,7 @@ def delete_transaction():
 @api_bp.route('/get_forms', methods=['GET', 'POST'])
 @flask_login.login_required
 def get_forms():
-    return send_json_data([f.json() for f in app.dm.get_forms()])
+    return filter_request(app.dm.get_forms)
 
 
 @api_bp.route('/create_form', methods=['POST'])
@@ -844,7 +873,7 @@ def get_config():
 @api_bp.route('/get_projects', methods=['GET', 'POST'])
 @flask_login.login_required
 def get_projects():
-    return send_json_data([p.json() for p in app.dm.get_projects()])
+    return filter_request(app.dm.get_projects)
 
 
 @api_bp.route('/create_project', methods=['POST'])
@@ -870,7 +899,7 @@ def delete_project():
 @api_bp.route('/get_entries', methods=['GET', 'POST'])
 @flask_login.login_required
 def get_entries():
-    return send_json_data([p.json() for p in app.dm.get_entries()])
+    return filter_request(app.dm.get_entries)
 
 
 @api_bp.route('/create_entry', methods=['POST'])
@@ -895,6 +924,8 @@ def update_entry():
         entry = app.dm.get_entry_by(id=attrs['id'])
         old_files = set(app.dm.get_entry_files(entry))
         save_entry_files(entry, attrs['extra']['data'])
+        # There is a validation about the entry type
+        attrs['type'] = entry.type
         entry = app.dm.update_entry(**attrs)
         new_files = set(app.dm.get_entry_files(entry))
         clean_files(old_files - new_files)
@@ -916,12 +947,12 @@ def delete_entry():
     return _handle_item(handle, 'entry')
 
 
-# ------------------------------ ENTRIES ---------------------------------
+# ------------------------------ PUCKS ---------------------------------
 
 @api_bp.route('/get_pucks', methods=['GET', 'POST'])
 @flask_login.login_required
 def get_pucks():
-    return send_json_data([p.json() for p in app.dm.get_pucks()])
+    return filter_request(app.dm.get_pucks)
 
 
 @api_bp.route('/create_puck', methods=['POST'])
@@ -940,7 +971,6 @@ def update_puck():
 @flask_login.login_required
 def delete_puck():
     return handle_puck(app.dm.delete_puck)
-
 
 # -------------------- UTILS functions ----------------------------------------
 
@@ -985,7 +1015,6 @@ def _handle_item(handle_func, result_key):
         return send_json_data({result_key: result})
     except Exception as e:
         print(e)
-        import traceback
         traceback.print_exc()
         return send_error('ERROR from Server: %s' % e)
 
@@ -1059,14 +1088,11 @@ def handle_session_data(handle, mode="r"):
 
     while tries < 3:
         try:
-            session = app.dm.load_session(sessionId=session_id, mode=mode)
+            session = app.dm.get_session_by(id=session_id)
             result = handle(session, **attrs)
-            if session.data:
-                session.data.close()
             break
         except OSError:
             print(f"Error with session (id={session_id})data, sleeping 3 secs")
-            import traceback
             traceback.print_exc()
             time.sleep(3)
             result = {}
@@ -1129,7 +1155,7 @@ def handle_puck(puck_func):
     def handle(**attrs):
         return puck_func(**attrs).json()
 
-    return _handle_item(handle, 'entry')
+    return _handle_item(handle, 'puck')
 
 
 def create_item(name):

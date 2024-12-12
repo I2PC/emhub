@@ -75,6 +75,7 @@ function showBookingForm(booking_params, modalId)
     last_experiment = null;
     if (!modalId)
         modalId = 'booking-modal';
+
     show_modal_from_ajax(modalId, get_ajax_content("booking_form",
                                                     booking_params));
 }
@@ -254,7 +255,7 @@ function showBookingCosts() {
 
 /*------------  Calendar related functions --------------- */
 
-function createCalender() {
+function createCalendar() {
     var Calendar = FullCalendar.Calendar;
     var calendarEl = document.getElementById('booking_calendar');
 

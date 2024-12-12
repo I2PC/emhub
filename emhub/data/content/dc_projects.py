@@ -35,6 +35,8 @@ def register_content(dc):
 
     @dc.content
     def projects_list(**kwargs):
+        if 'stats' not in kwargs:
+            kwargs['stats'] = True
         return dc.get_user_projects(dc.app.user, **kwargs)
 
     @dc.content
@@ -60,10 +62,6 @@ def register_content(dc):
             if not user.is_manager:
                 project.creation_user = project.user = user
 
-        pi_labs = dc.get_pi_labs(all=True)
-        from pprint import pprint
-        pprint(pi_labs)
-
         return {
             'project': project,
             'pi_labs': dc.get_pi_labs(all=True)
@@ -71,7 +69,6 @@ def register_content(dc):
 
     @dc.content
     def project_details(**kwargs):
-        # FIXME Define access/permissions for other users
         user = dc.app.user  # shortchut
         dm = dc.app.dm  # shortcut
 

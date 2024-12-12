@@ -287,9 +287,10 @@ class Worker:
                                   {'worker': self.name, 'specs': System.specs()},
                                   key='token')
 
-        self.info(f"Got token: {self.token}")
         if self.token is None:
-            raise Exception('Got None as token, worker connection with server failed')
+            raise Exception(f"{Color.bold('Worker could not connect')}, got {Color.red('NONE')} as token!\n"
+                            f"Check the connection with the EMhub server and "
+                            f"the Redis server configuration.")
 
     def run(self):
         self.setup()
@@ -304,7 +305,7 @@ class Worker:
                 time.sleep(30)
 
 
-class TestWorker(Worker):
+class CmdWorker(Worker):
     def handle_tasks(self, tasks):
         for t in tasks:
             if t['name'] == 'command':
@@ -315,5 +316,5 @@ class TestWorker(Worker):
 
 
 if __name__ == '__main__':
-    worker = TestWorker(debug=True)
+    worker = CmdWorker(debug=True)
     worker.run()

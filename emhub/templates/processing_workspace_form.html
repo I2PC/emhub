@@ -1,0 +1,71 @@
+<!-- ============================================================== -->
+<!-- Project Form Modal Content -->
+<!-- ============================================================== -->
+{% set is_manager = current_user.is_manager %}
+
+  <div class="modal-dialog modal-dialog-centered modal-xl" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title" id="project-modal-title"> Workspace (id = {{ project.id }}) </h3>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="row">
+            <!-- Application Form -->
+            <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
+                <form id="ws-form" data-parsley-validate="" novalidate="">
+                    <input type="hidden" id="ws-id" name="ws-id" value="{{ project.id }}">
+
+                    <!-- Title Row -->
+                    <div class="form-group row">
+                        <label class="col-12 col-sm-3 col-form-label text-sm-right">Title</label>
+                        <div class="col-12 col-sm-8 col-lg-6">
+                            <input type="text" {{ readonly }} required="" placeholder="Enter Title" id="ws-title" class="form-control" value="{{ project.title }}">
+                        </div>
+                    </div>
+
+                    <!-- Description Row -->
+                    <div class="form-group row">
+                        <label class="col-12 col-sm-3 col-form-label text-sm-right">Description </label>
+                        <div class="col-12 col-sm-8 col-lg-6">
+                            <textarea {{ readonly }} required="" class="form-control" id="ws-description">{{ project.description }}</textarea>
+                        </div>
+                    </div>
+
+                </form>
+            </div>
+            <!-- end Application Form -->
+        </div>
+      </div>
+
+      <div class="modal-footer">
+
+          <button type="button" id="project-btn-cancel"  class="btn btn-outline-secondary" data-dismiss="modal">Cancel</button>
+
+          {% set btnOkText = "Update" if project.id else "Create" %}
+           <button class="btn btn-outline-dark" onclick="onWorkspaceOkButtonClick('{{ form_id }}')">{{ btnOkText }}</button>
+
+      </div>
+    </div>
+  </div>
+<!-- ============================================================== -->
+<!-- End of Application Modal Content -->
+<!-- ============================================================== -->
+
+<script>
+    (function(window, document, $, undefined) {
+    "use strict";
+
+    $('#project-date').datetimepicker({
+        format: 'YYYY/MM/DD',
+        date:  new Date('{{ project.date|pretty_date }}')
+    });
+
+    $('select').selectpicker();
+    $('#project-user-select').selectpicker('val', {{ project.user.id }});
+    $('#project-collaborators-select').selectpicker('val', {{ project.collaborators_ids|tojson }});
+
+})(window, document, window.jQuery);
+</script>

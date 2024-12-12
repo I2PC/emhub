@@ -29,6 +29,7 @@
 import os
 import json
 
+from emtools.utils import Timer
 from emhub.utils import datetime_from_isoformat
 
 
@@ -105,6 +106,7 @@ def register_content(dc):
     def booking_form(**kwargs):
         dm = dc.app.dm  # shortcut
         user = dc.app.user
+        select_resource = int(kwargs.pop('select_resource', 1))
 
         if 'start' in kwargs and 'end' in kwargs:
             dates = {
@@ -129,9 +131,11 @@ def register_content(dc):
             entry = dm.get_entry_by(id=kwargs['entry_id'])
             scopes = {r.id: r for r in dm.get_resources() if r.is_microscope}
             booking = dc.booking_from_entry(entry, scopes)
-        else:  # New Application
-            booking = dm.create_basic_booking(dates)
-            allowed_resources = [r for r in dm.get_resources()]
+        else:  # New Booking
+            args = dict(kwargs)
+            args.pop('content_id')
+            args.update(dates)
+            booking = dm.create_basic_booking(args)
 
         display = dm.get_config('bookings')['display']
         applications = [a for a in dm.get_visible_applications() if a.is_active]
@@ -139,7 +143,8 @@ def register_content(dc):
         data = {'booking': booking,
                 'applications': applications,
                 'show_experiment': display['show_experiment'],
-                'read_only': read_only
+                'read_only': read_only,
+                'select_resource': select_resource
                 }
 
         data.update(dc.get_user_projects(user, status='active'))

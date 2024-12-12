@@ -36,6 +36,7 @@ from emtools.utils import Pretty, Path
 from emtools.metadata import Bins, TsBins, EPU
 
 
+
 def register_content(dc):
 
     @dc.content
@@ -53,8 +54,7 @@ def register_content(dc):
 
     @dc.content
     def session_default(**kwargs):
-        session_id = kwargs['session_id']
-        session = dc.app.dm.load_session(session_id)
+        session = dc.app.dm.get_session_by(id=kwargs['session_id'])
         otf_status = session.otf_status
 
         if not otf_status or otf_status == 'created':
@@ -68,8 +68,7 @@ def register_content(dc):
 
     @dc.content
     def session_live(**kwargs):
-        session_id = kwargs['session_id']
-        session = dc.app.dm.load_session(session_id)
+        session = dc.app.dm.get_session_by(id=kwargs['session_id'])
         data = dc.get_session_data(session)
         data.update({'s': session})
         return data
@@ -108,22 +107,21 @@ def register_content(dc):
 
     @dc.content
     def session_hourly_plots(**kwargs):
-        session_id = kwargs['session_id']
+        project = dc.app.dm.get_processing_project(**kwargs)['project']
+
         plot = kwargs['plot']
-        session = dc.app.dm.load_session(session_id)
         data = {'plot_data': [],
                 'plot_key': plot
                 }
 
-        if os.path.exists(session.data_path):
+        if project.exists():
             if plot == 'imported':
-                epuData = session.data.getEpuData()
+                epuData = project.getEpuData()
                 items = [{'ts': row.timeStamp} for row in epuData.moviesTable]
             elif plot == 'aligned':
-                sdata = session.data
                 items = []
-                for mic in sdata.get_micrographs():
-                    micFn = sdata.join(mic['micrograph'])
+                for mic in project.get_micrographs():
+                    micFn = project.join(mic['micrograph'])
                     items.append({'ts': os.path.getmtime(micFn)})
                 items.sort(key=lambda item: item['ts'])
             else:
@@ -160,8 +158,7 @@ def register_content(dc):
                 a = s.booking.application
                 if a is None or a.allows_access(dc.app.user):
                     sessions.append(s)
-                    b = dc.booking_to_event(s.booking,
-                                              prettyDate=True, piApp=True)
+                    b = dc.booking_to_event(s.booking, prettyDate=True, piApp=True)
                     bookingDict[s.booking.id] = b
 
         return {
@@ -171,15 +168,91 @@ def register_content(dc):
         }
 
     @dc.content
-    def session_flowchart(**kwargs):
-        session = dc.app.dm.load_session(kwargs['session_id'])
-        # data = get_session_data(session)
-        return {
-            'session': session,
-            'workflow': session.data.get_workflow()
-        }
-
-    @dc.content
     def create_session_form(**kwargs):
         raise Exception("How to create sessions needs to be defined "
                         "on the extras for each specific EMhub customization.")
+
+    @dc.content
+    def processing_content(**kwargs):
+        ppDict = dc.app.dm.get_processing_project(**kwargs)
+        pp = ppDict['project']
+
+        return {
+            'processing_project': pp,
+            'workflow': pp.get_workflow(),
+            'get_project_args': ppDict['args']
+        }
+
+    @dc.content
+    def processing_flowchart(**kwargs):
+        return processing_content(**kwargs)
+
+    @dc.content
+    def session_flowchart(**kwargs):
+        session = dc.app.dm.get_session_by(id=kwargs['session_id'])
+        data = processing_content(**kwargs)
+        data['session'] = session
+        return data
+
+    def get_processing_run_func(funcName, kwargs):
+        ppDict = dc.app.dm.get_processing_project(**kwargs)
+        pp = ppDict['project']
+        run = ppDict['run']
+        func = getattr(run, funcName)
+        result = func(**kwargs)
+        data = {
+            'processing_project': pp,
+            'get_project_args': ppDict['args'],
+            'run': run,
+            'template': result['template']
+        }
+        data.update(result['data'])
+        return data
+
+    @dc.content
+    def processing_run_summary(**kwargs):
+        return get_processing_run_func('getSummary', kwargs)
+
+    @dc.content
+    def processing_run_overview(**kwargs):
+        return get_processing_run_func('getOverview', kwargs)
+
+    @dc.content
+    def processing_dashboard(**kwargs):
+        from emhub.data.processing import get_processing_type
+        colors = {'relion': '#caf0f8', 'scipion': '#fcd9d9'}
+        workspaces = []
+        for p in dc.app.dm.get_projects():
+            if p.status == 'special:processing':
+                p.project_path = p
+                p.label = p.title or os.path.basename(p.project_path)
+                p.projects = []
+                for e in p.entries:
+                    if e.type == 'data_processing':
+                        data = e.extra['data']
+                        pp = data['project_path']
+                        ptype = get_processing_type(pp)
+                        pcolor = colors.get(ptype, 'gray')
+                        p.projects.append({
+                            'id': e.id,
+                            'label': e.title or os.path.basename(pp),
+                            'type': ptype,
+                            'color': pcolor,
+                            'description': e.description,
+                            'project_path': pp
+                        })
+                workspaces.append(p)
+
+        return {
+            'workspaces': workspaces,
+            'mode': kwargs.get('mode', 'table')
+        }
+
+    @dc.content
+    def processing_dashboard_content(**kwargs):
+        return processing_dashboard(**kwargs)
+
+    @dc.content
+    def processing_workspace_form(**kwargs):
+        kwargs['content_id'] = 'project_form'
+        return dc.get(**kwargs)

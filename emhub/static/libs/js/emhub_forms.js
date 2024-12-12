@@ -258,19 +258,21 @@ function updateSession(session) {
     send_ajax_json(Api.urls.session.update, session, sessionAjaxDone)
 }
 
-function showCreateSession(bookingId) {
-        var content = get_ajax_content("create_session_form", {booking_id: bookingId});
+function showCreateSession(bookingId, create_session_func) {
+        var content = get_ajax_content(create_session_func, {booking_id: bookingId});
         show_modal_from_ajax("session-modal", content);
 } // function showCreateSession
 
 /* Show the Resource Form, either for a new booking or an existing one */
-function createSession(bookingId, totalSessions) {
+function createSession(bookingId, totalSessions, create_session_func) {
+    console.log("createSession, func: " + create_session_func);
+
     if (totalSessions === 0)
-        showCreateSession(bookingId);
+        showCreateSession(bookingId, create_session_func);
     else
         confirm("Create Session", "There are already created sessions, " +
                 "Do you want to create another one?", 'No', 'Yes', function () {
-                showCreateSession(bookingId);
+                showCreateSession(bookingId, create_session_func);
         });
 
 }  // function showResource
@@ -305,14 +307,56 @@ function createSession(bookingId, totalSessions) {
  /* Create row with new elements under this parent */
  function form_addRows(parent, params, values){
 
+     function get_param_value(param){
+         return (param.name in values) ? values[param.name] : '';
+     }
+     function create_label(col, labelText){
+        var label = document.createElement('label');
+        label.className = col + ' col-form-label text-sm-right text-wrap';
+        label.textContent = labelText;
+        return label;
+     }
+    function create_input(col, key, value) {
+        var div = document.createElement('div');
+        div.className = col;
+        var input = document.createElement('input');
+        input.className = 'form-control form-control-sm';
+        input.value = value;
+        input.dataset.key = key;
+        div.appendChild(input)
+        return div;
+    }
+
+
     for (var i = 0;  i < params.length; i++) {
         var param = params[i];
         var base_id = param.name;
-        var param_value = (param.name in values) ? values[param.name] : '';
+        var param_value = get_param_value(param);
 
-        if (param.label) {
-            var row = document.createElement('div');
-            row.className = 'row form-group';
+        var row = document.createElement('div');
+        row.className = 'row form-group';
+        parent.appendChild(row);
+
+        if (!nonEmpty(base_id)){
+            // Empty param is a separator
+            row.className += ' mt-1 mb-1';
+        }
+        else if (param.paramClass === "Group") {  // Groups are special and don't have labels
+                var div = document.createElement('div');
+                div.className = "formgroup col-12"
+                div.innerHTML = "<h1><label class='col-1 text-sm-right mr-3'>" + param.label + "</label></h1></br>"
+                row.appendChild(div);
+                form_addRows(div, param.params, values);
+
+                // <fieldset>
+                //     <legend>Legend</legend> Fieldset
+                // </fieldset>
+                //
+                // <div className="fieldset">
+                //     <h1><span>Legend</span></h1> Fieldset
+                // </div>
+        }
+        else if (param.label) {
 
             if (param.expert == 1) {
                 row.style.backgroundColor = "#E6E6E6";
@@ -321,24 +365,29 @@ function createSession(bookingId, totalSessions) {
             }
 
             row.id = base_id + '-row';
-            parent.appendChild(row);
-
-            var label = document.createElement('label');
-            label.className = 'col-6 col-form-label text-sm-right text-wrap';
-            label.textContent = param.label;
+            var label = create_label('col-4', param.label);
             label.dataset.toggle = "tooltip";
             label.dataset.placement = "top";
             label.title = param.help;
-
-
             row.appendChild(label);
 
             if (param.paramClass === "LabelParam"){
-                label.classList.replace('col-6', 'col-12');
+                label.classList.replace('col-4', 'col-12');
+            }
+            else if (param.paramClass === "Line") {
+                var div = document.createElement('div');
+                div.className = 'row col-8 form-group';
+                //div.style.backgroundColor = 'red';
+                for (var j = 0;  j < param.params.length; j++) {
+                    let p = param.params[j];
+                    div.appendChild(create_label('ml-0 pl-0 col-2', p.label))
+                    div.appendChild(create_input('col-2', p.name, get_param_value(p)));
+                }
+                row.appendChild(div);
             }
             else if (param.paramClass === "EnumParam") {
                 var div = document.createElement('div');
-                div.className = 'col-6 form-group';
+                div.className = 'col-8 form-group';
 
                 if (param.display == 1) { // Combo
                     var select = document.createElement('select');
@@ -350,7 +399,7 @@ function createSession(bookingId, totalSessions) {
                     for (var j = 0; j < param.choices.length; j++) {
                         var opt = document.createElement('option');
                         opt.textContent = param.choices[j];
-                        opt.selected = param_value === j;
+                        opt.selected = param_value == j; // Let JS compare string integer values with indexes
                         opt.value = j;
                         select.appendChild(opt);
                     }
@@ -362,22 +411,18 @@ function createSession(bookingId, totalSessions) {
 
                 if (param.paramClass === "BooleanParam") {
                     var div = document.createElement('div');
-                    div.className = 'row col-6 ml-1';
+                    div.className = 'row col-8 ml-1';
                     form_addRadio(div, base_id + '-yes', base_id, true, 'Yes', param_value === '1');
                     form_addRadio(div, base_id + '-no', base_id, false, 'No', param_value === '0');
                     row.appendChild(div);
                 }
                 else {
-                    var div = document.createElement('div');
-                    div.className = 'col-6';
-                    var input = document.createElement('input');
-                    input.className = 'form-control form-control-sm';
-                    input.value = param_value;
-                    input.dataset.key = param.name;
-                    div.appendChild(input)
-                    row.appendChild(div);
+                    row.appendChild(create_input('col-8', param.name, param_value ));
                 }
             }
+        }
+        else {  // Empty space separator
+
         }
 
     }
@@ -389,13 +434,16 @@ function createSession(bookingId, totalSessions) {
  function form_create(form, values, elementId, protocol) {
      var formElement = document.getElementById(elementId);
      formElement.innerHTML = '';
+     //formElement.style.backgroundColor = 'red';
 
      var card = document.createElement('div');
      card.className = "card card-primary card-tabs";
+     card.style.borderWidth = "0px";
 
      // Card header
      var cardh = document.createElement('div');
      cardh.className = "card-header p-0 pt-1";
+     cardh.style.borderWidth = "0px";
      var ul = document.createElement('ul');
      ul.id = "dynamic-tab";
      ul.role = "tablist";
@@ -405,10 +453,12 @@ function createSession(bookingId, totalSessions) {
 
      // Card body
      var cardb = document.createElement('div');
-     cardb.className = "card-body";
+     cardb.className = "card-body p-0";
+     cardb.style.borderWidth = "0px";
      var content = document.createElement('div');
      content.id = "dynamic-tabContent";
-     content.className = "tab-content";
+     content.className = "tab-content overflow-auto";
+     content.style.maxHeight = "980px";
      cardb.appendChild(content);
      card.appendChild(cardb);
 
@@ -423,6 +473,7 @@ function createSession(bookingId, totalSessions) {
          section_label = replaceAll(section_label, '.', '_');
          section_label = replaceAll(section_label, '/', '_');
 
+         // FIXME: this is Scipion-specific
          if (section.label === "General" || section.label === "Parallelization")
              continue;
 

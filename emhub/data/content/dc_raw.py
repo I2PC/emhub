@@ -130,7 +130,7 @@ def register_content(dc):
         dm = dc.app.dm
         n = int(kwargs.get('n', 100))
         name = kwargs.get('name', '')
-        all_logs = [log for log in dm.get_logs() if log.name == name]
+        all_logs = [log for log in dm.get_logs()]
         logs = all_logs[-n:]
 
         for log in logs:
@@ -168,8 +168,12 @@ def register_content(dc):
                 'has_specs': bool(w.get('specs', '')),
                 'active': active
             })
+
+        all_tasks = dm.get_all_tasks()
+
         return {'workers': workers,
-                'taskGroups': {h: tasks for h, tasks in dm.get_all_tasks()},
+                'has_redis': dm.r is not None,
+                'taskGroups': {h: t for h, t in all_tasks} if all_tasks else {},
                 'now': Pretty.now()
                 }
 
@@ -180,4 +184,18 @@ def register_content(dc):
     @dc.content
     def task_history(**kwargs):
         return {'task_events': dc.app.dm.get_task_history(kwargs['task_id'])}
+
+    @dc.content
+    def raw_test_page(**kwargs):
+        return {}
+
+    @dc.content
+    def raw_projects_list(**kwargs):
+        if 'status' not in kwargs:
+            kwargs['status'] = None  # projects with any status
+        if 'stats' not in kwargs:
+            kwargs['stats'] = True
+        data = dc.get_user_projects(dc.app.user, **kwargs)
+        return data
+
 

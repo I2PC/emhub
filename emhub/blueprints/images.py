@@ -67,11 +67,17 @@ def user_profile():
 
 @images_bp.route("/get_mic_data", methods=['POST'])
 def get_mic_data():
-    micId = int(request.form['micId'])
-    sessionId = int(request.form['sessionId'])
-    session = app.dm.load_session(sessionId)
-
-    mic = session.data.get_micrograph_data(micId)
+    """ Load micrograph data from a given micId.
+    There are two ways where to retrieve micrograph data:
+    1) From a session, where info from multiple runs.
+        Input: micId, sessionId
+    2) From a project, where info is taken from a run.
+        Input: micId, projectId, runId
+    """
+    kwargs = request.form.to_dict()
+    micId = int(kwargs['mic_id'])
+    run = app.dm.get_processing_project(**kwargs)['run']
+    mic = run.get_micrograph_data(micId)
 
     if 'coordinates' in mic:
         if not isinstance(mic['coordinates'], list):  # numpy arrays
@@ -79,22 +85,27 @@ def get_mic_data():
     else:
         mic['coordinates'] = []
 
-    session.data.close()
-
     return send_json_data(mic)
 
 
 @images_bp.route("/get_micrograph_gridsquare", methods=['POST'])
 def get_micrograph_gridsquare():
-    form = request.form  # shortcut
-    sessionId = int(form['sessionId'])
-    session = app.dm.load_session(sessionId)
-    kwargs = {}
-    if 'gsId' in form:
-        kwargs['gsId'] = form['gsId']
-    if 'fhId' in form:
-        kwargs['fhId'] = form['fhId']
-    data = session.data.get_micrograph_gridsquare(**kwargs)
-    session.data.close()
-    print(data['foilHole'].keys())
+    kwargs = request.form.to_dict()
+    project = app.dm.get_processing_project(**kwargs)['project']
+    data = project.get_micrograph_gridsquare(**kwargs)
     return send_json_data(data)
+
+
+@images_bp.route("/get_volume_data", methods=['POST'])
+def get_volume_data():
+    """ Load volume data from a given run and output name.
+    Input: projectId, runId, volName
+    """
+    dm = app.dm
+    kwargs = request.form.to_dict()
+    volName = kwargs['volName']
+    axis = kwargs.get('axis', 'z')
+    run = dm.get_processing_project(**kwargs)['run']
+    vol = run.get_volume_data(volName, volume_data='slices', axis=axis)
+
+    return send_json_data(vol)
