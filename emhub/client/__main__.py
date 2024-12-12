@@ -132,11 +132,12 @@ def process_sessions(args):
 
         if args.list:
             if args.list == 'all':
-                row_format = u"{:<6}{:<12}{:<35}"
-                print(row_format.format("ID", "Date", "Name"))
+                row_format = u"{:<6}{:<12}{:<6}{:<35}"
+                print(row_format.format("ID", "Date", "OwnerId", "Name"))
                 for s in sessions:
                     print(row_format.format(s['id'],
                                             date_str(s['start']),
+                                            s['owner_id'],
                                             s['name']))
             else:
                 for s in sessions:
