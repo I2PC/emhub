@@ -223,7 +223,8 @@ class SessionTaskHandler(TaskHandler):
 
         def _update():
             self.info(f"Found {self.n_files} new files, "
-                             f"{self.n_movies} new movies")
+                             f"{self.n_movies} new movies, "
+                             f"seen: {len(self.seen)}")
             if self.n_files > 0:
                 raw.update(mf.info())
                 self.update_session_extra({'raw': raw})
@@ -268,11 +269,13 @@ class SessionTaskHandler(TaskHandler):
                 unmodified = False
 
                 # JMRT 20240130: We are having issues with the modified date in
-                # the Krios G4 DMP server, where files are in the future
-                # so we are changing how to detect if a file is modified or not
-                if dstFile in seen:
+                # the Krios G4 DMP server, where files are in the future.
+                # Then changed how to detect if a file is modified or not
+                if seenFile := seen.get(dstFile, None):
                     unmodified = (now - seen[dstFile]['t'] >= td and
-                                  s.st_mtime == seen[dstFile]['mt'])
+                                  s.st_mtime == seenFile['mt'])
+                    if not unmodified:
+                        seenFile['mt'] = s.st_mtime  # let's update last seen modification time
                 else:
                     seen[dstFile] = {'mt': s.st_mtime, 't': now}
 
@@ -317,7 +320,7 @@ class SessionTaskHandler(TaskHandler):
         def _stop():
             """ Check various conditions that will make the TRANSFER task
             to stop. For example, last raw file older than 3 days. """
-            if self.n_files:  # Do not check stop while finding new files
+            if self.n_files or len(self.seen):  # Do not check stop while finding new files
                 return False
 
             frames = False
@@ -538,7 +541,7 @@ class SessionTaskHandler(TaskHandler):
         otf = self.session['extra']['otf']
         otf_path = otf['path']
         workflow = otf.get('workflow', '')
-        if workflow == 'none':
+        if workflow.lower() == 'none':
             msg = 'OTF workflow is None, so no doing anything.'
             self.pl.logger.info(msg)
             self.update_task({'msg': msg, 'done': 1})
