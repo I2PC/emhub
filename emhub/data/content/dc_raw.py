@@ -41,10 +41,18 @@ def register_content(dc):
     def raw_forms_list(**kwargs):
         dc.check_user_access('forms')
 
+        def _is_config(f):
+            """ Return true if this form seems like a config form.
+            This is when there are not 'params' or 'sections'.
+            """
+            d = f.definition
+            return not any(k in d for k in ['title', 'params', 'sections'])
+
         return {'forms': [
             {'id': f.id,
              'name': f.name,
-             'definition': json.dumps(f.definition)
+             'definition': json.dumps(f.definition),
+             'is_config': _is_config(f)
              } for f in dc.app.dm.get_forms()]}
 
     @dc.content
