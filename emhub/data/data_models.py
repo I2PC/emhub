@@ -1025,6 +1025,14 @@ def create_data_models(dm):
             return self.__getExtra('raw', {}).get('movies', 0)
 
         @property
+        def owner_id(self):
+            return self.booking.owner_id if self.booking else None
+
+        @property
+        def owner(self):
+            return self.booking.owner if self.booking else None
+
+        @property
         def project_id(self):
             """ Get the project based on project_id or the booking's project. """
             return self.__getExtra('project_id', 0)
@@ -1070,7 +1078,9 @@ def create_data_models(dm):
             return n if ':' not in n else n.split(':')[1]
 
         def json(self):
-            return dm.json_from_object(self)
+            json = dm.json_from_object(self)
+            json['owner_id'] = self.owner_id or 'None'
+            return json
 
     class Form(Base):
         """ Class to store Forms definitions. """

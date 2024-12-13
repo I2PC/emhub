@@ -3,7 +3,7 @@ from glob import glob
 import json
 import datetime as dt
 
-from emtools.utils import Pretty
+from emtools.utils import Pretty, Path
 from emhub.utils import datetime_from_isoformat
 
 
@@ -105,6 +105,50 @@ def register_content(dc):
         frames = workers_frames(hours=10)['folderGroups']
         data['frame_folders'] = frames.get(transfer_host, {'entries': []})['entries']
         return data
+
+    @dc.content
+    def session_details(**kwargs):
+        session_id = kwargs['session_id']
+
+        dm = dc.app.dm  # shortcut
+        sconfig = dm.get_config("sessions")
+
+        session = dm.get_session_by(id=session_id)
+
+        if session.booking:
+            a = session.booking.application
+            if not (a is None or a.allows_access(dc.app.user)):
+                raise Exception("You do not have access to this session information. ")
+
+        # Try to get deletion days (used in SLL based on session name code)
+        days = dm.get_session_data_deletion(session.name[:3])
+        td = (session.start + dt.timedelta(days=days)) - dm.now()
+        errors = []
+        # TODO: We might check other type of errors in the future
+        status_info = session.extra.get('status_info', '')
+        if status_info.lower().startswith('error:'):
+            errors.append(status_info)
+
+        frames = Path.rmslash(session.extra['raw'].get('frames', ''))
+        raw = session.extra['raw']
+        group = dm.get_user_group(session.booking.owner)
+        gscemRoot = Path.addslash(os.path.join(sconfig['raw']['root'], group))
+        dataPath = raw['path'].replace(gscemRoot, '')
+
+        return {
+            'session': session,
+            'gscemRoot': gscemRoot,
+            'judeRoot': sconfig['raw']['jude_group_folder'].format(group=group),
+            'dataPath': dataPath,
+            'epu_session': os.path.basename(frames),
+            'deletion_days': td.days,
+            'errors': errors,
+            'files': [{'name': k.replace('.', ''),
+                       'y': v['count'],
+                       'z': v['size'],
+                       'sizeH': Pretty.size(v['size'])}
+                      for k, v in session.files.items()]
+        }
 
     @dc.content
     def workers_frames(**kwargs):

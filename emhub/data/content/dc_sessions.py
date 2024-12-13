@@ -58,7 +58,8 @@ def register_content(dc):
         otf_status = session.otf_status
 
         if not otf_status or otf_status == 'created':
-            data = session_details(**kwargs)
+            kwargs['content_id'] = 'session_details'
+            data = dc.get(**kwargs)
             data['session_default'] = 'session_details.html'
         else:
             data = session_live(**kwargs)
@@ -76,33 +77,27 @@ def register_content(dc):
     @dc.content
     def session_details(**kwargs):
         session_id = kwargs['session_id']
-        session = dc.app.dm.get_session_by(id=session_id)
+        dm = dc.app.dm  # shortcut
+        session = dm.get_session_by(id=session_id)
+
         if session.booking:
             a = session.booking.application
             if not (a is None or a.allows_access(dc.app.user)):
                 raise Exception("You do not have access to this session information. ")
 
         # Try to get deletion days (used in SLL based on session name code)
-        days = dc.app.dm.get_session_data_deletion(session.name[:3])
-        td = (session.start + dt.timedelta(days=days)) - dc.app.dm.now()
+        days = dm.get_session_data_deletion(session.name[:3])
+        td = (session.start + dt.timedelta(days=days)) - dm.now()
         errors = []
         # TODO: We might check other type of errors in the future
         status_info = session.extra.get('status_info', '')
         if status_info.lower().startswith('error:'):
             errors.append(status_info)
 
-        raw = session.extra.get('raw', {})
-        frames = Path.rmslash(raw.get('frames', ''))
         return {
             'session': session,
-            'epu_session': os.path.basename(frames),
             'deletion_days': td.days,
-            'errors': errors,
-            'files': [{'name': k.replace('.', ''),
-                       'y': v['count'],
-                       'z': v['size'],
-                       'sizeH': Pretty.size(v['size'])}
-                      for k, v in session.files.items()]
+            'errors': errors
         }
 
     @dc.content
