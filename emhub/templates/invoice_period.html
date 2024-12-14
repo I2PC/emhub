@@ -24,6 +24,7 @@
                     {% set active = 'show active' if t == selected_tab else '' %}
                     <div class="tab-pane fade {{ active }}" id="outline-{{ t }}" role="tabpanel" aria-labelledby="tab-outline-{{ t }}">
                         <div id="{{ t }}-container">
+                            <h3>{{ tab['template'] }}</h3>
                             {% include tab['template'] %}
                         </div>
                     </div>

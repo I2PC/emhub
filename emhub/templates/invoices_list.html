@@ -52,13 +52,10 @@
                                 {% set extra_costs = transactions_dict.get(pi_id, 0) %}
                                 {% set to_invoice = pi_info['sum_cost'] + extra_costs %}
                                 {% if bookings|length > 0 or extra_costs != 0 %}
-                                    {% set default_pu = {'invoice_ref': '', 'invoice_address': {'address': '', 'zip': '', 'city': '', 'country': ''}} %}
-                                    {% set pu = portal_users.get(pi_info['pi_email'], default_pu) %}
                                     <tr>
                                         <td><a href="javascript:showPiInvoicesForm({{ pi_id }}, '{{ pi_info['pi_name'] }}')"> {{ pi_info['pi_name'] }} </a></td>
-                                        <td>{{ pu['invoice_ref'] }}</td>
-                                        {%  set ia = pu['invoice_address'] %}
-                                        <td>{{ ia['address']}}, {{ia['zip']}}, {{ia['city'] }}, {{ ia['country'] }}</td>
+                                        <td>{{ pi_info['invoice_reference'] }}</td>
+                                        <td>{{ pi_info['invoice_address'] }}</td>
                                         <td>{{ bookings|length }}</td>
                                         <td>{{ pi_info['sum_days'] }}</td>
                                         <td>{{ pi_info['sum_cost'] }}</td>

@@ -109,23 +109,40 @@ def register_content(dc):
     def reports_invoices(**kwargs):
         bookings, range_dict = dc.get_booking_in_range(kwargs, asJson=False)
 
-        if hasattr(dc.app, 'sll_pm'):  # Portal Manager
-            portal_users = {
-                pu['email']: pu for pu in dc.app.sll_pm.fetchAccountsJson()
-                if pu['pi']
-            }
-        else:
-            portal_users = {}
+        # 2024/12/14 JMRT Avoid to read invoice information from the Portal
+        # Now it should be stored in extra['invoice']
+        #
+        # if hasattr(dc.app, 'sll_pm'):  # Portal Manager
+        #     def _pu(pu):
+        #         del pu['orders']
+        #         del pu['links']
+        #         del pu['address']
+        #         return pu
+        #
+        #     portal_users = {
+        #         pu['email']: _pu(pu) for pu in dc.app.sll_pm.fetchAccountsJson()
+        #         if pu['pi']
+        #     }
+        #     with open('portal_usrs.json', 'w') as f:
+        #         import json
+        #         json.dump(portal_users, f, indent=4)
+        # else:
+        #     portal_users = {}
 
         def create_pi_info_dict(a):
-            return {pi.id: {
-                'pi_name': pi.name,
-                'pi_email': pi.email,
-                'bookings': [],
-                'sum_cost': 0,
-                'sum_days': 0,
-            } for pi in a.pi_list
-            }
+            def _pi_info(pi):
+                invoice = pi.extra.get('invoice', {})
+                print(invoice.get('address', 'No-address'))
+                return {
+                    'pi_name': pi.name,
+                    'pi_email': pi.email,
+                    'bookings': [],
+                    'sum_cost': 0,
+                    'sum_days': 0,
+                    'invoice_reference': invoice.get('reference', ''),
+                    'invoice_address': invoice.get('address', '')
+                }
+            return {pi.id: _pi_info(pi) for pi in a.pi_list}
 
         def update_pi_info(pi_info, b):
             pi_info['bookings'].append(b)
@@ -176,7 +193,7 @@ def register_content(dc):
         result = {
             'apps_dict': apps_dict,
             'pi_dict': pi_dict,
-            'portal_users': portal_users,
+            #'portal_users': portal_users,
             'group': int(kwargs.get('group', 1))
         }
         result.update(range_dict)
