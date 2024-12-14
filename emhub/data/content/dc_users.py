@@ -120,3 +120,7 @@ def register_content(dc):
         return {
             'lab_members': dc.get_lab_members(dc.app.user)
         }
+
+    @dc.content
+    def user_reset_password(**kwargs):
+        return {}

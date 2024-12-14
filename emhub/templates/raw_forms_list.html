@@ -14,7 +14,7 @@
 
     <div class="row">
         <!-- ============================================================== -->
-        <!--  resources table  -->
+        <!--  forms table  -->
         <!-- ============================================================== -->
         <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
             <div class="card">
@@ -40,7 +40,9 @@
                                     <td id="form_{{ f['id'] }}_desc"> {{ f['definition'] }}</td>
                                     {% if current_user.is_manager %}
                                     <td>
-                                        <button class="btn btn-sm btn-outline-light" onclick="javascript:showForm({{ f['id'] }})"><i class="fas fa-eye"></i></button>
+                                        {% if not f['is_config'] %}
+                                            <button class="btn btn-sm btn-outline-light" onclick="javascript:showForm({{ f['id'] }})"><i class="fas fa-eye"></i></button>
+                                        {% endif %}
                                         <button class="btn btn-sm btn-outline-light" onclick="javascript:editForm({{ f['id'] }})"><i class="far fa-edit"></i></button>
                                         <button class="btn btn-sm btn-outline-light" onclick="javascript:deleteForm({{ f['id'] }})"
                                                 data-id="{{ f['id'] }}" data-name="{{ f['name'] }}"><i class="far fa-trash-alt"></i></button>

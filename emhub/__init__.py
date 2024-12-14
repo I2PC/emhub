@@ -294,6 +294,10 @@ def create_app(test_config=None):
             msg = "ERROR: email can not be empty."
         elif user is None:
             msg = "ERROR: this email does not seen registered with any user."
+        elif app.mm is None:
+            msg = ("ERROR: You need to configure a Mail server within EMhub"
+                   "to send reset password instructions. Please contact an "
+                   "admin to do it or set you a temporary password.")
         else:
             msg = ("Instructions about how to reset your password has been "
                    "sent to your email.")
