@@ -134,6 +134,7 @@ def register_content(dc):
                 invoice = pi.extra.get('invoice', {})
                 print(invoice.get('address', 'No-address'))
                 return {
+                    'id': pi.id,
                     'pi_name': pi.name,
                     'pi_email': pi.email,
                     'bookings': [],
@@ -359,6 +360,23 @@ def register_content(dc):
 
         return {'data': [(r.name, r.status, r.tags) for r in resources]}
 
+    def report_resources(kwargs):
+        report_resources = dc.app.dm.get_config('reports')['resources']
+        resources = [r for r in dc.get_resources()['resources']
+                     if r['name'] in report_resources]
+
+        if selectedStr := kwargs.get('selected'):
+            selected = set(int(p) for p in selectedStr.split(','))
+        else:
+            selected = set(r['id'] for r in resources)
+
+        return {
+            'resources': resources,
+            'selected_resources': selected,
+            'resources_dict': {r['id']: r for r in resources}
+        }
+
+
     @dc.content
     def report_microscopes_usage(**kwargs):
         metric = kwargs.get('metric', 'days')
@@ -369,9 +387,8 @@ def register_content(dc):
 
         dm = dc.app.dm  # shortcut
         centers = dm.get_config('sessions').get('centers', {})
-
-        def _filter(b):
-            return not b.is_slot
+        data = report_resources(kwargs)
+        selected = data['selected_resources']
 
         app_id = kwargs.get('application', 'all')
 
@@ -389,6 +406,9 @@ def register_content(dc):
                 pi_list.append(pi.id)
                 pi_apps[pi.id] = app
 
+        def _filter(b):
+            return not b.is_slot and b.resource_id in selected
+
         bookings, range_dict = dc.get_booking_in_range(kwargs,
                                                        asJson=False,
                                                        filter=_filter)
@@ -402,16 +422,6 @@ def register_content(dc):
         total_days = 0
         totalDays = defaultdict(lambda: 0)
         resources_data_usage = defaultdict(lambda: list())
-
-        report_resources = dm.get_config('reports')['resources']
-        resources = [r for r in dc.get_resources()['resources']
-                     if r['name'] in report_resources]
-
-        # selected resources
-        if 'selected' in kwargs:
-            selected = [int(p) for p in kwargs['selected'].split(',')]
-        else:
-            selected = [r['id'] for r in resources]
 
         def _value(b):
             return b.total_size if use_data else (b.units(hours=12) if use_days else b.hours)
@@ -431,9 +441,6 @@ def register_content(dc):
             }
 
         for b in bookings:
-            if b.resource_id not in selected:
-                continue
-
             rid = b.resource.id
             b_value = _value(b)
             entry_app = ''
@@ -506,7 +513,7 @@ def register_content(dc):
             return v / 2 if use_days else v
 
         def _selected_resources():
-            for r in resources:
+            for r in data['resources']:
                 if r['id'] in selected:
                     yield r
 
@@ -522,17 +529,15 @@ def register_content(dc):
 
         used_entry = _entry(key='usage', label='Usage', total_days=total_usage)
         unused_entry = _entry(key='unused', label='Unused', total_days=unused_total)
-        count_selected = 0
         for r in _selected_resources():
             used_r = sum(e['days'][r['id']] for e in entries_sorted)
             other_r = sum(e['days'][r['id']] for e in entries_down.values())
             unused_r = period_units - used_r - other_r
             used_entry['days'][r['id']] = used_r
             unused_entry['days'][r['id']] = unused_r
-            count_selected += 1
 
         entries_down.update({'used': used_entry, 'unused': unused_entry})
-        percent_pie = _percent(period_units) / count_selected
+        percent_pie = _percent(period_units) / len(selected)
         pie_data = [{'name': e['label'], 'y': e['total_days'] * percent_pie,
                      'days': _days_value(e['total_days'])}
                     for e in entries_down.values()]
@@ -606,9 +611,9 @@ def register_content(dc):
             def _days(k, r):
                 return _days_value(entries_down.get(k, {}).get('days', {}).get(r['id'], 0))
 
-            data = {k: _days(k, r)
+            dataLocal = {k: _days(k, r)
                     for k in ['used', 'maintenance', 'downtime', 'special', 'unused']}
-            entries_overall.append({'r': r, 'data': data})
+            entries_overall.append({'r': r, 'data': dataLocal})
 
         if total_usage == 0:
             raise Exception("There is no usage for the selected metric. ")
@@ -617,7 +622,7 @@ def register_content(dc):
         if period_days > 31:
             periodStr += ' - ' + end.strftime('%b %y')
 
-        data = {
+        data.update({
             'entries': entries_sorted,
             'entries_overall': entries_overall,
             'entries_operators': [e for e in sorted(entries_operators.values(),
@@ -625,8 +630,6 @@ def register_content(dc):
                                                     reverse=True)],
             'total_days': total_days,
             'total_usage': total_usage,
-            'resources_dict': {r['id']: r for r in resources},
-            'selected_resources': selected,
             'resource_names': ', '.join(r['name'] for r in _selected_resources()),
             'selected_entry': selected_entry,
             'applications': applications,
@@ -637,7 +640,6 @@ def register_content(dc):
             'bar_data': bar_data,
             'drilldown_data': drilldown_data,
             'data_usage_series': data_usage_series,
-            'resources': resources,
             'metric': metric,
             'use_data': use_data,
             'use_days': use_days,
@@ -645,7 +647,8 @@ def register_content(dc):
             'end_date': end,
             'period_days': period_days,
             'period': periodStr
-        }
+        })
+
         data.update(range_dict)
         return data
 
@@ -735,13 +738,52 @@ def register_content(dc):
 
 
     @dc.content
+    def report_pis_bookings(**kwargs):
+        dm = dc.app.dm
+        pid = int(kwargs['pid'])
+        pi = dm.get_user_by(id=pid)
+        if pi is None:
+            raise Exception("Invalid PI with id = " + pid)
+
+        data = report_resources(kwargs)
+        selected = data['selected_resources']
+
+        def _filter(b):
+            if b.resource_id in selected and b.owner is not None:
+                if bpi := b.owner.get_pi():
+                    return bpi.id == pid
+            return False
+
+        bookings, range_dict = dc.get_booking_in_range(kwargs,
+                                                       asJson=False,
+                                                       filter=_filter)
+
+        data.update(range_dict)
+        data.update({
+            'label': pi.name,
+            'bookings': bookings,
+            'metric': 'days'
+        })
+        return data
+
+    @dc.content
     def report_microscopes_usage_entrylist(**kwargs):
-        return report_microscopes_usage(**kwargs)
+        data = report_microscopes_usage(**kwargs)
+        return data
 
     @dc.content
     def report_pis_usage(**kwargs):
+        data = report_resources(kwargs)
+        selected = data['selected_resources']
 
-        bookings, range_dict = dc.get_booking_in_range(kwargs, asJson=False)
+        def _filter(b):
+            if b.resource_id in selected and b.owner is not None:
+                return b.owner.get_pi() is not None
+            return False
+
+        bookings, range_dict = dc.get_booking_in_range(kwargs,
+                                                       asJson=False,
+                                                       filter=_filter)
 
         pi_dict = {}
         try:
@@ -757,30 +799,27 @@ def register_content(dc):
 
         for b in bookings:
             pi = b.owner.get_pi()
-            if pi:
-                parts = pi.name.split()
-                first_name = ' '.join(parts[:-1])
-                last_name = parts[-1]
-                if not pi.email in pi_dict:
-                    pi_dict[pi.email] = {
-                        'first_name': first_name,
-                        'last_name': last_name,
-                        'email': pi.email,
-                        # 'email_rev': pi.email[::-1],  # reverse email for sorting
-                        'university': _get_univ(pi.email, 'z-Unknown'),
-                        'bookings': 0,
-                        'days': 0,
-                        'users': set()
-                    }
-                pi_entry = pi_dict[pi.email]
-                pi_entry['bookings'] += 1
-                pi_entry['days'] += b.days
-                pi_entry['users'].add(b.owner.email)
+            if not pi.email in pi_dict:
+                pi_dict[pi.email] = {
+                    'id': pi.id,
+                    'name': pi.name,
+                    'email': pi.email,
+                    # 'email_rev': pi.email[::-1],  # reverse email for sorting
+                    'university': _get_univ(pi.email, 'z-Unknown'),
+                    'bookings': 0,
+                    'days': 0,
+                    'users': set()
+                }
+            pi_entry = pi_dict[pi.email]
+            pi_entry['bookings'] += 1
+            pi_entry['days'] += b.days
+            pi_entry['users'].add(b.owner.email)
 
-        data = {
-            'pi_list': sorted(pi_dict.values(), key=lambda pi: pi['university'].lower())
-        }
         data.update(range_dict)
+        data.update({
+            'pi_list': sorted(pi_dict.values(), key=lambda pi: pi['university'].lower()),
+        })
+
 
         return data
 
