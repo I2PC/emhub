@@ -87,7 +87,7 @@ def process_forms():
                            "arctica": ["user"],
                            "microscope": ["manager", "admin"],
                            "prep": ["user"],
-                           "talos": ["user"]}
+                           "talos": ["user"]
                            },
                     "create_session": ["manager", "admin"],
                     "delete_booking": {"microscope": ["manager", "admin"],
@@ -101,6 +101,7 @@ def process_forms():
                                       {"key": "all",
                                        "label": "All Projects"}
                                 ]}
+                }
              },
             {
                 "id": 18, "name": "config:reports",
