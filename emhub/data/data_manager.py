@@ -144,6 +144,10 @@ class DataManager(DbManager):
         attrs['password_hash'] = self.User.create_password_hash(attrs['password'])
         del attrs['password']
 
+        # FIXME Check why when there are no user pi_id is {}
+        # this is a temporary fix now
+        attrs['pi_id'] = attrs['pi_id'] or None
+
         user = self.__create_item(self.User, **attrs)
         return user
 
