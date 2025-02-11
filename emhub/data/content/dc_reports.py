@@ -43,12 +43,12 @@ def register_content(dc):
     @dc.content
     def reports_time_distribution(**kwargs):
 
-        def _booking_to_json(booking, **kwargs):
-            bj = dc.booking_to_event(booking, **kwargs)
+        def _booking_to_json(b, **kwargs):
+            bj = dc.booking_to_event(b, **kwargs)
             bj.update({
-                'total_cost': booking.total_cost,
-                'days': booking.days,
-                'type': booking.type
+                'total_cost': dc.app.booking_cost(b),
+                'days': b.days,
+                'type': b.type
             })
             return bj
 
@@ -129,7 +129,7 @@ def register_content(dc):
 
         def update_pi_info(pi_info, b):
             pi_info['bookings'].append(b)
-            pi_info['sum_cost'] += b.total_cost
+            pi_info['sum_cost'] += dc.app.booking_cost(b)
             pi_info['sum_days'] += b.days
 
         # Create a dictionary where pi/bookings are grouped by Application
@@ -165,7 +165,7 @@ def register_content(dc):
                 update_pi_info(apps_dict[app_id][pi.id], b)
                 update_pi_info(pi_dict[pi.id], b)
 
-                if b.total_cost == 0:
+                if dc.app.booking_cost(b) == 0:
                     print(">>> 0 cost booking!!!")
                     print(b.json())
 
@@ -226,7 +226,7 @@ def register_content(dc):
                 entries.append({'id': b.id,
                                 'title': dc.booking_to_event(b)['title'],
                                 'date': b.start,
-                                'amount': b.total_cost,
+                                'amount': dc.app.booking_cost(b),
                                 'type': 'booking'
                                 })
 
@@ -274,7 +274,7 @@ def register_content(dc):
 
         def _booking(b, **kwargs):
             bjson = dc.booking_to_event(b, **kwargs)
-            bjson['total_cost'] = b.total_cost
+            bjson['total_cost'] = dc.app.booking_cost(b)
             return bjson
 
         period = dc.get_period(kwargs)

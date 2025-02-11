@@ -417,6 +417,16 @@ def create_app(test_config=None):
     def url_for_content(contentId, **kwargs):
         return flask.url_for('main', _external=True, content_id=contentId, **kwargs)
 
+    def booking_cost(b):
+        """ Calculate the cost of a booking.
+        By default, it will be calculated based on the number of days
+        and the cost per day of the resource.
+        This function could be re-defined to change how to calculate
+        the booking costs. For example, one could compute the
+        booking cost per hours.
+        """
+        return b.total_cost
+
     app.jinja_env.globals.update(url_for_content=url_for_content)
     app.jinja_env.add_extension('jinja2.ext.do')
     app.jinja_env.filters['basename'] = basename
@@ -478,6 +488,8 @@ def create_app(test_config=None):
     Markdown(app)
 
     app.jinja_env.filters['pretty_datetime'] = app.dm.local_datetime
+
+    app.booking_cost = booking_cost
 
     extra_setup = load_module('app_setup')
     if extra_setup and 'setup_app' in dir(extra_setup):

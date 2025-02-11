@@ -14,6 +14,7 @@
 # * GNU General Public License for more details.
 # *
 # **************************************************************************
+
 import json
 import os
 import sys
@@ -180,8 +181,12 @@ class SessionTaskHandler(TaskHandler):
         sessionName = self.get_session_name()
         framesPath = Path.rmslash(raw.get('frames',
                                           os.path.join(framesRoot, sessionName)))
-        parts = self.users['owner']['email'].split('@')[0].split('.')
-        userFolder = parts[0][0] + parts[1]
+        baseName = self.users['owner']['email'].split('@')[0]
+        if '.' in baseName:
+            parts = baseName.split('.')
+            userFolder = parts[0][0] + parts[1]
+        else:
+            userFolder = baseName
         rawRoot = self.sconfig['raw']['root']
         fullName = self.get_session_fullname()
         # Offload server path where to transfer the files
