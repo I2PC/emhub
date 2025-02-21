@@ -74,7 +74,7 @@ class TaskHandler(threading.Thread):
         self.count = 0  # number of times the process function has executed
         self._stopEvent = threading.Event()
         # Register this task handler in the current worker
-        worker.tasks[task['id']] = self
+        worker.add_handler(task['id'], self)
         self._logPrefix = self.getLogPrefix()
 
     def getLogPrefix(self):
@@ -99,8 +99,8 @@ class TaskHandler(threading.Thread):
         if error:
             self.error(error)
 
-        if task_id in self.worker.tasks:
-            del self.worker.tasks[task_id]
+        self.worker.remove_handler(tasks)
+
 
     def _request(self, requestFunc, errorMsg, tries=10):
         """ Make a request to the server, trying many times if it fails. """
@@ -237,6 +237,7 @@ class Worker:
         self.dc = DataClient(server_url=config.EMHUB_SERVER_URL)
         self.dc.login(config.EMHUB_USER, config.EMHUB_PASSWORD)
         self.tasks = {}
+        self._tasksLock = threading.Lock()
         self.debug = kwargs.get('debug', False)
         self._logPrefix = f"WORKER-{self.name}"
 
@@ -257,6 +258,16 @@ class Worker:
         else:
             return result[key] if key else result
 
+    def add_handler(self, task, handler):
+        """ Add a task handler in a thread-safe way. """
+        with self._tasksLock:
+            self.tasks[task['id']] = handler
+
+    def remove_handler(self, task):
+        """ Remove one task in a thread-safe way. """
+        with self._tasksLock:
+            self.tasks.pop(task['id'], None)
+
     def handle_tasks(self, tasks):
         """ This method should be implemented in subclasses to associated
         different task handlers base on each task. """
@@ -268,9 +279,9 @@ class Worker:
                             {'worker': self.name}, 'tasks')
 
     def process_tasks(self, key):
-        tasks = self.get_tasks(key)
-        if tasks is not None:
-            new_tasks = [t for t in tasks if t['id'] not in self.tasks]
+        if tasks := self.get_tasks(key):
+            with self._tasksLock:
+                new_tasks = [t for t in tasks if t['id'] not in self.tasks]
             self.info(f"Got {len(new_tasks)} tasks.")
             self.handle_tasks(new_tasks)
 
@@ -297,7 +308,11 @@ class Worker:
 
         while True:
             try:
-                self.process_tasks('new')  # sleep for 1 min while not new tasks
+                self.process_tasks('new')  # sleep for 5 min while not new tasks
+                # The following should not happen, but it is a protection
+                # in case there are pending tasks not being handled
+                self.process_tasks('pending')
+
             except Exception as e:
                 self.error('FATAL ERROR: ' + str(e))
                 self.error(traceback.format_exc())

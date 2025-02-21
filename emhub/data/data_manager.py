@@ -1512,9 +1512,9 @@ class DataManager(DbManager):
                 return 0
             return 1
 
-        def get_new_tasks(self):
+        def get_new_tasks(self, block=120000):
             results = self.r.xreadgroup('group', self.worker, {self.name: '>'},
-                                        block=60000)
+                                        block=block)
             new_tasks = []
             if results:
                 for task_id, task in results[0][1]:
