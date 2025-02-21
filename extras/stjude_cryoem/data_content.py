@@ -103,7 +103,8 @@ def register_content(dc):
         }
         data.update(dc.get_user_projects(b.owner, status='active'))
         frames = workers_frames(hours=10)['folderGroups']
-        data['frame_folders'] = frames.get(transfer_host, {'entries': []})['entries']
+        key = f"{transfer_host}:{acq['frames']}"
+        data['frame_folders'] = frames.get(key, {'entries': []})['entries']
         return data
 
     @dc.content
@@ -134,11 +135,13 @@ def register_content(dc):
         group = dm.get_user_group(session.booking.owner)
         gscemRoot = Path.addslash(os.path.join(sconfig['raw']['root'], group))
         dataPath = raw['path'].replace(gscemRoot, '')
+        judeRootDefault = sconfig['raw']['jude_group_folder'].format(group=group)
+        judeRoot = sconfig['raw']['jude_group_mapping'].get(group, judeRootDefault)
 
         return {
             'session': session,
             'gscemRoot': gscemRoot,
-            'judeRoot': sconfig['raw']['jude_group_folder'].format(group=group),
+            'judeRoot': judeRoot,
             'dataPath': dataPath,
             'epu_session': os.path.basename(frames),
             'deletion_days': td.days,
@@ -149,6 +152,10 @@ def register_content(dc):
                        'sizeH': Pretty.size(v['size'])}
                       for k, v in session.files.items()]
         }
+
+    @dc.content
+    def session_content(**kwargs):
+        return session_details(**kwargs)
 
     @dc.content
     def workers_frames(**kwargs):
@@ -184,8 +191,9 @@ def register_content(dc):
                             folders.append(e)
 
                     folders.sort(key=lambda f: f[sortKey], reverse=bool(reverse))
-                    folderGroups[h] = {'usage': usage, 'entries': folders}
-                    break
+                    root = t['args']['root']
+                    key = f"{h}:{root}"
+                    folderGroups[key] = {'usage': usage, 'entries': folders}
 
         return {
             'folderGroups': folderGroups
