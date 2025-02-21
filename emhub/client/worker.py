@@ -159,7 +159,7 @@ class TaskHandler(threading.Thread):
                 self.worker.request('update_task', data)
                 return True
             except Exception as e:
-                self.error(f"Exception while updating task: {e}")
+                self.error(f"Exception while updating task {self.getLogPrefix()}: {e}")
                 time.sleep(wait)
             tries -= 1
         return False

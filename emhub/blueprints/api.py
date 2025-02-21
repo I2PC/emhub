@@ -769,13 +769,10 @@ def get_all_tasks():
 @api_bp.route('/get_workers', methods=['POST'])
 @flask_login.login_required
 def get_workers():
-    def _user(u):
-        return {'id': u.id, 'name': u.name, 'email': u.email} if u else {}
-
     def _workers(**attrs):
-        return app.dc.get_workers()['workers']
+        return app.dm.get_workers()
 
-    return _handle_item(app.dc.get_workers, 'workers')
+    return _handle_item(_workers, 'workers')
 
 
 # ---------------------------- INVOICE PERIODS --------------------------------

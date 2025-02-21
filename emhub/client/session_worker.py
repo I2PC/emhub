@@ -30,7 +30,7 @@ import configparser
 from pprint import pprint
 import traceback
 
-from emtools.utils import Pretty, Process, Path, Color, System
+from emtools.utils import Pretty, Process, Path, Color, System, Timer
 from emtools.metadata import EPU, MovieFiles, StarFile
 
 from emhub.client import config
@@ -177,7 +177,9 @@ class SessionTaskHandler(TaskHandler):
         extra = self.session['extra']
         logger = self.worker.logger
         raw = extra['raw']
-        framesRoot = self.sconfig['raw']['root_frames']
+        ### framesRoot = self.sconfig['raw']['root_frames']
+        acq = dict(self.sconfig['acquisition'][self.microscope])
+        framesRoot = acq['frames']
         sessionName = self.get_session_name()
         framesPath = Path.rmslash(raw.get('frames',
                                           os.path.join(framesRoot, sessionName)))
@@ -200,11 +202,6 @@ class SessionTaskHandler(TaskHandler):
         if self.count == 1:
             self.info(f"Monitoring FRAMES FOLDER: {framesPath}")
             self.info(f"Offloading to RAW FOLDER: {rawPath}")
-
-            # JMRT 2023/11/08 We are no longer creating the Frames path because
-            # new version of EPU requires that the folder does not exist for
-            # starting a new session
-            #self.pl.mkdir(framesPath)
 
             raw['frames'] = framesPath
             raw['path'] = rawPath
@@ -277,10 +274,10 @@ class SessionTaskHandler(TaskHandler):
                 # the Krios G4 DMP server, where files are in the future.
                 # Then changed how to detect if a file is modified or not
                 if seenFile := seen.get(dstFile, None):
-                    unmodified = (now - seen[dstFile]['t'] >= td and
-                                  s.st_mtime == seenFile['mt'])
-                    if not unmodified:
-                        seenFile['mt'] = s.st_mtime  # let's update last seen modification time
+                    if s.st_mtime != seenFile['mt']:
+                        seen[dstFile] = {'mt': s.st_mtime, 't': now}
+                    elif now - seenFile['t'] >= td:
+                        unmodified = True
                 else:
                     seen[dstFile] = {'mt': s.st_mtime, 't': now}
 
@@ -296,7 +293,7 @@ class SessionTaskHandler(TaskHandler):
                     if EPU.is_movie_fn(f):
                         self.n_movies += 1
                         # Only move now the movies files, not other metadata files
-                        self.pl.system(f'rsync -ac --remove-source-files "{srcFile}" "{dstFile}"', retry=30)
+                        self.pl.system(f'rsync -ac --temp-dir=/gscem/testgrp/TRANSFER_TMP/ --remove-source-files "{srcFile}" "{dstFile}"', retry=30)
                     else:  # Copy metadata files
                         self.pl.cp(srcFile, dstFile, retry=30)
 
@@ -353,6 +350,66 @@ class SessionTaskHandler(TaskHandler):
                     self.pl.rm(framesPath)
             self.update_task(update_args)
             self.stop()
+
+    def deliver(self):
+        """ Deliver session files from GSCEM to Jude. """
+        extra = self.session['extra']
+        sconfig_raw = self.sconfig['raw']
+        gscemPath = extra['raw']['path']
+        group = self.users['group']
+        gscemRoot = Path.addslash(os.path.join(sconfig_raw['root'], group))
+
+        if self.count == 1:
+            # How much time to wait before stopping this delivery task
+            # from the time no more files are delivered, by default 15 days
+            self.deliver_wait = timedelta(seconds=self.task['args'].get('wait', 15 * 86400))
+
+            if last := extra.get('last_delivered', None):
+                self.last_delivered = Pretty.parse_datetime(last)
+            else:
+                self.last_delivered = datetime.now()
+
+        # TODO: Increment the sleeping time when there are not new files
+        self.sleep = 300
+
+        if not gscemPath:
+            self.info(f"Monitoring GSCEM FOLDER: {gscemPath} "
+                      f"does not exists, waiting...")
+            return
+
+        dataPath = gscemPath.replace(gscemRoot, '')
+        judeRootDefault = sconfig_raw['jude_group_folder'].format(group=group)
+        judeRoot = sconfig_raw['jude_group_mapping'].get(group, judeRootDefault)
+        judePath = os.path.join(judeRoot, dataPath)
+
+        if not os.path.exists(judePath):
+            self.pl.mkdir(judePath)
+
+        self.info(f"Syncing files from {gscemPath} to {judePath}")
+        t = Timer()
+        n = Path.rsync(gscemPath, judePath, verbose=False)
+
+        if n:
+            self.info(f"Synced {n} files from {gscemPath} to {judePath}")
+            self.sleep = 300  # Bring sleep time back to 5 minutes
+            self.last_delivered = datetime.now()
+            self.update_session_extra({
+                'jude': {
+                    'last_delivered': Pretty.datetime(self.last_delivered)
+                }})
+        else:
+            self.sleep = min(7200, self.sleep * 2)
+            self.info(f"No files delivered since: "
+                      f"{Pretty.datetime(self.last_delivered)}, "
+                      f"sleeping {self.sleep // 60} minutes")
+            if datetime.now() - self.last_delivered > self.deliver_wait:
+                self.info("Delivery wait ended, stopping task.")
+                self.stop()
+
+        self.update_task({
+            'transferred_files': n,
+            'transfer_time': str(t.getElapsedTime())
+         })
 
     def stop_all_otf(self, done=False):
         self.info("Stopping all OTF tasks.")
@@ -590,6 +647,7 @@ class FramesTaskHandler(TaskHandler):
         # Load config
         self.sconfig = self.request_config('sessions')
         self.root_frames = self.sconfig['raw']['root_frames']
+        self.root_frames = self.task['args']['root']
 
     def process(self):
         if self.count == 1:
@@ -682,5 +740,9 @@ class SessionWorker(Worker):
 
 
 if __name__ == '__main__':
-    worker = SessionWorker(debug=True)
+    args = {}
+    if len(sys.argv) > 1:
+        args['logFile'] = sys.argv[1]
+
+    worker = SessionWorker(debug=True, **args)
     worker.run()
