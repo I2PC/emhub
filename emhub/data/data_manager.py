@@ -1558,6 +1558,9 @@ class DataManager(DbManager):
         self._hosts = getattr(self, '_hosts', self.get_config('hosts'))
         return self._hosts
 
+    def get_workers(self):
+        return self.get_hosts()
+
     def connect_worker(self, worker, specs):
         now = self.now()
         self.get_worker_stream(worker, update=True).connect()
