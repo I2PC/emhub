@@ -74,7 +74,7 @@ class TaskHandler(threading.Thread):
         self.count = 0  # number of times the process function has executed
         self._stopEvent = threading.Event()
         # Register this task handler in the current worker
-        worker.add_handler(task['id'], self)
+        worker.add_handler(task, self)
         self._logPrefix = self.getLogPrefix()
 
     def getLogPrefix(self):
@@ -94,12 +94,11 @@ class TaskHandler(threading.Thread):
         self._stopEvent.set()
 
     def _stop_thread(self, error=None):
-        task_id = self.task['id']
         self.info(f"Stopping task handler for {self.task['id']}.")
         if error:
             self.error(error)
 
-        self.worker.remove_handler(tasks)
+        self.worker.remove_handler(self.task)
 
 
     def _request(self, requestFunc, errorMsg, tries=10):
