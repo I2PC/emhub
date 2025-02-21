@@ -255,7 +255,7 @@
     {% set class = label or 'label' %}
     <tr>
         <td class="col-3"><label>{{ title }}</label></td>
-        <td class="col-9"><{{ class }}>{{ value }}</{class}></td>
+        <td class="col-9"><{{ class }}>{{ value|safe }}</{class}></td>
     </tr>
 {%- endmacro %}
 

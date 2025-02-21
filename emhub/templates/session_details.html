@@ -1,11 +1,11 @@
 
 <div class="container-fluid dashboard-content">
     <!-- Header -->
-    {% set title = "Session Details" %}
+    {% set title = "Session Details " %}
     {% set navigation = [('Sessions', url_for_content('sessions_list')), (session.shortname, '')] %}
     {% include 'include_header.html' %}
 
-    <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
+    <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12" id="session_content">
         {% include "session_content.html" %}
     </div>
     <div class="row col-6">
@@ -15,15 +15,31 @@
 </div>
 
 <script>
-    var reload_counter = 30;  // 60 seconds to reload
+    var session_id = {{ session.id|tojson }};
+    var reload_time = 30;
+    var reload_counter = reload_time;  // 60 seconds to reload
+    var timeOutId = null;
+
+    function reloadSession(){
+        var ajaxContent = get_ajax_content('session_content', {session_id: session_id});
+            ajaxContent.done(function(html) {
+                $('#session_content').html(html);
+                clearTimeout(timeOutId);
+                reload_counter = reload_time;
+                check_reload();
+            });
+            ajaxContent.fail(ajax_request_failed);
+    }
+
     function check_reload(){
         if (reload_counter > 0) {
             $('#reload_label').text('Reloading in ' + reload_counter + ' seconds.');
             reload_counter -= 1;
-            setTimeout(check_reload, 1000);  // every second
+            timeOutId = setTimeout(check_reload, 1000);  // every second
         }
-        else
-            window.location.reload();
+        else {
+            reloadSession();
+        }
     }
 
 

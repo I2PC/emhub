@@ -9,9 +9,11 @@
 
 
 <div class="col-7">
-
+<h3>Groups: {{ folderGroups|length }}</h3>
 
 {% if current_user.is_admin %}
+
+
 
 {% for group, info in folderGroups.items() %}
 
