@@ -355,7 +355,7 @@ class SessionTaskHandler(TaskHandler):
         """ Deliver session files from GSCEM to Jude. """
         extra = self.session['extra']
         sconfig_raw = self.sconfig['raw']
-        gscemPath = extra['raw']['path']
+        gscemPath = extra['raw'].get('path', None)
         group = self.users['group']
         gscemRoot = Path.addslash(os.path.join(sconfig_raw['root'], group))
 
@@ -387,28 +387,43 @@ class SessionTaskHandler(TaskHandler):
 
         self.info(f"Syncing files from {gscemPath} to {judePath}")
         t = Timer()
-        n = Path.rsync(gscemPath, judePath, verbose=False)
+        sleep_minutes = self.sleep // 60
+        msg = ''
 
-        if n:
+        try:
+            n = Path.rsync(gscemPath, judePath, verbose=False)
+        except Exception as e:
+            n = -1
+            msg = f"Error during the rsync: {str(e)}"
+            self.info(msg)
+            sleep_minutes = 5  # try soon
+
+        if n > 0:
             self.info(f"Synced {n} files from {gscemPath} to {judePath}")
-            self.sleep = 300  # Bring sleep time back to 5 minutes
+            sleep_minutes = 5
+            self.sleep = sleep_minutes * 60  # Bring sleep time back to 5 minutes
             self.last_delivered = datetime.now()
             self.update_session_extra({
                 'jude': {
                     'last_delivered': Pretty.datetime(self.last_delivered)
                 }})
+            msg = f"Transfer time: {str(t.getElapsedTime())}"
         else:
-            self.sleep = min(7200, self.sleep * 2)
-            self.info(f"No files delivered since: "
-                      f"{Pretty.datetime(self.last_delivered)}, "
-                      f"sleeping {self.sleep // 60} minutes")
+            sleep_minutes = min(60, sleep_minutes * 2)
+            msg = (f"No files delivered since: "
+                   f"{Pretty.datetime(self.last_delivered)}, "
+                   f"sleeping {self.sleep // 60} minutes")
+            self.info(msg)
             if datetime.now() - self.last_delivered > self.deliver_wait:
                 self.info("Delivery wait ended, stopping task.")
                 self.stop()
 
+        self.sleep = sleep_minutes * 60  # Bring sleep time back to 5 minutes
+
         self.update_task({
             'transferred_files': n,
-            'transfer_time': str(t.getElapsedTime())
+            'msg': msg,
+            'sleeping': sleep_minutes
          })
 
     def stop_all_otf(self, done=False):
