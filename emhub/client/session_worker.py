@@ -410,9 +410,7 @@ class SessionTaskHandler(TaskHandler):
             msg = f"Transfer time: {str(t.getElapsedTime())}"
         else:
             sleep_minutes = min(60, sleep_minutes * 2)
-            msg = (f"No files delivered since: "
-                   f"{Pretty.datetime(self.last_delivered)}, "
-                   f"sleeping {self.sleep // 60} minutes")
+            msg = f"No files delivered since: {Pretty.datetime(self.last_delivered)}"
             self.info(msg)
             if datetime.now() - self.last_delivered > self.deliver_wait:
                 self.info("Delivery wait ended, stopping task.")
