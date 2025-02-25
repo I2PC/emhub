@@ -21,7 +21,7 @@ from collections import defaultdict
 import json
 
 import mrcfile
-from emtools.utils import Path, Timer, Pretty
+from emtools.utils import Path, FolderManager, Pretty
 from emtools.metadata import StarFile, EPU, SqliteFile
 from emtools.image import Thumbnail
 
@@ -60,24 +60,11 @@ class SessionRun:
         return None
 
 
-class SessionData:
+class SessionData(FolderManager):
     """ Base class with common functionality. """
     def __init__(self, path, mode='r'):
-        self._path = path
+        FolderManager.__init__(self, path)
         self._epuData = None
-
-    @property
-    def path(self):
-        return self._path
-
-    def join(self, *paths):
-        return os.path.join(self._path, *paths)
-
-    def relpath(self, path):
-        return os.path.relpath(path, self._path)
-
-    def exists(self, path=''):
-        return os.path.exists(self.join(path))
 
     def getEpuData(self):
         if not self._epuData:

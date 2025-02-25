@@ -700,6 +700,7 @@ class DataContent:
                 }
 
     def get_session_data(self, session, **kwargs):
+        print(">>> DEBUG DataContent.get_session_data: kwargs = ", kwargs)
         result = kwargs.get('result', 'micrographs')
 
         defocus = []
@@ -782,12 +783,13 @@ class DataContent:
                 'defocus_bins': dbins.toList(),
                 'resolution_bins': rbins.toList(),
                 'gridsquares': gridsquares,
-                'gs_info': True, # epuData is not None,
+                'gs_info': True,  # epuData is not None,
                 'ctfs_run_id': sdata.get_ctfs_runid()
             })
 
         elif result == 'classes2d':
             runId = int(kwargs.get('run_id', -1))
+            print(">>>> DEBUG get_session_data, results = classes2d, runId = ", runId)
             data['classes2d'] = sdata.get_classes2d(runId=runId)
 
         return data

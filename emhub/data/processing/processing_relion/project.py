@@ -13,7 +13,7 @@
 # * GNU General Public License for more details.
 # *
 # **************************************************************************
-
+import json
 import os
 from glob import glob
 import numpy as np
@@ -21,7 +21,7 @@ import base64
 
 import mrcfile
 from emtools.utils import Path, Timer, Pretty
-from emtools.metadata import StarFile, EPU, SqliteFile
+from emtools.metadata import StarFile, EPU, SqliteFile, RelionStar
 from emtools.image import Thumbnail
 
 from ..base import SessionRun, SessionData, hours
@@ -34,12 +34,19 @@ class RelionSessionData(SessionData):
     """
     Adapter class for reading Session data from Relion OTF
     """
+    def __init__(self, *args, **kwargs):
+        SessionData.__init__(self, *args, **kwargs)
+        with open(self.join('session.json')) as f:
+            session = json.load(f)
+            for k in ['movies', 'micrographs', 'coordinates', 'classes2d']:
+                setattr(self, k, self.join(session[k]))
+
+        pipelineStar = self.join('default_pipeline.star')
+        self.workflow = RelionStar.pipeline_to_workflow(pipelineStar)
+
     def get_stats(self):
 
-        def _stats_from_star(jobType, starFn, tableName, attribute):
-            fn = self.get_last_star(jobType, starFn)
-            if not fn or not os.path.exists(fn):
-                return {'count': 0}
+        def _stats_from_fn(fn, tableName, attribute):
             with StarFile(fn) as sf:
                 if attribute == 'count':
                     return {'count': sf.getTableSize(tableName)}
@@ -59,8 +66,14 @@ class RelionSessionData(SessionData):
                     'last': last,
                 }
 
-        moviesStar = self.get_last_star('Import', 'movies.star')
-        if not moviesStar:
+        def _stats_from_star(jobType, starFn, tableName, attribute):
+            fn = self.get_last_star(jobType, starFn)
+            if not fn or not os.path.exists(fn):
+                return {'count': 0}
+            return _stats_from_fn(fn, tableName, attribute)
+
+
+        if not self.movies:
             return {'movies': {'count': 0}, 'ctfs': {'count': 0}}
 
         countEpu = 0
@@ -75,16 +88,21 @@ class RelionSessionData(SessionData):
                 'hours': hours(first, last)
             }
 
-        msImport = _stats_from_star('Import', 'movies.star',
-                                    'movies', 'rlnMicrographMovieName')
+        msImport = _stats_from_fn(self.movies, 'movies', 'rlnMicrographMovieName')
         movieStats = msEpu if countEpu > msImport['count'] else msImport
+
+        def _coordinates():
+            c = 0
+            with StarFile(self.micrographs) as sf:
+                for row in sf.iterTable('micrographs'):
+                    c += row.rlnCoordinatesNumber
+            return c
 
         return {
             'movies': movieStats,
-            'ctfs': _stats_from_star('CtfFind', 'micrographs_ctf.star',
-                                     'micrographs', 'rlnMicrographName'),
+            'ctfs': _stats_from_fn(self.micrographs, 'micrographs', 'rlnMicrographName'),
             'classes2d': len(self.get_classes2d_runs()),
-            'coordinates': {'count': 0}  # FIXME if there are picking jobs or from extraction
+            'coordinates': {'count': _coordinates()}
         }
 
         t.toc()
@@ -146,6 +164,10 @@ class RelionSessionData(SessionData):
                 }
         return data
 
+    def get_ctfs_runid(self):
+        """ Return the run_id for the ctfs used for the general session overview. """
+        return self.micrographs
+
     def get_workflow(self):
         protList = []
         protDict = {}
@@ -155,8 +177,22 @@ class RelionSessionData(SessionData):
             'Aborted': 'aborted',
             'Failed': 'failed'
         }
-        pipelineStar = self.join('default_pipeline.star')
-        outputs = {}
+
+        for job in self.workflow.jobs():
+            links = []
+            for o in job.outputs:
+                for c in o.childs:
+                    links.append(c.id)
+
+            protList.append({
+                'id': job.id,
+                'label': job['alias'],
+                'links': links,
+                'status': status_map.get(job['status'], job['status']),
+                'type': job['jobtype']
+            })
+
+        return protDict
 
         with StarFile(pipelineStar) as sf:
             for row in sf.iterTable('pipeline_processes'):
@@ -189,19 +225,38 @@ class RelionSessionData(SessionData):
 
     def get_run(self, runId):
         print(">>> runId: ", runId)
-        return RelionRun(self, self.join(runId))
+        parts = runId.split('/')
+        rid = '/'.join(parts[-3:-1])
+        return RelionRun(self, self.join(rid), self.workflow.getJob(rid),
+                         data=runId)
+
+    def get_micrograph_gridsquare(self, **kwargs):
+        return super().get_micrograph_gridsquare(**kwargs)
 
     def get_classes2d_runs(self):
-        return [r.replace(self._path, '')[1:] for r in self._jobs('Class2D')]
+        runs = []
+        for d in sorted(os.listdir(os.path.join(self.classes2d, 'Classes2D'))):
+            if d.startswith('batch'):
+                runs.append(d)
+        return runs
 
     def get_classes2d_from_run(self, runId=None):
         """ Iterate over 2D classes. """
         runs2d = self.get_classes2d_runs()
+        if runId is None:
+            items = []
+        else:
+            batch = runs2d[runId]
+            p = os.path.join(self.classes2d, 'Classes2D', batch, '*_classes.mrcs')
+            items = self.get_classes2d_data(pattern=p, root=self.path)
         return {
             'runs': [{'id': i, 'label': r} for i, r in enumerate(runs2d)],
-            'items': [] if runId is None else self.get_run(runId).get_classes2d(),
+            'items': items,
             'selection': []
         }
+
+    def get_classes2d(self, runId=None):
+        return self.get_classes2d_from_run(runId=runId)
 
     @classmethod
     def get_classes2d_data(cls, **kwargs):
@@ -222,6 +277,7 @@ class RelionSessionData(SessionData):
             dataStar = kwargs.get('dataStar', None)
             modelStar = kwargs.get('modelStar', None)
             modelTable = kwargs.get('modelTable', '')
+            avgMrcs = None
 
         if dataStar and modelStar:
             with StarFile(dataStar) as sf:
@@ -233,11 +289,9 @@ class RelionSessionData(SessionData):
             with StarFile(modelStar) as sf:
                 for row in sf.getTable(modelTable, guessType=False):
                     i, fn = row.rlnReferenceImage.split('@')
-                    if lastFn != fn:
-                        if mrc_stack:
-                            mrc_stack.close()
-                        mrc_stack = mrcfile.open(os.path.join(root, fn), permissive=True)
-                        lastFn = fn
+                    if mrc_stack is None:
+                        avgMrcs = avgMrcs or os.path.join(root, avgMrcs)
+                        mrc_stack = mrcfile.open(avgMrcs, permissive=True)
                     items.append({
                         'id': '%03d' % int(i),
                         'size': round(float(row.rlnClassDistribution) * n),
@@ -491,6 +545,8 @@ class RelionSessionData(SessionData):
         """ Return micrographs star file from the last CTF job or None
         if there is no run yet or output file.
         """
+        return self.micrographs
+
         jobs = self._jobs('CtfFind')
         if jobs:
             micFn = self.join(jobs[-1], 'micrographs_ctf.star')

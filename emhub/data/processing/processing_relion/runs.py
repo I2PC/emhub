@@ -35,23 +35,33 @@ location = os.path.dirname(__file__)
 
 class RelionRun(SessionRun):
     """ Helper class to manipulate Relion run data. """
-    def __init__(self, project, path):
+    def __init__(self, project, path, job, **kwargs):
         SessionRun.__init__(self, project, path)
         d, self.id = os.path.split(Path.rmslash(path))
-        with StarFile(self.join('job.star')) as sf:
-            self.job = sf.getTable('job')
-            self.values = {row.rlnJobOptionVariable: row.rlnJobOptionValue
-                           for row in sf.iterTable('joboptions_values', guessType=False)}
-        parts = self.job[0].rlnJobTypeLabel.split('.')
+
+        self.job = job
+        self.jobtype = job['jobtype']
+        self.values = {} # FIXME
+        self.extra = kwargs
+
+        #with StarFile(self.join('job.star')) as sf:
+        #    self.job = sf.getTable('job')
+        #    self.values = {row.rlnJobOptionVariable: row.rlnJobOptionValue
+        #                   for row in sf.iterTable('joboptions_values', guessType=False)}
+        
+        parts = self.jobtype.split('.')
         self.package = parts[0]
         self.className = parts[1]
         self.classSuffix = '' if len(parts) < 3 else '.'.join(parts[2:])
 
-        with StarFile(self.join('job_pipeline.star')) as sf:
-            t = sf.getTable('pipeline_processes')
-            row = t[0]
-            self.name = row.rlnPipeLineProcessName
-            self.alias = row.rlnPipeLineProcessAlias
+        self.name = job.id
+        self.alias = job['alias']
+
+        #with StarFile(self.join('job_pipeline.star')) as sf:
+        #    t = sf.getTable('pipeline_processes')
+        #    row = t[0]
+        #    self.name = row.rlnPipeLineProcessName
+        #    self.alias = row.rlnPipeLineProcessAlias
 
     def getInfo(self):
         return {'id': self.id, 'className': self.className, 'label': self.id,
@@ -361,13 +371,20 @@ class RelionRun(SessionRun):
         return result
 
     def get_micrograph_data(self, micId):
+        p = self.project  # shortcut
         data = {}
         mics, micsCtf = self._getOutputMics()
 
-        def _load_micrograph_data(micStar):
-            return self.project.load_micrograph_data(micId, micStar)
 
-        if micsCtf is not None:
+        def _load_micrograph_data(micStar):
+            return p.load_micrograph_data(micId, micStar)
+
+        if self.jobtype == 'emwrap.preprocessing':  # FIXME: Make this more general based on outputs
+            micStar = self.join('micrographs.star')
+            coordStar = self.join('coordinates.star')
+            data = _load_micrograph_data(micStar)
+            data['coordinates'] = p.get_micrograph_coordinates(coordStar, micId)
+        elif micsCtf is not None:
             data = _load_micrograph_data(micsCtf)
         elif mics is not None:
             data = _load_micrograph_data(mics)
@@ -376,14 +393,17 @@ class RelionRun(SessionRun):
             for i in self.getInputsOutputs()['inputs']:
                 iBase = os.path.basename(i)
                 if iBase.startswith('micrographs'):
-                    data = _load_micrograph_data(self.project.join(i))
-                    data['coordinates'] = self.project.get_micrograph_coordinates(
+                    data = _load_micrograph_data(p.join(i))
+                    data['coordinates'] = p.get_micrograph_coordinates(
                         coordStar, micId)
                     break
         return data
 
     def get_classes2d(self, iteration=None):
         """ Get classes information from a class 2d run. """
+        p = os.path.join(self.extra['data'], '*_classes.mrcs')
+        return self.project.get_classes2d_data(pattern=p)
+
         clsAverages = self.join('class_averages.star')
         if os.path.exists(clsAverages):  # selection jobs
             return self.project.get_classes2d_data(modelStar=clsAverages,
