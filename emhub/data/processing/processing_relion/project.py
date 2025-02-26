@@ -86,7 +86,6 @@ class RelionSessionData(SessionData):
 
         msImport = _stats_from_table(self.movDataTable, 'rlnMicrographMovieName')
         movieStats = msEpu if countEpu > msImport['count'] else msImport
-        print(">>>> DEBUG: ", movieStats)
 
         return {
             'movies': movieStats,
@@ -144,10 +143,12 @@ class RelionSessionData(SessionData):
                          data=runId)
 
     def get_classes2d_runs(self):
+        classesPath = os.path.join(self.classes2d, 'Classes2D')
         runs = []
-        for d in sorted(os.listdir(os.path.join(self.classes2d, 'Classes2D'))):
-            if d.startswith('batch'):
-                runs.append(d)
+        if os.path.exists(classesPath):
+            for d in sorted(os.listdir()):
+                if d.startswith('batch'):
+                    runs.append(d)
         return runs
 
     def get_classes2d_from_run(self, runId=None):
