@@ -44,34 +44,28 @@ class RelionSessionData(SessionData):
         pipelineStar = self.join('default_pipeline.star')
         self.workflow = RelionStar.pipeline_to_workflow(pipelineStar)
 
+        with StarFile(self.movies) as sf:
+            self.movDataTable = sf.getTable('movies')
+
+        with StarFile(self.micrographs) as sf:
+            self.micOpticsTable = sf.getTable('optics')
+            self.micDataTable = sf.getTable('micrographs')
+
     def get_stats(self):
 
-        def _stats_from_fn(fn, tableName, attribute):
-            with StarFile(fn) as sf:
-                if attribute == 'count':
-                    return {'count': sf.getTableSize(tableName)}
-                t = sf.getTable(tableName)
-                firstRow, lastRow = t[0], t[-1]
+        def _stats_from_table(table, attribute):
+            s = {'count': len(table)}
+
+            if attribute != 'count':
+                firstRow, lastRow = table[0], table[-1]
                 try:
                     first = self.mtime(getattr(firstRow, attribute))
                     last = self.mtime(getattr(lastRow, attribute))
                     h = hours(first, last)
                 except:
                     first = last = h = 0
-
-                return {
-                    'hours': h,
-                    'count': t.size(),
-                    'first': first,
-                    'last': last,
-                }
-
-        def _stats_from_star(jobType, starFn, tableName, attribute):
-            fn = self.get_last_star(jobType, starFn)
-            if not fn or not os.path.exists(fn):
-                return {'count': 0}
-            return _stats_from_fn(fn, tableName, attribute)
-
+                s.update(hours=h, first=first, last=last)
+            return s
 
         if not self.movies:
             return {'movies': {'count': 0}, 'ctfs': {'count': 0}}
@@ -87,82 +81,31 @@ class RelionSessionData(SessionData):
                 'count': countEpu, 'first': first, 'last': last,
                 'hours': hours(first, last)
             }
+        else:
+            msEpu = None
 
-        msImport = _stats_from_fn(self.movies, 'movies', 'rlnMicrographMovieName')
+        msImport = _stats_from_table(self.movDataTable, 'rlnMicrographMovieName')
         movieStats = msEpu if countEpu > msImport['count'] else msImport
-
-        def _coordinates():
-            c = 0
-            with StarFile(self.micrographs) as sf:
-                for row in sf.iterTable('micrographs'):
-                    c += row.rlnCoordinatesNumber
-            return c
+        print(">>>> DEBUG: ", movieStats)
 
         return {
             'movies': movieStats,
-            'ctfs': _stats_from_fn(self.micrographs, 'micrographs', 'rlnMicrographName'),
+            'ctfs': _stats_from_table(self.movDataTable, 'rlnMicrographName'),
             'classes2d': len(self.get_classes2d_runs()),
-            'coordinates': {'count': _coordinates()}
+            'coordinates': {'count': sum(row.rlnCoordinatesNumber for row in self.micDataTable)}
         }
-
-        t.toc()
 
     def get_micrographs(self):
         """ Return an iterator over the micrographs' CTF information. """
-        micFn = self._last_micFn()
-
-        if not micFn:
-            return []
-
-        with StarFile(micFn) as sf:
-            for row in sf.iterTable('micrographs'):
-                micData = {
-                    'micrograph': row.rlnMicrographName,
-                    'ctfImage': row.rlnCtfImage,
-                    'ctfDefocus': row.rlnDefocusU,
-                    'ctfResolution': min(row.rlnCtfMaxResolution, 10),
-                    'ctfDefocusAngle': row.rlnDefocusAngle,
-                    'ctfAstigmatism': row.rlnCtfAstigmatism
-                }
-                yield micData
-
-    def get_micrograph_data(self, micId):
-        micFn = self._last_micFn()
-        data = {}
-        if micFn:
-            with StarFile(micFn) as sf:
-                otable = sf.getTable('optics')
-                row = sf.getTableRow('micrographs', micId - 1)
-                micThumb = Thumbnail.Micrograph()
-                psdThumb = Thumbnail.Psd()
-                micFn = self.join(row.rlnMicrographName)
-                micThumbBase64 = micThumb.from_mrc(micFn)
-                psdFn = self.join(row.rlnCtfImage).replace(':mrc', '')
-                pixelSize = otable[0].rlnMicrographPixelSize
-
-                loc = EPU.get_movie_location(micFn)
-
-                if pickStar := self.get_last_star('*Pick', '*pick.star'):
-                    coords = self.get_micrograph_coordinates(pickStar, micId)
-                else:
-                    coords = []
-
-                data = {
-                    'micThumbData': micThumbBase64,
-                    'psdData': psdThumb.from_mrc(psdFn),
-                    # 'shiftPlotData': None,
-                    'ctfDefocusU': round(row.rlnDefocusU/10000., 2),
-                    'ctfDefocusV': round(row.rlnDefocusV/10000., 2),
-                    'ctfDefocusAngle': round(row.rlnDefocusAngle, 2),
-                    'ctfAstigmatism': round(row.rlnCtfAstigmatism/10000, 2),
-                    'ctfResolution': round(row.rlnCtfMaxResolution, 2),
-                    'coordinates': coords,
-                    'micThumbPixelSize': pixelSize * micThumb.scale,
-                    'pixelSize': pixelSize,
-                    'gridSquare': loc['gs'],
-                    'foilHole': loc['fh']
-                }
-        return data
+        for row in self.micDataTable:
+            yield {
+                'micrograph': row.rlnMicrographName,
+                'ctfImage': row.rlnCtfImage,
+                'ctfDefocus': row.rlnDefocusU,
+                'ctfResolution': min(row.rlnCtfMaxResolution, 10),
+                'ctfDefocusAngle': row.rlnDefocusAngle,
+                'ctfAstigmatism': row.rlnCtfAstigmatism
+            }
 
     def get_ctfs_runid(self):
         """ Return the run_id for the ctfs used for the general session overview. """
@@ -170,7 +113,6 @@ class RelionSessionData(SessionData):
 
     def get_workflow(self):
         protList = []
-        protDict = {}
         status_map = {
             'Succeeded': 'finished',
             'Running': 'running',
@@ -192,35 +134,6 @@ class RelionSessionData(SessionData):
                 'type': job['jobtype']
             })
 
-        return protDict
-
-        with StarFile(pipelineStar) as sf:
-            for row in sf.iterTable('pipeline_processes'):
-                name = row.rlnPipeLineProcessName
-                alias = row.rlnPipeLineProcessAlias
-                status = status_map.get(row.rlnPipeLineProcessStatusLabel, 'unknown')
-                prot = {
-                    'id': name,
-                    'label': alias if alias != 'None' else name,
-                    'links': [],
-                    'status': status,
-                    'type': row.rlnPipeLineProcessTypeLabel
-                }
-                protList.append(prot)
-                protDict[name] = prot
-
-            for row in sf.iterTable('pipeline_output_edges'):
-                outputs[row.rlnPipeLineEdgeToNode] = row.rlnPipeLineEdgeProcess
-
-            for row in sf.iterTable('pipeline_input_edges'):
-                node = row.rlnPipeLineEdgeFromNode
-                if output := outputs.get(node, None):
-                    procName = row.rlnPipeLineEdgeProcess
-                    childProt = protDict[procName]
-                    parentProt = protDict[output]
-                    if childProt not in parentProt['links']:
-                        parentProt['links'].append(procName)
-
         return protList
 
     def get_run(self, runId):
@@ -229,9 +142,6 @@ class RelionSessionData(SessionData):
         rid = '/'.join(parts[-3:-1])
         return RelionRun(self, self.join(rid), self.workflow.getJob(rid),
                          data=runId)
-
-    def get_micrograph_gridsquare(self, **kwargs):
-        return super().get_micrograph_gridsquare(**kwargs)
 
     def get_classes2d_runs(self):
         runs = []
@@ -311,54 +221,55 @@ class RelionSessionData(SessionData):
                 yield c
 
     def load_micrograph_data(self, micId, micsStar):
-        with StarFile(micsStar) as sf:
-            otable = sf.getTable('optics')
-            row = sf.getTableRow('micrographs', micId - 1)
-            micThumb = Thumbnail.Micrograph()
-            micFn = self.join(row.rlnMicrographName)
-            micThumbBase64 = micThumb.from_mrc(micFn)
-            pixelSize = otable[0].rlnMicrographPixelSize
+        row = self.micDataTable[micId - 1]
+        micThumb = Thumbnail.Micrograph()
+        micFn = self.join(row.rlnMicrographName)
+        micThumbBase64 = micThumb.from_mrc(micFn)
+        pixelSize = self.micOpticsTable[0].rlnMicrographPixelSize
 
-            micData = {
-                'micThumbData': micThumbBase64,
-                'coordinates': [],  # Check for picking
-                'micThumbPixelSize': pixelSize * micThumb.scale,
-                'pixelSize': pixelSize,
-                'gridSquare': '',
-                'foilHole': ''
-            }
+        # FIXME The following assumes a 1-1 mov-mic and the same order
+        movFn = self.movDataTable[micId - 1].rlnMicrographMovieName
 
-            if hasattr(row, 'rlnCtfImage'):
-                psdThumb = Thumbnail.Psd()
-                psdFn = self.join(row.rlnCtfImage).replace(":mrc", "")
-                ctfProfile = psdFn.replace('.ctf', '_avrot.txt')
+        loc = EPU.get_movie_location(movFn)
+        print(">>>> DEBUG: LOC = ", loc)
 
-                if os.path.exists(ctfProfile) and ctfProfile.endswith('_avrot.txt'):
-                    with open(ctfProfile) as f:
-                        ctfPlot = [line.split() for line in f
-                                   if not line.startswith('#')]
-                else:
-                    ctfPlot = []
+        micData = {
+            'micThumbData': micThumbBase64,
+            'coordinates': [],  # Check for picking
+            'micThumbPixelSize': pixelSize * micThumb.scale,
+            'pixelSize': pixelSize,
+            'gridSquare': loc['gs'],
+            'foilHole': loc['fh']
+        }
 
-                micData.update({
-                    'psdData': psdThumb.from_mrc(psdFn),
-                    'ctfDefocusU': round(row.rlnDefocusU / 10000., 2),
-                    'ctfDefocusV': round(row.rlnDefocusV / 10000., 2),
-                    'ctfDefocusAngle': round(row.rlnDefocusAngle, 2),
-                    'ctfAstigmatism': round(row.rlnCtfAstigmatism / 10000, 2),
-                    'ctfResolution': round(row.rlnCtfMaxResolution, 2),
-                    'ctfPlot': ctfPlot
-                })
+        if hasattr(row, 'rlnCtfImage'):
+            psdThumb = Thumbnail.Psd()
+            psdFn = self.join(row.rlnCtfImage).replace(":mrc", "")
+            ctfProfile = psdFn.replace('.ctf', '_avrot.txt')
 
-            return micData
+            if os.path.exists(ctfProfile) and ctfProfile.endswith('_avrot.txt'):
+                with open(ctfProfile) as f:
+                    ctfPlot = [line.split() for line in f
+                               if not line.startswith('#')]
+            else:
+                ctfPlot = []
+
+            micData.update({
+                'psdData': psdThumb.from_mrc(psdFn),
+                'ctfDefocusU': round(row.rlnDefocusU / 10000., 2),
+                'ctfDefocusV': round(row.rlnDefocusV / 10000., 2),
+                'ctfDefocusAngle': round(row.rlnDefocusAngle, 2),
+                'ctfAstigmatism': round(row.rlnCtfAstigmatism / 10000, 2),
+                'ctfResolution': round(row.rlnCtfMaxResolution, 2),
+                'ctfPlot': ctfPlot
+            })
+
+        return micData
 
     def get_micrograph_coordinates(self, pickStar, micId):
-        with StarFile(self.join(pickStar)) as sf:
-            for i, row in enumerate(sf.iterTable('coordinate_files')):
-                if i == micId - 1:
-                    return [(round(c.rlnCoordinateX), round(c.rlnCoordinateY))
-                            for c in self.coords_from_row(row)]
-        return []
+        row = self.micDataTable[micId - 1]
+        return [(round(c.rlnCoordinateX), round(c.rlnCoordinateY))
+                for c in self.coords_from_row(row)]
 
     def load_coordinates_values(self, coordStar, index=False):
         data_values = {

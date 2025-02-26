@@ -700,7 +700,6 @@ class DataContent:
                 }
 
     def get_session_data(self, session, **kwargs):
-        print(">>> DEBUG DataContent.get_session_data: kwargs = ", kwargs)
         result = kwargs.get('result', 'micrographs')
 
         defocus = []

@@ -137,8 +137,8 @@ def register_content(dc):
 
     @dc.content
     def session_gridsquares(**kwargs):
-        session = dc.app.dm.load_session(kwargs['session_id'])
-        return {'gridsquares': session.data.get_gridsquares()}
+        project = dc.app.dm.get_processing_project(**kwargs)['project']
+        return {'gridsquares': project.get_gridsquares()}
 
     @dc.content
     def sessions_list(**kwargs):

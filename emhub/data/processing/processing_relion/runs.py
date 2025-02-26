@@ -375,7 +375,6 @@ class RelionRun(SessionRun):
         data = {}
         mics, micsCtf = self._getOutputMics()
 
-
         def _load_micrograph_data(micStar):
             return p.load_micrograph_data(micId, micStar)
 
