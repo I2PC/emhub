@@ -89,7 +89,7 @@ class RelionSessionData(SessionData):
 
         return {
             'movies': movieStats,
-            'ctfs': _stats_from_table(self.movDataTable, 'rlnMicrographName'),
+            'ctfs': _stats_from_table(self.micDataTable, 'rlnMicrographName'),
             'classes2d': len(self.get_classes2d_runs()),
             'coordinates': {'count': sum(row.rlnCoordinatesNumber for row in self.micDataTable)}
         }
@@ -146,7 +146,7 @@ class RelionSessionData(SessionData):
         classesPath = os.path.join(self.classes2d, 'Classes2D')
         runs = []
         if os.path.exists(classesPath):
-            for d in sorted(os.listdir()):
+            for d in sorted(os.listdir(classesPath)):
                 if d.startswith('batch'):
                     runs.append(d)
         return runs

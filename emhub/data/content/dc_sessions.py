@@ -57,7 +57,7 @@ def register_content(dc):
         session = dc.app.dm.get_session_by(id=kwargs['session_id'])
         otf_status = session.otf_status
 
-        if not otf_status or otf_status == 'created':
+        if not session.otf_path or not otf_status or otf_status == 'created':
             kwargs['content_id'] = 'session_details'
             data = dc.get(**kwargs)
             data['session_default'] = 'session_details.html'
