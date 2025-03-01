@@ -130,8 +130,13 @@ def process_sessions(args):
         sessions = dc.request('get_sessions', jsonData=None).json()
         sessions_dict = {s['id']: s for s in sessions}
 
-        if args.list:
-            if args.list == 'all':
+        ids = args.list
+        if ids is not None:
+            if len(ids):
+                selected_sessions = [sessions_dict[int(sid)] for sid in ids]
+                for s in selected_sessions:
+                    print(json.dumps(s, indent=4))
+            else:
                 row_format = u"{:<6}{:<12}{:<6}{:<35}"
                 print(row_format.format("ID", "Date", "OwnerId", "Name"))
                 for s in sessions:
@@ -139,21 +144,7 @@ def process_sessions(args):
                                             date_str(s['start']),
                                             s['owner_id'],
                                             s['name']))
-            else:
-                for s in sessions:
-                    if str(s['id']) == args.list or s['name'] == args.list:
-                        pprint(s)
-        elif args.update_acq:
-            session_id = int(args.update_acq[0])
-            new_acq = json.loads(args.update_acq[1])
-            for s in sessions:
-                if s['id'] == session_id:
-                    print("Updating session ", session_id)
-                    acq = s['acquisition']
-                    acq.update(new_acq)
-                    us = dc.update_session({'id': session_id,
-                                            'acquisition': acq})
-                    pprint(us)
+
         elif args.create:
             with open(args.create) as f:
                 session_json = json.load(f)
@@ -165,11 +156,11 @@ def process_sessions(args):
 def process_pucks(args):
     with open_client() as dc:
         pucks = dc.request('get_pucks', jsonData=None).json()
-        #sessions_dict = {s['id']: s for s in sessions}
+        # sessions_dict = {s['id']: s for s in sessions}
 
         if args.list:
             row_format = u"{:>6}  {:<20}{:>6}{:>6}{:>6}  {:<30}"
-            print(row_format.format("ID", "Label", "Dewar" , "Cane",
+            print(row_format.format("ID", "Label", "Dewar", "Cane",
                                     "Pos", "Extra"))
             for p in pucks:
                 print(row_format.format(p['id'], p['label'], p['dewar'],
@@ -213,7 +204,7 @@ def process_pucks(args):
 
 def process_entries(args):
     with open_client() as dc:
-        #sessions_dict = {s['id']: s for s in sessions}
+        # sessions_dict = {s['id']: s for s in sessions}
         if arg := args.list:
             try:
                 if arg.startswith('P:'):
@@ -266,7 +257,7 @@ def dump(keys, json_file):
 
 def main():
     p = argparse.ArgumentParser(prog='emh-client')
-    p.add_argument('--url', default='')
+    p.add_argument('--url', '-u', default='')
 
     subparsers = p.add_subparsers(dest='entity')
 
@@ -278,8 +269,8 @@ def main():
                    help="Update user with the given JSON")
     g.add_argument('--list', '-l', nargs='*', metavar='USER_ID')
     user_p.add_argument('--filters', '-f', nargs='*', metavar='FILTER',
-                   help="Filter string to be used with list option."
-                        "For example: ")
+                        help="Filter string to be used with list option."
+                             "For example: ")
 
     # ------------------------- Form subparser -------------------------------
     form_p = subparsers.add_parser("form")
@@ -300,9 +291,8 @@ def main():
     g = session_p.add_mutually_exclusive_group()
     # g.add_argument('--method', '-m', nargs=2, metavar=('METHOD', 'JSON'),
     #                help='Execute a method from the client')
-    g.add_argument('--list', '-l')
-    g.add_argument('--update_acq', nargs=2,
-                   metavar=('SESSION_ID', 'JSON_ACQ'))
+    g.add_argument('--list', '-l', nargs='*',
+                   help="List sessions, leave it empty to list all.")
     g.add_argument('--create', '-c', metavar='SESSION_JSON',
                    help='Create a session from the json file. ')
 
