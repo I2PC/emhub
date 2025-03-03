@@ -506,8 +506,7 @@ class SessionTaskHandler(TaskHandler):
                     self.info(f"File {epuStar} does not exist yet.")
                 else:
                     with StarFile(epuStar) as sf:
-                        self.info(f"Scanned EPU folder, "
-                                         f"movies: {sf.getTableSize('Movies')}")
+                        self.info(f"Scanned EPU folder, movies: {sf.getTableSize('Movies')}")
                 if self.update_session:
                     self.info(f"No longer need to update session.")
                     self.update_session = False  # after launching no need to update
@@ -525,13 +524,16 @@ class SessionTaskHandler(TaskHandler):
         raw_path = extra['raw']['path']
         otf = extra['otf']
         otf.update({'path': otf_path, 'status': 'created'})
+        workflow = otf.get('workflow', 'none').lower()
+
         self.pl.rm(otf_path)
 
         def _path(*paths):
             return os.path.join(otf_path, *paths)
 
-        self.pl.mkdir(os.path.join(otf_path, 'EPU'))
-        os.symlink(raw_path, _path('data'))
+        if workflow != 'none':
+            self.pl.mkdir(os.path.join(otf_path, 'EPU'))
+            os.symlink(raw_path, _path('data'))
 
         gain_path = os.path.dirname(self.sconfig['data']['gain'])
         acq = dict(self.sconfig['acquisition'][self.microscope])
@@ -559,10 +561,13 @@ class SessionTaskHandler(TaskHandler):
         if not raw_gain:
             self.pl.cp(real_gain, os.path.join(raw_path, base_gain))
         else:
-            # Let's backup the gain if does not exists
+            # Lets backup the gain if does not exists
             back_gain = os.path.join(gain_path, base_gain)
             if not os.path.exists(back_gain):
                 self.pl.cp(real_gain, back_gain)
+
+        if workflow == 'none':
+            return
 
         # Create a general ini file with config/information of the session
         config = configparser.ConfigParser()
@@ -578,7 +583,7 @@ class SessionTaskHandler(TaskHandler):
         acq['gain'] = base_gain
         acq.update(self.session['acquisition'])
         images_pattern = acq.get('images_pattern',
-                                 "Images-Disc*/GridSquare_*/Data/Foil*fractions.tiff")
+                                 "Images-Disc*/GridSquare_*/Data/Foil*fractions.*")
         config['ACQUISITION'] = acq
 
         config['PREPROCESSING'] = {
@@ -589,22 +594,24 @@ class SessionTaskHandler(TaskHandler):
         with open(_path('README.txt'), 'w') as configfile:
             config.write(configfile)
 
-        opts = self.sconfig['otf']['relion']['options']
-        with open(_path('relion_it_options.py'), 'w') as f:
-            optStr = ",\n".join(f"'{k}' : '{v.format(**acq)}'" for k, v in opts.items())
-            f.write("{\n%s\n}\n" % optStr)
+        if workflow == 'relion':
+            opts = self.sconfig['otf']['relion']['options']
+            with open(_path('relion_it_options.py'), 'w') as f:
+                optStr = ",\n".join(f"'{k}' : '{v.format(**acq)}'" for k, v in opts.items())
+                f.write("{\n%s\n}\n" % optStr)
 
-        opts = self.sconfig['otf']['scipion']['options']
-        cryolo_model = otf.get('cryolo_model', None)
+        if workflow == 'scipion':
+            opts = self.sconfig['otf']['scipion']['options']
+            cryolo_model = otf.get('cryolo_model', None)
 
-        if cryolo_model:
-            model = os.path.basename(cryolo_model)
-            os.symlink(cryolo_model, _path(model))
-            opts['picking'] = {'cryolo_model': model}
+            if cryolo_model:
+                model = os.path.basename(cryolo_model)
+                os.symlink(cryolo_model, _path(model))
+                opts['picking'] = {'cryolo_model': model}
 
-        with open(_path('scipion_otf_options.json'), 'w') as f:
-            opts['acquisition'] = acq
-            json.dump(opts, f, indent=4)
+            with open(_path('scipion_otf_options.json'), 'w') as f:
+                opts['acquisition'] = acq
+                json.dump(opts, f, indent=4)
 
         # Update OTF status
         if update_session:
@@ -615,8 +622,8 @@ class SessionTaskHandler(TaskHandler):
         self.info(f"Running OTF")
         otf = self.session['extra']['otf']
         otf_path = otf['path']
-        workflow = otf.get('workflow', '')
-        if workflow.lower() == 'none':
+        workflow = otf.get('workflow', 'none').lower()
+        if workflow == 'none':
             msg = 'OTF workflow is None, so no doing anything.'
             self.pl.logger.info(msg)
             self.update_task({'msg': msg, 'done': 1})

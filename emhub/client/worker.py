@@ -36,6 +36,9 @@ from emhub.client import open_client, config, DataClient
 
 
 def create_logger(self, logsFolder, logName, debug=True, toFile=True):
+    if not os.path.exists(logsFolder):
+        Process.system(f"mkdir -p '{logsFolder}'")
+
     formatter = logging.Formatter(f'%(asctime)s %(levelname)s %(message)s')
     logger = logging.getLogger(logName)
     if toFile:

@@ -1008,9 +1008,9 @@ def _handle_item(handle_func, result_key):
         result = handle_func(**attrs)
         return send_json_data({result_key: result})
     except Exception as e:
-        print(e)
-        traceback.print_exc()
-        return send_error('ERROR from Server: %s' % e)
+        fullError = f"ERROR from Server: {str(e)}. Traceback: {traceback.format_exc()}"
+        print(fullError)
+        return send_error(fullError)
 
 
 def handle_booking(result_key, booking_func, booking_transform=None):

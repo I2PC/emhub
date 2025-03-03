@@ -1495,8 +1495,13 @@ class DataManager(DbManager):
             return task_id
 
         def update_task(self, task_id, event):
-            self.r.xadd(f"task_history:{task_id}", event,
-                        maxlen=event.get('maxlen', None))
+            try:
+                # Let change None values by empty string since Redis does not like None
+                redisEvent = {k: '' if v is None else v for k, v in event.items()}
+                self.r.xadd(f"task_history:{task_id}", redisEvent, maxlen=event.get('maxlen', None))
+            except Exception as e:
+                raise Exception(f">>>> ERROR updating task_id: {task_id}. event: {event}")
+
             if 'done' in event:
                 self.finish_task(task_id)
 
