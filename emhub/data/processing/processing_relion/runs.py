@@ -51,7 +51,7 @@ class RelionRun(SessionRun):
         
         parts = self.jobtype.split('.')
         self.package = parts[0]
-        self.className = parts[1]
+        self.className = parts[1] if len(parts) > 1 else self.jobtype
         self.classSuffix = '' if len(parts) < 3 else '.'.join(parts[2:])
 
         self.name = job.id
@@ -378,7 +378,7 @@ class RelionRun(SessionRun):
         def _load_micrograph_data(micStar):
             return p.load_micrograph_data(micId, micStar)
 
-        if self.jobtype == 'emwrap.preprocessing':  # FIXME: Make this more general based on outputs
+        if self.jobtype == 'emw-preprocessing':  # FIXME: Make this more general based on outputs
             micStar = self.join('micrographs.star')
             coordStar = self.join('coordinates.star')
             data = _load_micrograph_data(micStar)
