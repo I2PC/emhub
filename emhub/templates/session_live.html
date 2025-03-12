@@ -128,7 +128,7 @@
                             </div>
                         {% endcall %}
 
-                        {% call status_card('Status') %}
+                        {% call status_card('Status', True) %}
                             <div class="row col-12 p-0 m-0">
                                 <div class="col-4 p-0 m-0" >
                                     <label class="text-muted col-12 p-0 m-0">OTF: </label>
@@ -337,6 +337,11 @@
         showPlot('Session Data', ajaxContent);
     }
 
+    function showOtfPlots(){
+        var ajaxContent = get_ajax_content('session_otf_plots', {session_id: session_id});
+        showPlot('Session OTF', ajaxContent, 95);
+    }
+
     function showMicrographs(){
         var ajaxContent = get_ajax_content('session_micrographs', {session_id: session_id});
         showPlot('Micrographs', ajaxContent, 95);
@@ -405,6 +410,7 @@
             $("#href-counter_imported").attr("href", "javascript:showPlotImported();");
             $("#href-ctf_count").attr("href", "javascript:showPlotAligned();");
             $("#href-Data").attr("href", "javascript:showDataCard();");
+            $("#href-Status").attr("href", "javascript:showOtfPlots();")
         }
         else {
             check_reload();

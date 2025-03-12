@@ -2,8 +2,9 @@ import os
 from glob import glob
 import json
 import datetime as dt
+import statistics
 
-from emtools.utils import Pretty, Path
+from emtools.utils import Pretty, Path, Timer
 from emhub.utils import datetime_from_isoformat
 
 
@@ -110,16 +111,16 @@ def register_content(dc):
     @dc.content
     def session_details(**kwargs):
         session_id = kwargs['session_id']
-
         dm = dc.app.dm  # shortcut
-        sconfig = dm.get_config("sessions")
-
         session = dm.get_session_by(id=session_id)
 
         if session.booking:
             a = session.booking.application
             if not (a is None or a.allows_access(dc.app.user)):
                 raise Exception("You do not have access to this session information. ")
+
+
+        sconfig = dm.get_config("sessions")
 
         # Try to get deletion days (used in SLL based on session name code)
         days = dm.get_session_data_deletion(session.name[:3])
@@ -156,6 +157,46 @@ def register_content(dc):
     @dc.content
     def session_content(**kwargs):
         return session_details(**kwargs)
+
+    @dc.content
+    def session_data_card(**kwargs):
+        return session_details(**kwargs)
+
+    @dc.content
+    def session_otf_plots(**kwargs):
+        data = {}
+        batches = []
+        series = []
+        means = {}
+
+        project = dc.app.dm.get_processing_project(**kwargs)['project']
+
+        if project.exists('session.json'):
+            with open(project.join('session.json')) as f:
+                session = json.load(f)
+                run = os.path.dirname(session['micrographs'])
+                if project.exists(run, 'info.json'):
+                    with open(project.join(run, 'info.json')) as f2:
+                        info = json.load(f2)
+                        skeys = ['mc', 'ctf', 'cryolo', 'extract']
+                        seriesDict = {k: [] for k in skeys}
+                        for key, batch in info['batches'].items():
+                            batches.append(key)
+                            for k in skeys:
+                                td = Timer.parse_timedelta(batch[f'{k}_elapsed'])
+                                seriesDict[k].append(td.seconds)
+
+                        batches.extend(info['batches'].keys())
+                        series = [{'name': k, 'data': v} for k, v in seriesDict.items()]
+                        means = {k: round(statistics.fmean(v)) for k, v in seriesDict.items()}
+
+        data.update({
+            'batches': batches,
+            'series': series,
+            'means': means
+        })
+
+        return data
 
     @dc.content
     def workers_frames(**kwargs):

@@ -113,8 +113,9 @@ class RelionSessionData(SessionData):
 
     def get_micrographs(self):
         """ Return an iterator over the micrographs' CTF information. """
-        for row in self.micDataTable:
-            yield self.row_to_mic(row)
+        d = self.micDataDict
+        for k in sorted(d.keys()):
+            yield self.row_to_mic(d[k])
 
     def get_ctfs_runid(self):
         """ Return the run_id for the ctfs used for the general session overview. """
@@ -226,10 +227,42 @@ class RelionSessionData(SessionData):
     def coords_from_row(self, row):
         """ Iterate coordinates from a row containing the STAR file
          path with the coordinates. """
+        class Coord:
+            """ Simple wraper around a row. """
+            def __init__(self, row, xLabel, yLabel, scoreLabel):
+                self.row = row
+                self.xLabel = xLabel
+                self.yLabel = yLabel
+                self.scoreLabel = scoreLabel
+
+            @property
+            def x(self):
+                return getattr(self.row, self.xLabel)
+
+            @property
+            def y(self):
+                return getattr(self.row, self.yLabel)
+
+            @property
+            def score(self):
+                return getattr(self.row, self.xLabel)
+
         coordStar = self.join(row.rlnMicrographCoordinates)
+        coordCbox = coordStar.replace('.star', '.cbox')
+        useCbox = False  # Allow a way to enable this from the UI
+        if useCbox and os.path.exists(coordCbox):
+            labels = ['CoordinateX', 'CoordinateY', 'Confidence']
+            table = 'cryolo'
+            coordStar = coordCbox
+        else:
+            labels = ['rlnCoordinateX', 'rlnCoordinateY', 'rlnAutopickFigureOfMerit']
+            table = ''
+
+        print(">>>>> Reading coords from: ", coordStar, flush=True)
         with StarFile(coordStar) as sf:
-            for c in sf.iterTable(''):
-                yield c
+            if t := sf.getTable(table):
+                for c in t:
+                    yield Coord(c, *labels)
 
     def load_micrograph_data(self, micId, micsStar):
         row = self.micDataTable[micId - 1]
@@ -278,8 +311,7 @@ class RelionSessionData(SessionData):
 
     def get_micrograph_coordinates(self, pickStar, micId):
         row = self.micDataTable[micId - 1]
-        return [(round(c.rlnCoordinateX), round(c.rlnCoordinateY))
-                for c in self.coords_from_row(row)]
+        return [(round(c.x), round(c.y)) for c in self.coords_from_row(row)]
 
     def load_coordinates_values(self, coordStar, index=False):
         data_values = {
@@ -307,7 +339,7 @@ class RelionSessionData(SessionData):
                 fomSum = 0
                 for c in self.coords_from_row(row):
                     n += 1
-                    fomSum += c.rlnAutopickFigureOfMerit
+                    fomSum += c.score
                 pts.append(n)
                 fom.append(fomSum / n)
 
@@ -378,9 +410,6 @@ class RelionSessionData(SessionData):
         return data_values
 
     def get_micrograph_gridsquare(self, **kwargs):
-        print("get_micrograph_gridsquare: ", kwargs, flush=True)
-
-        epuData = self.getEpuData()
         gsId = kwargs.get('gsId', '')
         locData = {
             'gridSquare': {},
@@ -388,17 +417,6 @@ class RelionSessionData(SessionData):
         }
 
         thumb = Thumbnail(output_format='base64', max_size=(512, 512))
-
-        # for row in epuData.gsTable:
-        #     if row.id == gsId:
-        #         imgPath = self.join('EPU', row.folder, row.image)
-        #         locData['gridSquare'] = {
-        #             'id': row.id,
-        #             'image': row.image,
-        #             'folder': row.folder,
-        #             'thumbnail': thumb.from_path(imgPath)
-        #         }
-        #         break
 
         def _microns(v):
             return round(v * 0.0001, 3)
@@ -510,10 +528,6 @@ class RelionSessionData(SessionData):
             iMin = mrc.data.min()  # max(imean - 10 * isd, imageArray.min())
             im255 = ((mrc.data - iMin) / (iMax - iMin) * 255).astype(np.uint8)
             data['array'] = base64.b64encode(im255).decode("utf-8")
-
-        #
-        # else:
-        #     raise Exception('Unknown volume_data value: %s' % volume_data)
 
         return data
 
