@@ -74,6 +74,11 @@ class SessionData(FolderManager):
                 self._epuData = EPU.Data(epuFolder, moviesStarFile)
         return self._epuData
 
+    def importTimestamps(self):
+        if epuData := self.getEpuData():
+            for row in epuData.moviesTable:
+                yield row.timeStamp
+
     def mtime(self, fn):
         mt = os.path.getmtime(self.join(fn))
         return mt

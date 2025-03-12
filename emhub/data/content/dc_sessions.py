@@ -111,8 +111,8 @@ def register_content(dc):
 
         if project.exists():
             if plot == 'imported':
-                epuData = project.getEpuData()
-                items = [{'ts': row.timeStamp} for row in epuData.moviesTable]
+                items = [{'ts': ts} for ts in project.importTimestamps()]
+
             elif plot == 'aligned':
                 items = []
                 for mic in project.get_micrographs():

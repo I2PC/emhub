@@ -20,7 +20,7 @@ import numpy as np
 import base64
 
 import mrcfile
-from emtools.utils import Path, Timer, Pretty
+from emtools.utils import Path, Timer, Pretty, FolderManager
 from emtools.metadata import StarFile, EPU, SqliteFile, RelionStar
 from emtools.image import Thumbnail
 
@@ -46,10 +46,12 @@ class RelionSessionData(SessionData):
 
         with StarFile(self.movies) as sf:
             self.movDataTable = sf.getTable('movies')
+            self.movDataDict = {r.rlnImageId: r for r in self.movDataTable}
 
         with StarFile(self.micrographs) as sf:
             self.micOpticsTable = sf.getTable('optics')
             self.micDataTable = sf.getTable('micrographs')
+            self.micDataDict = {r.rlnImageId: r for r in self.micDataTable}
 
     def get_stats(self):
 
@@ -72,17 +74,17 @@ class RelionSessionData(SessionData):
 
         countEpu = 0
 
-        if epuData := self.getEpuData():
-            moviesTable = epuData.moviesTable
-            first = moviesTable[0].timeStamp
-            last = moviesTable[-1].timeStamp
-            countEpu = moviesTable.size()
-            msEpu = {
-                'count': countEpu, 'first': first, 'last': last,
-                'hours': hours(first, last)
-            }
-        else:
-            msEpu = None
+        # if epuData := self.getEpuData():
+        #     moviesTable = epuData.moviesTable
+        #     first = moviesTable[0].timeStamp
+        #     last = moviesTable[-1].timeStamp
+        #     countEpu = moviesTable.size()
+        #     msEpu = {
+        #         'count': countEpu, 'first': first, 'last': last,
+        #         'hours': hours(first, last)
+        #     }
+        # else:
+        msEpu = None
 
         msImport = _stats_from_table(self.movDataTable, 'rlnMicrographMovieName')
         movieStats = msEpu if countEpu > msImport['count'] else msImport
@@ -94,17 +96,25 @@ class RelionSessionData(SessionData):
             'coordinates': {'count': sum(row.rlnCoordinatesNumber for row in self.micDataTable)}
         }
 
+    def importTimestamps(self):
+        for row in self.movDataTable:
+            yield row.TimeStamp
+
+    def row_to_mic(self, row):
+        return {
+            'micrograph': row.rlnMicrographName,
+            'ctfImage': row.rlnCtfImage,
+            'ctfDefocus': row.rlnDefocusU,
+            'ctfResolution': min(row.rlnCtfMaxResolution, 10),
+            'ctfDefocusAngle': row.rlnDefocusAngle,
+            'ctfAstigmatism': row.rlnCtfAstigmatism,
+            'gs': self.movDataDict[row.rlnImageId].GridSquare
+        }
+
     def get_micrographs(self):
         """ Return an iterator over the micrographs' CTF information. """
         for row in self.micDataTable:
-            yield {
-                'micrograph': row.rlnMicrographName,
-                'ctfImage': row.rlnCtfImage,
-                'ctfDefocus': row.rlnDefocusU,
-                'ctfResolution': min(row.rlnCtfMaxResolution, 10),
-                'ctfDefocusAngle': row.rlnDefocusAngle,
-                'ctfAstigmatism': row.rlnCtfAstigmatism
-            }
+            yield self.row_to_mic(row)
 
     def get_ctfs_runid(self):
         """ Return the run_id for the ctfs used for the general session overview. """
@@ -231,8 +241,7 @@ class RelionSessionData(SessionData):
         # FIXME The following assumes a 1-1 mov-mic and the same order
         movFn = self.movDataTable[micId - 1].rlnMicrographMovieName
 
-        loc = EPU.get_movie_location(movFn)
-        print(">>>> DEBUG: LOC = ", loc)
+        loc = {'gs': self.movDataDict[row.rlnImageId].GridSquare, 'fh': None}
 
         micData = {
             'micThumbData': micThumbBase64,
@@ -367,6 +376,83 @@ class RelionSessionData(SessionData):
             })
 
         return data_values
+
+    def get_micrograph_gridsquare(self, **kwargs):
+        print("get_micrograph_gridsquare: ", kwargs, flush=True)
+
+        epuData = self.getEpuData()
+        gsId = kwargs.get('gsId', '')
+        locData = {
+            'gridSquare': {},
+            'foilHole': {}
+        }
+
+        thumb = Thumbnail(output_format='base64', max_size=(512, 512))
+
+        # for row in epuData.gsTable:
+        #     if row.id == gsId:
+        #         imgPath = self.join('EPU', row.folder, row.image)
+        #         locData['gridSquare'] = {
+        #             'id': row.id,
+        #             'image': row.image,
+        #             'folder': row.folder,
+        #             'thumbnail': thumb.from_path(imgPath)
+        #         }
+        #         break
+
+        def _microns(v):
+            return round(v * 0.0001, 3)
+
+        defocus = []
+        resolution = []
+        particles = 0
+
+        gsDir = FolderManager(self.join('data', 'Images-Disc1', gsId))
+
+        for fn in gsDir.listdir():
+            if fn.endswith('.jpg'):
+                gsImagePath = gsDir.join(fn)
+                locData['gridSquare'] = {
+                    'id': gsId,
+                    'image': gsImagePath,
+                    'folder': gsDir.path,
+                    'thumbnail': thumb.from_path(gsImagePath)
+                }
+
+        for k, row in self.micDataDict.items():
+            micGs = self.movDataDict[k].GridSquare
+            if gsId != micGs:
+                continue
+
+            mic = self.row_to_mic(row)
+            micName = mic.get('micName', mic['micrograph'])
+            if micGs == gsId:
+                defocus.append(_microns(mic['ctfDefocus']))
+                resolution.append(round(mic['ctfResolution'], 3))
+                particles += row.rlnCoordinatesNumber
+
+        locData.update({'defocus': defocus,
+                        'resolution': resolution,
+                        'particles': particles
+                        })
+
+        return locData
+
+    def get_gridsquares(self, **kwargs):
+        gs = []
+        lastGs = None
+        counter = 0
+        for row in self.movDataTable:
+            movieGs = row.GridSquare
+            if movieGs != lastGs:
+                if lastGs:
+                    gs.append({'gsId': lastGs, 'micrographs': counter})
+                lastGs = movieGs
+                counter = 0
+            counter += 1
+        gs.append({'gsId': lastGs, 'count': counter})
+
+        return gs
 
     def get_volume_data(self, volName, **kwargs):
         volPath = self.join(volName)

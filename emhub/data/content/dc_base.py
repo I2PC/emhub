@@ -740,8 +740,7 @@ class DataContent:
                 for mic in sdata.get_micrographs():
                     micFn = mic['micrograph']
                     micName = mic.get('micName', micFn)
-                    loc = EPU.get_movie_location(micName)
-                    gridsquares.append(loc['gs'])
+                    gridsquares.append(mic['gs'])
                     if not defocus:
                         firstMic = micFn
                     lastMic = micFn
