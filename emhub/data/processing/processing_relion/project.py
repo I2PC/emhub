@@ -425,7 +425,8 @@ class RelionSessionData(SessionData):
         resolution = []
         particles = 0
 
-        gsDir = FolderManager(self.join('data', 'Images-Disc1', gsId))
+        gsRoot = os.path.dirname(self.movies)
+        gsDir = FolderManager(os.path.join(gsRoot, 'GridSquares', gsId))
 
         for fn in gsDir.listdir():
             if fn.endswith('.jpg'):
