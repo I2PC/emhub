@@ -425,6 +425,7 @@ class SessionTaskHandler(TaskHandler):
          })
 
     def stop_all_otf(self, done=False):
+        return
         self.info("Stopping all OTF tasks.")
         stopped = self.worker.notify_launch_otf(self.task)
         self.info(f"Stopped: {stopped}")
@@ -600,7 +601,7 @@ class SessionTaskHandler(TaskHandler):
                 optStr = ",\n".join(f"'{k}' : '{v.format(**acq)}'" for k, v in opts.items())
                 f.write("{\n%s\n}\n" % optStr)
 
-        if workflow == 'scipion':
+        elif workflow == 'scipion':
             opts = self.sconfig['otf']['scipion']['options']
             cryolo_model = otf.get('cryolo_model', None)
 
@@ -612,6 +613,11 @@ class SessionTaskHandler(TaskHandler):
             with open(_path('scipion_otf_options.json'), 'w') as f:
                 opts['acquisition'] = acq
                 json.dump(opts, f, indent=4)
+
+        elif workflow == 'emwrap':
+            from emwrap.otf.mix import OTF
+            otf = OTF(otf_path)
+            otf.create(self.session, self.sconfig, self.resources)
 
         # Update OTF status
         if update_session:
@@ -743,13 +749,16 @@ class SessionWorker(Worker):
             handler.start()
 
     def notify_launch_otf(self, task):
-        """ This method should be called from tasks handlers to notify
+        """
+        This method should be called from tasks handlers to notify
         that a OTF is going ot be launched. Then, we must stop any other
         OTF tasks running in this host. (only one OTF running per host)
         """
         task_id = task['id']
         self.info(f"Task handler {task_id} notified launching OTF")
         stopped = []
+        return stopped
+
         current_threads = [v for v in self.tasks.values()]
         for v in current_threads:
             t = v.task

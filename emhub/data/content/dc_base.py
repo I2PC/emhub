@@ -726,7 +726,7 @@ class DataContent:
 
         if not sdata:
             data['stats'] = {'movies': {'count': 0}}
-            return data
+            raise Exception('OTF project not found.')
 
         data['stats'] = sdata.get_stats()
 
@@ -740,7 +740,7 @@ class DataContent:
                 for mic in sdata.get_micrographs():
                     micFn = mic['micrograph']
                     micName = mic.get('micName', micFn)
-                    gridsquares.append(mic['gs'])
+                    gridsquares.append(mic.get('gs', None))
                     if not defocus:
                         firstMic = micFn
                     lastMic = micFn
@@ -770,7 +770,6 @@ class DataContent:
                 tsRange = {'first': tsFirst * 1000,  # Timestamp in milliseconds
                            'last': tsLast * 1000,
                            'step': step * 1000}
-                
             data.update({
                 'defocus': defocus,
                 'defocusAngle': defocusAngle,
@@ -787,7 +786,6 @@ class DataContent:
 
         elif result == 'classes2d':
             runId = int(kwargs.get('run_id', -1))
-            print(">>>> DEBUG get_session_data, results = classes2d, runId = ", runId)
             data['classes2d'] = sdata.get_classes2d(runId=runId)
 
         return data

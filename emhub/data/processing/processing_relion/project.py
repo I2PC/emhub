@@ -43,19 +43,26 @@ class RelionSessionData(SessionData):
 
         pipelineStar = self.join('default_pipeline.star')
         self.workflow = RelionStar.pipeline_to_workflow(pipelineStar)
+        self.movDataTable = None
+        self.micDataTable = None
 
-        with StarFile(self.movies) as sf:
-            self.movDataTable = sf.getTable('movies')
-            self.movDataDict = {r.rlnImageId: r for r in self.movDataTable}
+        if os.path.exists(self.movies):
+            with StarFile(self.movies) as sf:
+                self.movDataTable = sf.getTable('movies')
+                self.movDataDict = {r.rlnImageId: r for r in self.movDataTable} if self.movDataTable else {}
 
-        with StarFile(self.micrographs) as sf:
-            self.micOpticsTable = sf.getTable('optics')
-            self.micDataTable = sf.getTable('micrographs')
-            self.micDataDict = {r.rlnImageId: r for r in self.micDataTable}
+        if os.path.exists(self.micrographs):
+            with StarFile(self.micrographs) as sf:
+                self.micOpticsTable = sf.getTable('optics')
+                self.micDataTable = sf.getTable('micrographs')
+                self.micDataDict = {r.rlnImageId: r for r in self.micDataTable} if self.micDataTable else {}
 
     def get_stats(self):
 
         def _stats_from_table(table, attribute):
+            if table is None:
+                return {'count': 0}
+
             s = {'count': len(table)}
 
             if attribute != 'count':
@@ -89,11 +96,16 @@ class RelionSessionData(SessionData):
         msImport = _stats_from_table(self.movDataTable, 'rlnMicrographMovieName')
         movieStats = msEpu if countEpu > msImport['count'] else msImport
 
+        if self.micDataTable:
+            coords = sum(row.rlnCoordinatesNumber for row in self.micDataTable)
+        else:
+            coords = 0
+
         return {
             'movies': movieStats,
             'ctfs': _stats_from_table(self.micDataTable, 'rlnMicrographName'),
             'classes2d': len(self.get_classes2d_runs()),
-            'coordinates': {'count': sum(row.rlnCoordinatesNumber for row in self.micDataTable)}
+            'coordinates': {'count': coords}
         }
 
     def importTimestamps(self):
@@ -426,7 +438,7 @@ class RelionSessionData(SessionData):
         particles = 0
 
         gsRoot = os.path.dirname(self.movies)
-        gsDir = FolderManager(os.path.join(gsRoot, 'GridSquares', gsId))
+        gsDir = FolderManager(os.path.join(gsRoot, 'EPU', 'GridSquares', gsId))
 
         for fn in gsDir.listdir():
             if fn.endswith('.jpg'):
