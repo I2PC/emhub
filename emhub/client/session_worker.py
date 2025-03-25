@@ -472,7 +472,7 @@ class SessionTaskHandler(TaskHandler):
             # logger = self.logger
             otf = extra['otf']
             otf_path = self.get_path_from(otf, raw_path, self.sconfig['otf']['root'],
-                                          suffix='_OTF')
+                                          suffix='_OTF_emwrap')
             otf_exists = os.path.exists(otf_path)
 
             otfStr = otf_path if len(otf_path) > 4 else 'NOT READY'
@@ -494,20 +494,20 @@ class SessionTaskHandler(TaskHandler):
                 self.update_task({'count': self.count})
 
             if otf_exists and raw_exists:
-                epuFolder = os.path.join(otf_path, 'EPU')
-                epuStar = os.path.join(epuFolder, 'movies.star')
+                # epuFolder = os.path.join(otf_path, 'EPU')
+                # epuStar = os.path.join(epuFolder, 'movies.star')
 
-                if self.epu_session is None:
-                    self.epu_session = EPU.Session(raw_path,
-                                                   outputStar=epuStar,
-                                                   backupFolder=epuFolder,
-                                                   pl=self.pl)
-                self.epu_session.scan()
-                if not os.path.exists(epuStar):
-                    self.info(f"File {epuStar} does not exist yet.")
-                else:
-                    with StarFile(epuStar) as sf:
-                        self.info(f"Scanned EPU folder, movies: {sf.getTableSize('Movies')}")
+                # if self.epu_session is None:
+                #     self.epu_session = EPU.Session(raw_path,
+                #                                    outputStar=epuStar,
+                #                                    backupFolder=epuFolder,
+                #                                    pl=self.pl)
+                # self.epu_session.scan()
+                # if not os.path.exists(epuStar):
+                #     self.info(f"File {epuStar} does not exist yet.")
+                # else:
+                #     with StarFile(epuStar) as sf:
+                #         self.info(f"Scanned EPU folder, movies: {sf.getTableSize('Movies')}")
                 if self.update_session:
                     self.info(f"No longer need to update session.")
                     self.update_session = False  # after launching no need to update
@@ -615,12 +615,12 @@ class SessionTaskHandler(TaskHandler):
                 json.dump(opts, f, indent=4)
 
         elif workflow == 'emwrap':
-            from emwrap.otf.mix import OTF
-            otf = OTF(otf_path)
-            otf.create(self.session, self.sconfig, self.resources)
+            from emwrap.mix.otf import OTF
+            OTF(otf_path).create(self.session, self.sconfig, self.resources.values())
 
         # Update OTF status
         if update_session:
+            self.info("Updating session, otf: %s" % str(otf))
             self.update_session_extra({'otf': otf})
 
     def launch_otf(self):

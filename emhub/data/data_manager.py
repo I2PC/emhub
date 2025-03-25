@@ -1241,6 +1241,9 @@ class DataManager(DbManager):
             if keyid not in attrs:
                 setattr(b, keyid, self._user.id)
                 setattr(b, key, self._user)
+            elif key not in attrs:
+                u = self.get_user_by(id=int(attrs[keyid]))
+                setattr(b, key, u)
 
         _set_user('creator')
         _set_user('owner')

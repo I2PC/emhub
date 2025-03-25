@@ -68,6 +68,18 @@
                         </div>
                     </div>
 
+                    <!-- Staff Row if not manager -->
+                    {% if not current_user.is_manager %}
+                         <div class="form-group row">
+                            {{ row_label('Staff') }}
+                             <div class="col-7">
+                                <input type="text" required="" placeholder="Staff" id="booking-staff-text" class="form-control" value="{{ booking.operator.name }}" readonly >
+                                 <input type="hidden" required="" id="booking-staff-hidden" class="form-control" value="{{ booking.operator.id }}" data-key="operator_id" >
+                            </div>
+                        </div>
+
+                    {% endif %}
+
                     <!-- Project Id Row -->
                     <div class="form-group row">
                         {{ row_label('Project ID') }}
@@ -246,6 +258,7 @@
                         </div>
 
                     {% endif %}
+
 
         </div> <!-- End of Modal body -->
 

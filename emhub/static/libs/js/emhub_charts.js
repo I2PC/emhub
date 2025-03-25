@@ -1395,6 +1395,56 @@ function create_hc_motionplot() {
     });
 } // function create_hc_motionplot
 
+
+
+function create_hc_preprocessing(containerId, batches, series) {
+    Highcharts.chart(containerId, {
+        chart: {
+            type: 'column',
+        },
+        title: {
+            text: undefined
+        },
+        xAxis: {
+            categories: batches
+        },
+        yAxis: {
+            min: 0,
+            title: {
+                text: 'Seconds'
+            },
+            stackLabels: {
+                enabled: true
+            }
+        },
+        // legend: {
+        //     align: 'left',
+        //     x: 70,
+        //     verticalAlign: 'top',
+        //     y: 70,
+        //     floating: true,
+        //     backgroundColor:
+        //         Highcharts.defaultOptions.legend.backgroundColor || 'white',
+        //     borderColor: '#CCC',
+        //     borderWidth: 1,
+        //     shadow: false
+        // },
+        tooltip: {
+            headerFormat: '<b>{category}</b><br/>',
+            pointFormat: '{series.name}: {point.y}<br/>Total: {point.stackTotal}'
+        },
+        plotOptions: {
+            column: {
+                stacking: 'normal',
+                dataLabels: {
+                    enabled: true
+                }
+            }
+        },
+        series: series
+    });
+}
+
 function create_pl_ctfplot(containerId, ctfvalues) {
      var data = [];
      for (i = 1; i <= 4; i++) {

@@ -17,15 +17,25 @@
             <table class="table borderless m-0 p-0">
             <tbody>
                 {% for daySlots in slots %}
+                    {% set dayIndex = loop.index0 %}
                 {% for b, overlaps in daySlots %}
                     {% set n = overlaps|length %}
                     {% set active = False %}
-                    <tr class="row p-0 m-0" style="{{ row_style }}" >
-                        <td class="col-2 text-left" style="font-weight: bold">
+                    <tr class="row p-0 m-0">
+                        <td class="col-4 text-left" style="font-weight: bold">
                             {% if loop.index0 == 0 %}
                                 {{ b|booking_span }}
+                                <select id="booking-operator-select_{{ dayIndex }}" class="selectpicker show-tick ml-2" data-index="{{ dayIndex }}">
+                                    <option value="0">Not set</option>
+                                    {% for u in possible_operators %}
+                                        {% if 'staff-cryoem' in u.roles %}
+                                            <option value="{{u['id']}}">{{u['name']}}</option>
+                                        {% endif %}
+                                    {% endfor %}
+                                </select>
                             {% endif %}
                         </td>
+
                         <td class="col-2">
                             <span style="color: rgb(255,107,53);">{{ b|time_range }}</span>
                         </td>
@@ -63,5 +73,16 @@
 </div>
 </div>
 
+<script>
 
+(function(window, document, $, undefined) {
+    "use strict";
+    $(function() {
+
+        $('select').selectpicker();
+
+    });
+})(window, document, window.jQuery);
+
+</script>
 

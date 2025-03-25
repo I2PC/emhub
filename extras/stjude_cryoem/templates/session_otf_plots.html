@@ -7,11 +7,35 @@
             </div>
 
             <div class="card-body">
-                <table class="table table-striped table-bordered col-1">
+                <table class="table table-striped table-bordered col-6">
                     <tbody>
-                        {% for k, v in means.items() %}
-                            {{ macros.trow(k, v, 'h4') }}
+                        <td></td>
+                        {% for k in values %}
+                            <th>{{ k }}</th>
                         {% endfor %}
+                        <th>Total</th>
+                        <tr>
+                            <td>Seconds</td>
+                            {% for v in values.values() %}
+                                <td>{{ v['mean'] }}</td>
+                            {% endfor %}
+                            <td>{{ mean_total }}</td>
+                        </tr>
+                        <tr>
+                            <td>Percent</td>
+                            {% for v in values.values() %}
+                                <td>{{ v['percent'] }}</td>
+                            {% endfor %}
+                            <td>100 %</td>
+                        </tr>
+                        <tr>
+                            <td>Time</td>
+                            {% for v in values.values() %}
+                                <td>{{ v['td'] }}</td>
+                            {% endfor %}
+                            <td>{{ td_total }}</td>
+                        </tr>
+
                     </tbody>
                 </table>
             </div>
@@ -22,6 +46,11 @@
             </div>
 
             <div class="card-body">
+                <div class="col-12">
+                    {% for a, b in indexes %}
+                        <a href="javascript:makePlots({{ a }}, {{ b }})" class="badge badge-info mr-3 mt-1" >{{ a + 1 }} - {{ b + 1}}</a>
+                    {% endfor %}
+                </div>
                 <div id="otf-plot" class="col-12" style="min-height: 600px;"></div>
             </div>
         </div> <!-- End of Data Card -->
@@ -32,71 +61,19 @@
     var batches = {{batches|tojson}};
     var series = {{ series|tojson }};
 
-
-function createOtfPlots() {
-    Highcharts.chart('otf-plot', {
-        chart: {
-            type: 'column'
-        },
-        /**title: {
-            text: 'Preprocessing batch times',
-            align: 'left'
-        },**/
-        xAxis: {
-            categories: batches //['Arsenal', 'Chelsea', 'Liverpool', 'Manchester United']
-        },
-        yAxis: {
-            min: 0,
-            title: {
-                text: 'Count trophies'
-            },
-            stackLabels: {
-                enabled: true
-            }
-        },
-        legend: {
-            align: 'left',
-            x: 70,
-            verticalAlign: 'top',
-            y: 70,
-            floating: true,
-            backgroundColor:
-                Highcharts.defaultOptions.legend.backgroundColor || 'white',
-            borderColor: '#CCC',
-            borderWidth: 1,
-            shadow: false
-        },
-        tooltip: {
-            headerFormat: '<b>{category}</b><br/>',
-            pointFormat: '{series.name}: {point.y}<br/>Total: {point.stackTotal}'
-        },
-        plotOptions: {
-            column: {
-                stacking: 'normal',
-                dataLabels: {
-                    enabled: true
-                }
-            }
-        },
-        series: series
-         /**
-            [{
-            name: 'BPL',
-            data: [3, 5, 1, 13]
-        }, {
-            name: 'FA Cup',
-            data: [14, 8, 8, 12]
-        }, {
-            name: 'CL',
-            data: [0, 2, 6, 3]
-        }] **/
-    });
-}
+    function makePlots(a, b) {
+     var new_series = [];
+       for (let i = 0; i < series.length; ++i) {
+           let s = series[i];
+           new_series.push({name: s.name, data: s.data.slice(a, b)})
+       }
+        create_hc_preprocessing('otf-plot', batches.slice(a, b), new_series);
+    }
 
 (function(window, document, $, undefined) {
     "use strict";
     $(function() {
-        createOtfPlots();
+        makePlots({{ indexes[0][0] }}, {{ indexes[0][1] }});
     });
 })(window, document, window.jQuery);
 

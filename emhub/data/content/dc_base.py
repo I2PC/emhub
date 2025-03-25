@@ -482,7 +482,7 @@ class DataContent:
         dm = self.app.dm
 
         if self.app.user.is_authenticated and self.app.user.is_manager:
-            return [{'id': u.id, 'name': u.name}
+            return [{'id': u.id, 'name': u.name, 'roles': u.roles}
                     for u in dm.get_users() if 'manager' in u.roles]
         return []
 

@@ -75,11 +75,13 @@
             }));
     }
 
-    function createslots_content(create_slots) {
+    function createslots_content(create_slots, operators) {
+
         return get_ajax_content("dashboard_createslots_card", {
                 resource_id: last_resource_id,
                 date: "{{ date|isoformat }}",
-                create_slots: create_slots
+                create_slots: create_slots,
+                operators: JSON.stringify(operators)
             });
     }
     function createSlots(resource_id){
@@ -89,7 +91,14 @@
     }
 
     function onSlotsCreateClick(){
-        var ajaxContent = createslots_content(1);
+        var operators = [];
+        for (let i = 0; i < 1; i++){
+            operators.push($('#booking-operator-select_' + i).selectpicker('val'));
+        }
+
+        alert(operators);
+
+        var ajaxContent = createslots_content(1, operators);
         ajaxContent.done(function(html) {
             $('#booking-modal').modal('hide');
             onBookingChanged(html);

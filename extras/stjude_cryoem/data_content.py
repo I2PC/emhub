@@ -169,6 +169,11 @@ def register_content(dc):
         series = []
         means = {}
 
+        def _td(secs):
+            mins = secs // 60
+            secs = secs % 60
+            return f"{mins} m, {secs} s"
+
         project = dc.app.dm.get_processing_project(**kwargs)['project']
 
         if project.exists('session.json'):
@@ -180,20 +185,36 @@ def register_content(dc):
                         info = json.load(f2)
                         skeys = ['mc', 'ctf', 'cryolo', 'extract']
                         seriesDict = {k: [] for k in skeys}
+                        N = len(info['batches'])
                         for key, batch in info['batches'].items():
                             batches.append(key)
                             for k in skeys:
                                 td = Timer.parse_timedelta(batch[f'{k}_elapsed'])
                                 seriesDict[k].append(td.seconds)
 
-                        batches.extend(info['batches'].keys())
+                        #batches.extend(info['batches'].keys())
                         series = [{'name': k, 'data': v} for k, v in seriesDict.items()]
-                        means = {k: round(statistics.fmean(v)) for k, v in seriesDict.items()}
+                        values = {k: {'mean': round(statistics.fmean(v))} for k, v in seriesDict.items()}
+                        mean_total = sum(v['mean'] for v in values.values())
+                        for v in values.values():
+                            m = v['mean']
+                            v['percent'] = '%0.2f %%' % (m / mean_total)
+                            v['td'] = _td(m)
 
+                        n = 50
+                        if N > n:
+                            indexes = [(i*n, (i+1)*n-1) for i in range(N // n + 1)]
+                            a, b = indexes[-1]
+                            indexes[-1] = (a, b + N % n)
+                        else:
+                            indexes = [(0, N-1)]
         data.update({
             'batches': batches,
             'series': series,
-            'means': means
+            'values': values,
+            'mean_total': mean_total,
+            'td_total': _td(mean_total),
+            'indexes': indexes
         })
 
         return data
@@ -269,6 +290,7 @@ def register_content(dc):
         resource = dm.get_resource_by(id=rid)
 
         create_slots = int(kwargs.get('create_slots', 0))
+        operators = json.loads(kwargs.get('operators', '[]'))
         bookings = data['resource_bookings'][rid].get('next_week', [])
         slots_config = dm.get_config('resources').get('slots', {})
         ranges = []
@@ -281,7 +303,7 @@ def register_content(dc):
         #range1 = _time('9:00'), _time("12:59")
         #range2 = dt.time(13), dt.time(23, minute=59)
 
-        def _create_day_slots(d):
+        def _create_day_slots(i, d):
             day_slots = []
             for r in ranges:
                 args = {
@@ -291,6 +313,8 @@ def register_content(dc):
                     'end': dm.date(d, r[1]),
                     'slot_auth': {'applications': ['any'], 'users': []}
                 }
+                if operators:
+                    args['operator_id'] = int(operators[i])
 
                 s = dm.Booking(**args)
                 o = [b for b in bookings if b.overlap(s)]
@@ -300,9 +324,9 @@ def register_content(dc):
             return day_slots
 
         slots = []
-        for i in range(5):
+        for i in range(1):
             d = next_week + dt.timedelta(days=i)
-            slots.append(_create_day_slots(d))
+            slots.append(_create_day_slots(i, d))
 
         data['slots'] = slots
 
