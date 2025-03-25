@@ -324,7 +324,7 @@ def register_content(dc):
             return day_slots
 
         slots = []
-        for i in range(1):
+        for i in range(5):
             d = next_week + dt.timedelta(days=i)
             slots.append(_create_day_slots(i, d))
 
