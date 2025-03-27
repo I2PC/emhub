@@ -316,10 +316,10 @@ class DataContent:
                     days = reqResources.get(r.name, {'days': '1'})['days']
 
                 sdate = dm.date(dt.datetime.strptime(dstr, '%Y/%m/%d'))
-                endDay = sdate.day + int(days) - 1
+                endDay = sdate + dt.timedelta(days=int(days) - 1)  # - 1
                 p = entry.project
 
-                edate = sdate.replace(day=endDay, hour=23, minute=59)
+                edate = endDay.replace(hour=23, minute=59)
                 return dm.Booking(
                     title='',
                     type='request',
