@@ -32,16 +32,6 @@
             </div>
 
             <div class="col-2">
-                <h5> Usage Metric </h5>
-                <select id="selectpicker-metric" class="selectpicker show-tick" data-width="100%" data-key="metric" style="color: white">
-                    {% for m in ['days', 'hours', 'data'] %}
-                      {% set selected = 'selected' if metric == m else '' %}
-                        <option {{ selected }} value="{{m}}">{{ m }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-
-            <div class="col-2">
                 <h5> Date Range </h5>
                 <input class="form-control" type="text" id="daterange" value="{{ start }} - {{ end }}" />
             </div>
@@ -58,15 +48,73 @@
 
             <div class="col-2 text-right" style="margin-top: 7px;">
                 <a href="javascript:updateReport()" class="btn btn-primary"> Update Plots</a>
+
+<!--                <a href="javascript:generatePdf()" class="btn btn-primary"> Generate PDF</a>-->
             </div>
         </div>
     </div>
 
-    <div class="card card-body" id="report-content">
-        {% include 'report_microscopes_usage_content.html' %}
+    <div id="report-content">
     </div>
 </div>
 
+
+<script>
+
+    function getArgs() {
+        var app_id = $('#application-id').val();
+
+        if (!app_id)
+            app_id = $('#selectpicker-app').selectpicker('val');
+
+        return {
+            key: last_key,
+            start: start_date,
+            end: end_date,
+            selected: $('#selectpicker-resource').selectpicker('val'),
+            metric: 'all',
+            application: app_id
+        }
+    }
+
+    function updateReport() {
+        var args = getArgs();
+        let selected = args.selected;
+
+         $("#report-content").empty();
+
+        const element = document.getElementById('report-content');
+        // element.innerHTML = '';
+
+         for (let i = 0; i < selected.length; ++i){
+             let rid = selected[i];
+             let idStr = "content-resource-" + rid;
+             console.log('idStr: ' + idStr);
+
+             // Create a new element
+            const child = document.createElement('div');
+            child.id = idStr
+            child.className = "card card-body";
+            child.textContent = idStr;
+            element.appendChild(child);
+            args.resource = rid;
+            load_html_from_ajax(idStr, get_ajax_content('report_microscopes_usage_content', args));
+         }
+    }
+
+    function selectEntryList(key, resource_id) {
+        last_key = key;
+        var args = getArgs();
+        args.resource = resource_id;
+        show_modal_from_ajax('show-entries-modal',
+            get_ajax_content('report_microscopes_usage_entrylist', args));
+    }
+
+    function generatePdf(){
+        savePdf('report-content');
+    }
+
+</script>
 
 
 
@@ -94,31 +142,6 @@
         end_date = end.format('YYYY/MM/DD');
     });
 
-    function getArgs() {
-        var app_id = $('#application-id').val();
-
-        if (!app_id)
-            app_id = $('#selectpicker-app').selectpicker('val');
-
-        return {
-            key: last_key,
-            start: start_date,
-            end: end_date,
-            selected: $('#selectpicker-resource').selectpicker('val').join(','),
-            metric: $('#selectpicker-metric').selectpicker('val'),
-            application: app_id
-        }
-    }
-
-    function updateReport() {
-        load_html_from_ajax('report-content',
-            get_ajax_content('report_microscopes_usage_content', getArgs()));
-    }
-
-    function selectEntryList(key) {
-        last_key = key;
-        show_modal_from_ajax('show-entries-modal',
-            get_ajax_content('report_microscopes_usage_entrylist', getArgs()));
-    }
+    updateReport();
 
 </script>

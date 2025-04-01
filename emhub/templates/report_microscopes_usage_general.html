@@ -63,7 +63,7 @@
     </div>
 
     <div class="card card-body" id="report-content">
-        {% include 'report_microscopes_usage_content.html' %}
+        {% include 'report_microscopes_usage_general_content.html' %}
     </div>
 </div>
 
@@ -112,7 +112,7 @@
 
     function updateReport() {
         load_html_from_ajax('report-content',
-            get_ajax_content('report_microscopes_usage_content', getArgs()));
+            get_ajax_content('report_microscopes_usage_general_content', getArgs()));
     }
 
     function selectEntryList(key) {

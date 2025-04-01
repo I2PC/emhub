@@ -344,7 +344,16 @@ def register_content(dc):
 
     @dc.content
     def report_microscopes_usage(**kwargs):
-        metric = kwargs.get('metric', 'days')
+        metric = kwargs.get('metric', 'all')
+
+        metric_all = {
+            'data': {'_value': lambda b: b.total_size},
+            'days': {'_value': lambda b: b.units(hours=12)},
+            'images': {'_value': lambda b: b.total_images}
+            #'hours': {'_value': lambda b: b.hours}
+        }
+
+        use_all = metric == 'all'
         use_data = metric == 'data'
         use_days = metric == 'days'
 
@@ -352,6 +361,14 @@ def register_content(dc):
 
         dm = dc.app.dm  # shortcut
         centers = dm.get_config('sessions').get('centers', {})
+        groups = dm.get_config('sessions').get('groups', {})
+        groups_colors = dm.get_config('reports')['groups_colors']
+        types_colors = {
+            'downtime': '#B22222', 'maintenance': '#FF7F50', 'special': '#20B2AA'
+        }
+
+        def _pi_color(pi_email):
+            return groups_colors.get(groups.get(pi_email, ''), '#E8F0F2')
 
         def _filter(b):
             return not b.is_slot
@@ -359,11 +376,8 @@ def register_content(dc):
         app_id = kwargs.get('application', 'all')
 
         applications = [a for a in dm.get_visible_applications() if a.is_active]
-        if app_id == 'all':
-            selected_apps = applications
-        else:
-            app = dm.get_application_by(id=int(app_id))
-            selected_apps = [app]
+        app = applications[0]
+        selected_apps = [app]
 
         pi_list = []
         pi_apps = {}
@@ -377,48 +391,55 @@ def register_content(dc):
                                                        filter=_filter)
         entries_usage = {}
         entries_operators = {}
-        total_usage = 0
         entries_down = {}
         total_down = 0
+        total_days = 0
         key = kwargs.get('key', '')
         selected_entry = None
-        total_days = 0
-        totalDays = defaultdict(lambda: 0)
         resources_data_usage = defaultdict(lambda: list())
 
         report_resources = dm.get_config('reports')['resources']
         resources = [r for r in dc.get_resources()['resources']
                      if r['name'] in report_resources]
+        resources_dict = {r['id']: r for r in resources}
 
-        # selected resources
-        if 'selected' in kwargs:
-            selected = [int(p) for p in kwargs['selected'].split(',')]
-        else:
-            selected = [r['id'] for r in resources]
+        selected_resources = kwargs.get('selected', [r['id'] for r in resources])
+        # selected resource
+        rid = int(kwargs.get('resource', 0))
+        resource = resources_dict.get(rid, None)
 
-        def _value(b):
-            return b.total_size if use_data else (b.units(hours=12) if use_days else b.hours)
-
-        def _entry(key, label, app='', email='', total_days=0):
+        def _entry(key, label, app='', email='', total_days=0, color=''):
             return {
                 'key': key,
                 'app': app,
                 'label': label,
                 'email': email,
                 'bookings': [],
+                'values': {k: 0 for k in metric_all},
                 'days': defaultdict(lambda: 0),
                 'data': defaultdict(lambda: {'size': 0, 'files': 0}),
-                'total_data': {'size': 0, 'files': 0},
                 'total_days': total_days,
-                'users': set()
+                'total_data': {'size': 0, 'files': 0},
+                'users': set(),
+                'color': color
             }
 
+        def _values(b):
+            return {k: v['_value'](b) for k, v in metric_all.items()}
+
+        def _add_values(e, values):
+            for k, v in values.items():
+                e['values'][k] += v
+            e['total_days'] += values['days']
+
+        total_entry = _entry('Total', 'Total', )
+
         for b in bookings:
-            if b.resource_id not in selected:
+            if b.resource_id != rid:
                 continue
 
             rid = b.resource.id
-            b_value = _value(b)
+            b_values = _values(b)
             entry_app = ''
 
             if b.type in ['downtime', 'maintenance', 'special']:
@@ -426,7 +447,8 @@ def register_content(dc):
                 entry_label = entry_key.capitalize()
                 entry_email = ''
                 entries = entries_down
-                total_down += b_value
+                total_down += b_values['days']
+                entry_color = types_colors[entry_key]
             else:
                 if b.project:
                     pi = b.project.user.get_pi()
@@ -438,43 +460,40 @@ def register_content(dc):
                 entry_app = pi_apps[pi.id].code
                 entry_label = centers.get(pi.email, pi.name)
                 entry_email = pi.email
+                entry_color = _pi_color(entry_email)
                 entries = entries_usage
-                total_usage += b_value
-                totalDays[rid] += b_value
+                _add_values(total_entry, b_values)
                 ts = dt.datetime.timestamp(b.end)
-                resources_data_usage[rid].append((ts * 1000, b_value))
+                resources_data_usage[rid].append((ts * 1000, b_values['data']))
 
                 # Store entries by operator
                 op = b.operator
                 opKey = op.name if op else 'Unknown'
                 if opKey not in entries_operators:
                     entries_operators[opKey] = _entry(opKey, opKey)
-                entry = entries_operators[opKey]
-                entry['days'][rid] += 1
-                entry['total_days'] += 1
+                entry_op = entries_operators[opKey]
+                entry_op['days'][rid] += 1
+                entry_op['total_days'] += 1
 
             if entry_key not in entries:
                 entries[entry_key] = _entry(entry_key, entry_label,
-                                            entry_app, entry_email)
+                                            entry_app, entry_email,
+                                            color=entry_color)
 
             entry = entries[entry_key]
             entry['bookings'].append(b)
-            entry['days'][rid] += b_value
-            entry['total_days'] += b_value
+            _add_values(entry, b_values)
             entry['users'].add(b.owner.email)
 
-            total_days += b_value
+            total_days += b_values['days']
             if key == entry_key:
                 selected_entry = entry
-
-        entries_sorted = [e for e in sorted(entries_usage.values(),
-                                            key=lambda e: e['total_days'],
-                                            reverse=True)]
 
         def _percent(value):
             return 100 / value if value > 0 else 0
 
         percent = _percent(total_days)
+        total_usage = total_entry['total_days']
         percent_usage = _percent(total_usage)
 
         def _name(e):
@@ -488,10 +507,7 @@ def register_content(dc):
         def _days_value(v):
             return v / 2 if use_days else v
 
-        def _selected_resources():
-            for r in resources:
-                if r['id'] in selected:
-                    yield r
+        entries_sorted = list(_sorted_entries(entries_usage.values()))
 
         # Compute used and unused days per microscope based on
         # total days minus usage (including maintenance, downtime, or special)
@@ -501,116 +517,65 @@ def register_content(dc):
         period_units = period_days * 2
 
         other_total = sum(e['total_days'] for e in entries_down.values())
-        unused_total = (period_units * len(selected)) - total_usage - other_total
+        unused_total = period_units - total_usage - other_total
 
-        used_entry = _entry(key='usage', label='Usage', total_days=total_usage)
-        unused_entry = _entry(key='unused', label='Unused', total_days=unused_total)
-        count_selected = 0
-        for r in _selected_resources():
-            used_r = sum(e['days'][r['id']] for e in entries_sorted)
-            other_r = sum(e['days'][r['id']] for e in entries_down.values())
-            unused_r = period_units - used_r - other_r
-            used_entry['days'][r['id']] = used_r
-            unused_entry['days'][r['id']] = unused_r
-            count_selected += 1
-
+        used_entry = _entry(key='usage', label='Usage', total_days=total_usage,
+                            color='#3CB371')
+        unused_entry = _entry(key='unused', label='Unused', total_days=unused_total,
+                              color='#D3D3D3')
         entries_down.update({'used': used_entry, 'unused': unused_entry})
-        percent_pie = _percent(period_units) / count_selected
+        percent_pie = _percent(period_units)
         pie_data = [{'name': e['label'], 'y': e['total_days'] * percent_pie,
+                     'color': e['color'],
                      'days': _days_value(e['total_days'])}
                     for e in entries_down.values()]
 
-        bar_data = []
         drilldown_data = []
+        bar_data = [{
+            'name': _name(e),
+            'color': e['color'],
+            'y': e['total_days'] * percent_usage,
+            'drilldown': e['label']
+        } for e in entries_sorted]
 
-        if len(selected_apps) > 1:
-            app_entries = {}
-            for e in entries_sorted:
-                app = e['app']
-                if app not in app_entries:
-                    app_entries[app] = {'name': app, 'total_days': 0,
-                                        'data': []}
-                app_entries[app]['total_days'] += e['total_days']
-                app_entries[app]['data'].append(e)
+        for e in entries_sorted:
+            percent = _percent(e['total_days'])
+            usage = {}
+            for b in e['bookings']:
+                name = b.owner.name
+                if name not in usage:
+                    usage[name] = 0
+                usage[name] += _values(b)['days']
 
-            for ae in _sorted_entries(app_entries.values()):
-                bar_data.append({
-                    'name': ae['name'],
-                    'y': ae['total_days'] * percent_usage,
-                    'drilldown': ae['name']
-                })
-
-                drilldown_data.append({
-                    'name': ae['name'],
-                    'id': ae['name'],
-                    'data': [(e['label'], e['total_days'] * percent_usage)
-                             for e in _sorted_entries(ae['data'])]
-                })
-
-        else:
-            bar_data = [{
+            drilldown_data.append({
                 'name': _name(e),
-                'y': e['total_days'] * percent_usage,
-                'drilldown': e['label']
-            } for e in entries_sorted]
-
-            for e in entries_sorted:
-                percent = _percent(e['total_days'])
-                usage = {}
-                for b in e['bookings']:
-                    name = b.owner.name
-                    if name not in usage:
-                        usage[name] = 0
-                    usage[name] += _value(b)
-
-                drilldown_data.append({
-                    'name': _name(e),
-                    'id': e['label'],
-                    'data': [(k, v * percent) for k, v in usage.items()]
-                })
+                'id': e['label'],
+                'data': [(k, v * percent) for k, v in usage.items()]
+            })
 
         # Add a total entry
-        entries_sorted.insert(0, {
-            'key': 'Total', 'label': 'Total', 'email': '',
-            'bookings': [], 'total_days': total_usage,
-            'days': totalDays,
-        })
-
-        data_usage_series = []
-        entries_overall = []
-
-        for r in _selected_resources():
-            resources_data_usage[r['id']].sort(key=lambda item: item[0])
-            data_usage_series.append({'name': r['name'],
-                                      'color': r['color'],
-                                      'data': resources_data_usage[r['id']]})
-
-            # Compute overall time distribution
-            def _days(k, r):
-                return _days_value(entries_down.get(k, {}).get('days', {}).get(r['id'], 0))
-
-            data = {k: _days(k, r)
-                    for k in ['used', 'maintenance', 'downtime', 'special', 'unused']}
-            entries_overall.append({'r': r, 'data': data})
-
-        if total_usage == 0:
-            raise Exception("There is no usage for the selected metric. ")
-
+        entries_sorted.insert(0, total_entry)
         periodStr = start.strftime('%b %y')
         if period_days > 31:
             periodStr += ' - ' + end.strftime('%b %y')
 
+
+        overall_values = defaultdict(lambda: 0)
+        overall_values.update({k: v['total_days'] / 2
+                               for k, v in entries_down.items()})
+        print(overall_values)
         data = {
             'entries': entries_sorted,
-            'entries_overall': entries_overall,
+            'entries_down': overall_values,
+            # 'entries_overall': entries_overall,
             'entries_operators': [e for e in sorted(entries_operators.values(),
                                                     key=lambda e: e['total_days'],
                                                     reverse=True)],
             'total_days': total_days,
             'total_usage': total_usage,
-            'resources_dict': {r['id']: r for r in resources},
-            'selected_resources': selected,
-            'resource_names': ', '.join(r['name'] for r in _selected_resources()),
+            'resources_dict': resources_dict,
+            'resource': resource,
+            'selected_resources': selected_resources,
             'selected_entry': selected_entry,
             'applications': applications,
             'selected_apps': selected_apps,
@@ -619,11 +584,11 @@ def register_content(dc):
             'pie_data': pie_data,
             'bar_data': bar_data,
             'drilldown_data': drilldown_data,
-            'data_usage_series': data_usage_series,
             'resources': resources,
             'metric': metric,
             'use_data': use_data,
             'use_days': use_days,
+            'use_all': use_all,
             'start_date': start,
             'end_date': end,
             'period_days': period_days,
@@ -634,6 +599,14 @@ def register_content(dc):
 
     @dc.content
     def report_microscopes_usage_content(**kwargs):
+        return report_microscopes_usage(**kwargs)
+
+    @dc.content
+    def report_microscopes_usage_general_content(**kwargs):
+        return report_microscopes_usage(**kwargs)
+
+    @dc.content
+    def report_microscopes_usage_general(**kwargs):
         return report_microscopes_usage(**kwargs)
 
     @dc.content

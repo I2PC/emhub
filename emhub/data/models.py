@@ -824,6 +824,7 @@ class Booking(Base):
 
         return application.code in self.slot_auth.get('applications', [])
 
+
 class Session(Base):
     """Model for sessions."""
     __tablename__ = 'sessions'

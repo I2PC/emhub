@@ -16,7 +16,7 @@
                 <thead>
                 <tr>
                     <th>start</th>
-                    <th>{{ metric }}</th>
+                    <th>days</th>
                     <th>user</th>
                     <th>instrument</th>
                     <th>sessions</th>
@@ -28,12 +28,7 @@
                     {% set r = resources_dict[b.resource.id] %}
                 <tr>
                     <td>{{ b.start|pretty_date }}</td>
-                    {% if use_data %}
-                        {% set b_size = b.total_size %}
-                        <td>{% if b_size %}{{ b_size|pretty_size }} {% endif %}</td>
-                    {% else %}
-                        <td>{{ b.units(hours=12) / 2 if use_days else b.hours }}</td>
-                    {% endif %}
+                    <td>{{ b.units(hours=12) / 2 }}</td>
                     <td>{{ b.owner.name }}</td>
                     <td><span class='badge' style='background: {{ r['color'] }}; color: #fff;'>{{r['name']}}</span></td>
                     <td>{{ macros.session_list(b.session) }}</td>
