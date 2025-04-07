@@ -120,7 +120,9 @@ def register_content(dc):
         if 'booking_id' in kwargs:
             booking_id = kwargs['booking_id']
             booking = dm.get_booking_by(id=booking_id)
-            read_only = not (user.is_manager or user.id == booking.owner.id)
+            pi = user.get_pi()
+            pid = 0 if pi is None else pi.id
+            read_only = not (user.is_manager or user.id == booking.owner.id or user.id == pid)
 
             if dates:
                 booking.start = dates['start']

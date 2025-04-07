@@ -804,6 +804,10 @@ def create_data_models(dm):
             """ Compute all the data size of sessions related to this booking. """
             return sum(s.total_size for s in self.session)
 
+        @property
+        def total_images(self):
+            return sum(s.images for s in self.session)
+
         def __repr__(self):
             def _timestr(dt):
                 return dt.strftime('%Y/%m/%d ')
