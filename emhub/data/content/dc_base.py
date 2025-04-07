@@ -337,11 +337,13 @@ class DataContent:
         """ Return True if booking is active today. """
         dm = self.app.dm
         now = dm.now().date()
+        # Allow users to create sessions during a grace time
+        grace = dt.timedelta(hours=23)
 
         def _local(dt):
             return dm.dt_as_local(dt).date()
 
-        return _local(b.start) <= now <= _local(b.end)
+        return _local(b.start) <= now <= _local(b.end) or dm.now() - dm.dt_as_local(b.end) < grace
 
     def user_profile_image(self, user):
         if getattr(user, 'profile_image', None):
