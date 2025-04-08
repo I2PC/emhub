@@ -30,6 +30,7 @@ import os
 import shutil
 import datetime as dt
 import json
+import traceback
 
 from emtools.utils import Process, Color
 from emhub.data import DataManager
@@ -169,7 +170,12 @@ class TestData:
 
         for bDict in self.json_data['bookings']:
             self.__fix_dates(bDict, 'start', 'end')
-            dm.create_booking(**bDict)
+            try:
+                dm.create_booking(**bDict)
+            except:
+                print(f"Error creating booking with args: {bDict}")
+                traceback.print_exc()
+
 
     def _populateSessions(self, dm):
         self._action('Populating Sessions')
