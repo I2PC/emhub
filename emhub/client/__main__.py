@@ -128,7 +128,19 @@ def process_forms(args):
 def process_sessions(args):
     with open_client() as dc:
         sessions = dc.request('get_sessions', jsonData=None).json()
-        sessions_dict = {s['id']: s for s in sessions}
+        filters = args.filters or []
+
+        print(filters)
+
+        def _filter(f, session):
+            return eval(f, {}, {'s': session})
+
+        def _all(session):
+            if filters:
+                return all(_filter(f, session) for f in filters)
+            return True
+
+        sessions_dict = {s['id']: s for s in sessions if _all(s)}
 
         ids = args.list
         if ids is not None:
@@ -295,6 +307,8 @@ def main():
                    help="List sessions, leave it empty to list all.")
     g.add_argument('--create', '-c', metavar='SESSION_JSON',
                    help='Create a session from the json file. ')
+    session_p.add_argument('--filters', '-f', nargs='*', metavar='FILTER',
+                           help="Filter string to be used with list option.")
 
     # ------------------------- Puck subparser -------------------------------
     puck_p = subparsers.add_parser("puck")

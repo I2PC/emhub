@@ -29,6 +29,7 @@ from collections import OrderedDict
 import configparser
 from pprint import pprint
 import traceback
+import tempfile
 
 from emtools.utils import Pretty, Process, Path, Color, System, Timer
 from emtools.metadata import EPU, MovieFiles, StarFile
@@ -222,22 +223,68 @@ class SessionTaskHandler(TaskHandler):
         seen = self.seen
         self.n_files = 0
         self.n_movies = 0
+        self._to_move = []
+        self._to_copy = []
+
+        def _rsync(file_list, move=False):
+            tries = 5
+            sleep = 60
+            while tries:
+                try:
+                    # Create a named temporary file
+                    with tempfile.NamedTemporaryFile() as tmpfile:
+                        prefix = 'move' if move else 'copy'
+                        debugDstFile = f"/home/appdpcryoEM/{prefix}-{os.path.basename(tmpfile.name)}"
+                        with open(tmpfile.name, 'w') as f:
+                            for fn in file_list:
+                                if not os.path.exists(os.path.join(framesPath, fn)):
+                                    self.info("MISSING file: " + fn)
+                                else:
+                                    f.write(f"{fn.replace(framesPath, '')}\n")
+                        args = [
+                            "-c", 
+                            "--temp-dir=/gscem/testgrp/TRANSFER_TMP/",
+                            f"--files-from={tmpfile.name}"
+                        ]
+                        self.pl.cp(tmpfile.name, debugDstFile)
+                        time.sleep(3)
+                        if move:
+                            args.append("--remove-source-files")
+                        if n := Path.rsync(framesPath, rawPath, *args):
+                            return n
+                except Exception as e:
+                    tries -= 1
+                    msg = f"RSYNC error: {str(e)}, sleeping"
+                    self.info(msg)
+                    time.sleep(sleep)
+                    sleep *= 2
+
+            raise Exception('RSYNC could not be completed after 5 tries.')
 
         def _update():
             self.info(f"Found {self.n_files} new files, "
-                             f"{self.n_movies} new movies, "
-                             f"seen: {len(self.seen)}")
+                      f"{self.n_movies} new movies, seen: {len(self.seen)}")
             if self.n_files > 0:
+                t = Timer()
+                copied = _rsync(self._to_copy)
+                moved = _rsync(self._to_move, move=True)
+                elapsed = t.getElapsedTime()
                 raw.update(mf.info())
                 self.update_session_extra({'raw': raw})
                 # Remove dict from the task update
                 self.update_task({'new_files': self.n_files,
                                   'new_movies': self.n_movies,
                                   'total_files': mf.total_files,
-                                  'total_movies': mf.total_movies
+                                  'total_movies': mf.total_movies,
+                                  'moved_files': moved,
+                                  'copied_files': copied,
+                                  'transfer_time': str(elapsed)
                                   })
             self.n_files = 0
             self.n_movies = 0
+            self._to_move = []
+            self._to_copy = []
+
 
         def _gsThumb(f):
             return f.startswith('GridSquare') and f.endswith('.jpg')
@@ -293,9 +340,11 @@ class SessionTaskHandler(TaskHandler):
                     if EPU.is_movie_fn(f):
                         self.n_movies += 1
                         # Only move now the movies files, not other metadata files
-                        self.pl.system(f'rsync -ac --temp-dir=/gscem/testgrp/TRANSFER_TMP/ --remove-source-files "{srcFile}" "{dstFile}"', retry=30)
+                        self._to_move.append(srcFile)
+                        # self.pl.system(f'rsync -ac --temp-dir=/gscem/testgrp/TRANSFER_TMP/ --remove-source-files "{srcFile}" "{dstFile}"', retry=30)
                     else:  # Copy metadata files
-                        self.pl.cp(srcFile, dstFile, retry=30)
+                        self._to_copy.append(srcFile)
+                        #self.pl.cp(srcFile, dstFile, retry=30)
 
                 if self.n_files >= 32:  # make frequent updates to keep otf updated
                     _update()
@@ -351,6 +400,9 @@ class SessionTaskHandler(TaskHandler):
             self.update_task(update_args)
             self.stop()
 
+    def __delattr__(self, __name):
+        super().__delattr__(__name)
+
     def deliver(self):
         """ Deliver session files from GSCEM to Jude. """
         extra = self.session['extra']
@@ -391,7 +443,7 @@ class SessionTaskHandler(TaskHandler):
         msg = ''
 
         try:
-            n = Path.rsync(gscemPath, judePath, verbose=False)
+            n = Path.rsync(gscemPath, judePath)
         except Exception as e:
             n = -1
             msg = f"Error during the rsync: {str(e)}"
@@ -400,8 +452,7 @@ class SessionTaskHandler(TaskHandler):
 
         if n > 0:
             self.info(f"Synced {n} files from {gscemPath} to {judePath}")
-            sleep_minutes = 5
-            self.sleep = sleep_minutes * 60  # Bring sleep time back to 5 minutes
+            sleep_minutes = 1
             self.last_delivered = datetime.now()
             self.update_session_extra({
                 'jude': {
@@ -480,7 +531,7 @@ class SessionTaskHandler(TaskHandler):
 
             if not otf_exists or clear:
                 # OTF is not running, let's check if we need to launch it
-                if raw_exists and n > 16:
+                if raw_exists and n > 8:
                     self.info(f"Launching OTF after {n} images found.")
                     self.worker.notify_launch_otf(self.task)
                     self.create_otf_folder(otf_path)
