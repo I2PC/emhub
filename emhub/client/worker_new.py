@@ -80,6 +80,7 @@ class TaskHandler(threading.Thread):
         # Register this task handler in the current worker
         worker.add_handler(task, self)
         self._logPrefix = self.getLogPrefix()
+        self.emhub_log = None
 
     def getLogPrefix(self):
         """ Internal function to have a unique Log prefix. """
@@ -98,11 +99,9 @@ class TaskHandler(threading.Thread):
         self._stopEvent.set()
 
     def _stop_thread(self, error=None):
-        self.info(f"Stopping task handler for {self.task['id']}.")
+        self.info(f"STOPPING task handler.")
         if error:
             self.error(error)
-
-        self.worker.remove_handler(self.task)
 
     def _request(self, requestFunc, errorMsg, tries=10):
         return self.worker._request(requestFunc, errorMsg, tries=tries)
@@ -116,27 +115,31 @@ class TaskHandler(threading.Thread):
     def request_config(self, config):
         return self.worker.request_config(config)
 
-    def update_task(self, event, tries=-1, wait=10):
+    def update_remote(self, endpoint, data, tries=-1, wait=10):
         """ Update task info.
 
         Args:
+            endpoint: either update_task or update_log
             event: info that will be sent as part of the update
             tries: try this many times to update the task, if less than zero, try forever
             wait: seconds to wait between tries
         """
         while tries:
             try:
-                data = {
-                    'task_id': self.task['id'],
-                    'event': event
-                }
-                self.worker.request('update_task', data)
+                self.worker.request(endpoint, data)
                 return True
             except Exception as e:
                 self.error(f"Exception while updating task {self.getLogPrefix()}: {e}")
                 time.sleep(wait)
             tries -= 1
         return False
+
+    def update_task(self, event, tries=-1, wait=10):
+        data = {
+            'task_id': self.task['id'],
+            'event': event
+        }
+        self.update_remote('update_task', data)
 
     def run(self):
         """ Implement thread's activity, running an infinite loop calling
@@ -162,9 +165,9 @@ class TaskHandler(threading.Thread):
                     self.error(msg)
                     with open(os.path.join(self.worker.logsFolder, errorLog), 'w') as f:
                         f.write(errorTrace)
-                    self.update_task({'error': errorTrace})
+                    # TODO: Send the log EMhub
+                    #self.update_task({'error': errorTrace, 'done': 1})
                     print(e)
-
                 except Exception as e2:
                     print(f"Another exception occurred while handling "
                           f"previous exception. ERROR: {str(e2)}")

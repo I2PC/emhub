@@ -35,8 +35,8 @@ from emtools.utils import Pretty, Process, Path, Color, System, Timer
 from emtools.metadata import EPU, MovieFiles, StarFile
 
 from emhub.client import config
-from emhub.client.worker import (TaskHandler, DefaultTaskHandler, CmdTaskHandler,
-                                 Worker)
+from emhub.client.worker_new import (TaskHandler, DefaultTaskHandler,
+                                     CmdTaskHandler, Worker)
 
 
 class SessionTaskHandler(TaskHandler):
@@ -48,6 +48,7 @@ class SessionTaskHandler(TaskHandler):
 
         targs = self.task['args']
         self.session_id = int(targs['session_id'])
+        self.session_emhub_log = f'log:session:{self.session_id}'
         self.action = targs.get('action', 'Empty-Action')
 
         self.session = self.get_session()
@@ -67,6 +68,13 @@ class SessionTaskHandler(TaskHandler):
         self.info(f">>> Handling task for session {self.session_id}")
         self.info(f"\t action: {self.action}")
         self.info(f"\t   args: {targs}")
+
+
+    def update_log(self, event):
+        data = {
+            'log_id': self.session_emhub_log, 'event': event
+        }
+        self.update_remote('update_log', data, tries=2, wait=5)
 
     def process(self):
         if self.users is None:
@@ -89,7 +97,7 @@ class SessionTaskHandler(TaskHandler):
         def _update_extra():
             extra['updated'] = Pretty.now()
             self.worker.request('update_session_extra',
-                         {'id': self.session['id'], 'extra': extra})
+                                {'id': self.session['id'], 'extra': extra})
             return True
 
         return self._request(_update_extra, 'updating session extra')
@@ -100,9 +108,10 @@ class SessionTaskHandler(TaskHandler):
 
     def get_session(self, tries=10):
         """ Retrieve session info to update local data. """
+
         def _get_session():
             self.info(f"Retrieving session {self.session_id} from EMhub "
-                             f"({config.EMHUB_SERVER_URL})")
+                      f"({config.EMHUB_SERVER_URL})")
             return self.dc.get_session(self.session_id)
 
         errorMsg = f"retrieving session {self.session_id} info."
@@ -116,7 +125,7 @@ class SessionTaskHandler(TaskHandler):
         raise Exception(error)
 
     def unknown_action(self):
-        self.update_task({
+        self.update_log({
             'error': f'Unknown action {self.action}',
             'done': 1
         })
@@ -155,11 +164,11 @@ class SessionTaskHandler(TaskHandler):
                         'size': mffInfo['sizeH'],
                         'lastFile': Pretty.elapsed(mffInfo['last_file'])
                     })
-                self.update_task(uargs)
+                self.update_log(uargs)
 
         # Remove dict from the task update
         del update_args['files']
-        self.update_task(update_args)
+        self.update_log(update_args)
 
     def get_session_name(self):
         """ Strip down : for uniqueness. """
@@ -196,8 +205,8 @@ class SessionTaskHandler(TaskHandler):
         fullName = self.get_session_fullname()
         # Offload server path where to transfer the files
         rawPath = os.path.join(rawRoot, self.users['group'], self.microscope,
-                                      str(datetime.now().year), 'raw', 'EPU',
-                                      userFolder, fullName)
+                               str(datetime.now().year), 'raw', 'EPU',
+                               userFolder, fullName)
         framesPath = Path.addslash(framesPath)
         rawPath = Path.addslash(rawPath)
 
@@ -244,7 +253,7 @@ class SessionTaskHandler(TaskHandler):
                                     f.write(f"{fn.replace(framesPath, '')}\n")
                             self.pl.cp(tmpfile.name, debugDstFile)
                         args = [
-                            "-c", 
+                            "-c",
                             "--temp-dir=/gscem/testgrp/TRANSFER_TMP/",
                             f"--files-from={tmpfile.name}"
                         ]
@@ -279,7 +288,7 @@ class SessionTaskHandler(TaskHandler):
                 raw.update(mf.info())
                 self.update_session_extra({'raw': raw})
                 # Remove dict from the task update
-                self.update_task({'new_files': self.n_files,
+                self.update_log({'new_files': self.n_files,
                                   'new_movies': self.n_movies,
                                   'total_files': mf.total_files,
                                   'total_movies': mf.total_movies,
@@ -291,7 +300,6 @@ class SessionTaskHandler(TaskHandler):
             self.n_movies = 0
             self._to_move = []
             self._to_copy = []
-
 
         def _gsThumb(f):
             return f.startswith('GridSquare') and f.endswith('.jpg')
@@ -351,7 +359,7 @@ class SessionTaskHandler(TaskHandler):
                         # self.pl.system(f'rsync -ac --temp-dir=/gscem/testgrp/TRANSFER_TMP/ --remove-source-files "{srcFile}" "{dstFile}"', retry=30)
                     else:  # Copy metadata files
                         self._to_copy.append(srcFile)
-                        #self.pl.cp(srcFile, dstFile, retry=30)
+                        # self.pl.cp(srcFile, dstFile, retry=30)
 
                 if self.n_files >= 32:  # make frequent updates to keep otf updated
                     _update()
@@ -401,10 +409,10 @@ class SessionTaskHandler(TaskHandler):
 
             if self.framesInfo:
                 if int(self.framesInfo['movies']) == 0:
-                    self.info(f'FIXME: Stopping transfer, cleaning frames folder: '
+                    self.info(f'Stopping transfer, cleaning frames folder: '
                               f'{framesPath}.')
-                    #self.pl.rm(framesPath)
-            self.update_task(update_args)
+                    self.pl.rm(framesPath)
+            self.update_log(update_args)
             self.stop()
 
     def __delattr__(self, __name):
@@ -476,11 +484,11 @@ class SessionTaskHandler(TaskHandler):
 
         self.sleep = sleep_minutes * 60  # Bring sleep time back to 5 minutes
 
-        self.update_task({
+        self.update_log({
             'transferred_files': n,
             'msg': msg,
             'sleeping': sleep_minutes
-         })
+        })
 
     def stop_all_otf(self, done=False):
         return
@@ -491,7 +499,7 @@ class SessionTaskHandler(TaskHandler):
         if done:
             event['done'] = 1
             self.stop()
-        self.update_task(event)
+        self.update_log(event)
 
     def get_path_from(self, pathDict, referencePath, root, suffix=''):
         path = pathDict.get('path', None)
@@ -508,7 +516,7 @@ class SessionTaskHandler(TaskHandler):
         # Debugging option to only create the OTF folder and exit
         if otf_folder := self.task['args'].get('create_otf_folder'):
             self.create_otf_folder(otf_folder, update_session=False)
-            self.update_task({
+            self.update_log({
                 'done': 1
             })
             self.stop()
@@ -544,12 +552,12 @@ class SessionTaskHandler(TaskHandler):
                     self.create_otf_folder(otf_path)
                     otf_exists = True
                     self.launch_otf()
-                    self.update_task({'otf_path': otf['path'],
+                    self.update_log({'otf_path': otf['path'],
                                       'otf_status': otf['status'],
                                       'count': self.count})
                     self.update_session = False  # after launching no need to update
             else:
-                self.update_task({'count': self.count})
+                self.update_log({'count': self.count})
 
             if otf_exists and raw_exists:
                 # epuFolder = os.path.join(otf_path, 'EPU')
@@ -572,7 +580,7 @@ class SessionTaskHandler(TaskHandler):
 
         except Exception as e:
             self.worker.logger.exception(e)
-            self.update_task({
+            self.update_log({
                 'error': f'Exception {str(e)}',
                 'done': 1
             })
@@ -690,7 +698,7 @@ class SessionTaskHandler(TaskHandler):
         if workflow == 'none':
             msg = 'OTF workflow is None, so no doing anything.'
             self.pl.logger.info(msg)
-            self.update_task({'msg': msg, 'done': 1})
+            self.update_log({'msg': msg, 'done': 1})
             self.stop()
         else:
             workflow_conf = self.sconfig['otf'].get(workflow, None)
@@ -720,24 +728,25 @@ class SessionTaskHandler(TaskHandler):
             self.update_session_extra({'otf': otf})
         except Exception as e:
             self.error(Color.red("Error: %s" % str(e)))
-        self.update_task({'msg': 'Forced to stop ', 'done': 1})
+        self.update_log({'msg': 'Forced to stop ', 'done': 1})
 
 
 class FramesTaskHandler(TaskHandler):
     """ Monitor frames folder located at
     config:sessions['raw']['root_frames']. """
-    def __init__(self, *args, **kwargs):
+
+    def __init__(self, microscope, root_frames, *args, **kwargs):
+        self.microscope = microscope
+        self.root_frames = root_frames
         TaskHandler.__init__(self, *args, **kwargs)
-        # Load config
-        self.sconfig = self.request_config('sessions')
-        self.root_frames = self.sconfig['raw']['root_frames']
-        self.root_frames = self.task['args']['root']
+        self.entries = {}
+
+    def getLogPrefix(self):
+        """ Internal function to have a unique Log prefix. """
+        return f"FRAMES-{self.microscope}"
 
     def process(self):
-        if self.count == 1:
-            self.entries = {}
-
-        args = {'maxlen': 2}
+        args = {'logId': self.getLogPrefix()}
         updated = False
 
         try:
@@ -783,53 +792,152 @@ class FramesTaskHandler(TaskHandler):
         except Exception as e:
             updated = True  # Update error
             args['error'] = f"Error: {e}"
-            args.update({'error': str(e),
-                         'stack': traceback.format_exc()})
+            args.update({'error': str(e), 'stack': traceback.format_exc()})
 
         if updated:
             self.info("Sending frames folder info")
-            self.update_task(args)
+            self.update_log(args)
 
-        time.sleep(30)
+        self.sleep = 30  # will wait 30 seconds before next update
 
 
 class SessionWorker(Worker):
+    """ This worker will have the primary tasks to monitor the Microscope
+    data acquisition folders (defined in config:sessions). These folder
+    will be provided when creating a new session on EMhub. Then, for each
+    new session, new data will be monitored and transferred to another
+    storage location.
+    """
+
+    def __init__(self, **kwargs):
+        Worker.__init__(self, **kwargs)
+        # Login into EMhub and keep a client instance
+        self.transfer = None
+
+    def setup(self):
+        Worker.setup(self)
+        # Load general configuration related to sessions and microscopes
+        self.sconfig = self.request_config('sessions')
+        self.resources = self.request_dict('get_resources',
+                                           {"attrs": ["id", "name"]})
+
     def handle_tasks(self, tasks):
-        handlers = {
-            'command': CmdTaskHandler,
-            'session': SessionTaskHandler,
-            'frames': FramesTaskHandler
-        }
-
         for t in tasks:
-            HandlerClass = handlers.get(t['name'], DefaultTaskHandler)
-            handler = HandlerClass(self, t)
-            handler.start()
+            if t['name'] == 'transfer' and self.transfer is None:
+                mics = t['args']['microscopes']
+                self.transfer = {
+                    'microscopes': {m: [] for m in mics},
+                    'sessions': {}
+                }
 
-    def notify_launch_otf(self, task):
-        """
-        This method should be called from tasks handlers to notify
-        that a OTF is going ot be launched. Then, we must stop any other
-        OTF tasks running in this host. (only one OTF running per host)
-        """
-        task_id = task['id']
-        self.info(f"Task handler {task_id} notified launching OTF")
-        stopped = []
-        return stopped
+                # Add one handler to monitor the frames folder for each microscope
+                ths = [FramesTaskHandler(m, self.sconfig['acquisition'][m]['frames'], self, t) for m in mics]
+                self.add_tasks_handlers(*ths)
+                # Create a separate thread to poll sessions
+                threading.Thread(target=self.poll_sessions, daemon=True).start()
 
-        current_threads = [v for v in self.tasks.values()]
-        for v in current_threads:
-            t = v.task
-            if t['id'] != task_id and t['name'] == 'session' and t['args']['action'] == 'otf':
-                v.stop_otf()
-                stopped.append(t['id'])
-        return stopped
+    def poll_sessions(self):
+        """ Poll active sessions from EMhub server and keep trying, to register
+        any new session and process it accordingly. """
+        last_id = 1860
+        while True:
+            try:
+                attrs = {
+                    'last_id': last_id
+                }
+                self.info(f"Polling new sessions...last_id = {last_id}")
+                r = self.dc.request('poll_active_sessions', jsonData={'attrs': attrs})
+                if sessions := r.json():
+                    ids = [s['id'] for s in sessions]
+                    self.info(f"Got sessions: {ids}", flush=True)
+                    last_id = max(ids)
+
+            except:
+                time.sleep(30)
+
+    def add_tasks_handlers(self, *task_handlers):
+        """ Add several tasks, some might be related to sessions. """
+        try:
+            with self._tasksLock:
+                for th in task_handlers:
+                    self.tasks[th.getLogPrefix()] = th
+                    th.start()
+                allth = ','.join(th.getLogPrefix() for th in task_handlers)
+                self.info(f"Added {len(task_handlers)} new task handlers. "
+                          f"Current tasks handlers: {allth}")
+        except Exception as e:
+            self.error(str(e))
+
+    def add_handler(self, task, handler):
+        """ Just ignore since this server will control all tasks. """
+        pass
+
+    def remove_handler(self, task):
+        """ Just ignore since this server will control all tasks. """
+        pass
+
+
+class TaskWorker(Worker):
+    """ Override Worker to handle a single Task. """
+    def __init__(self, task, **kwargs):
+        Worker.__init__(self, **kwargs)
+        task_id = "{action}-{session_id}".format(**task['args'])
+        # Let's override log folder and file
+        self.logsFolder = os.path.join(self.logsFolder, task_id)
+        self.logFile = 'task.log'
+        task['id'] = task_id.upper()
+        self.task = task
+
+    def run(self):
+        self.setup()
+        SessionTaskHandler(self, self.task).run()
+
+
+def main():
+    p = argparse.ArgumentParser(prog='emh-session')
+    p.add_argument('--url', '-u', default='')
+
+    subparsers = p.add_subparsers(dest='mode')
+
+    # ------------------------- USER subparser -------------------------------
+    worker_p = subparsers.add_parser("worker")
+
+    g = worker_p.add_mutually_exclusive_group()
+    g.add_argument('--update', metavar='USER_JSON_STR',
+                   help="Update user with the given JSON")
+    g.add_argument('--list', '-l', nargs='*', metavar='USER_ID')
+    worker_p.add_argument('--filters', '-f', nargs='*', metavar='FILTER',
+                          help="Filter string to be used with list option."
+                               "For example: ")
+
+    # ------------------------- Form subparser -------------------------------
+    task_p = subparsers.add_parser("task")
+    task_p.add_argument('action')
+    task_p.add_argument('session_id')
+    task_p.add_argument('extra_args', nargs='?')
+
+    args = p.parse_args()
+
+    if args.url:
+        config.EMHUB_SERVER_URL = args.url
+        os.environ['EMHUB_SERVER_URL'] = args.url
+
+    if args.mode == 'worker':
+        process_users(args)
+
+    elif args.mode == 'task':
+        task = {
+            'args': {
+                'action': args.action,
+                'session_id': args.session_id
+            }
+        }
+        if args.extra_args:
+            task['args'].update(json.loads(args.extra_args))
+
+        TaskWorker(task).run()
 
 
 if __name__ == '__main__':
-    args = {}
-    if len(sys.argv) > 1:
-        args['logFile'] = sys.argv[1]
+    main()
 
-    worker = SessionWorker(debug=True, **args)
-    worker.run()

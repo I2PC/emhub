@@ -44,6 +44,7 @@ from pprint import pprint
 from .data_client import open_client, config
 
 from emtools.utils import Pretty, Color
+from emtools.metadata import MovieFiles
 
 
 def date_str(datetimeStr):
@@ -126,7 +127,48 @@ def process_forms(args):
 
 
 def process_sessions(args):
+
     with open_client() as dc:
+        def _session_create_or_update(s):
+            if 'owner_id' in s:
+                del s['owner_id']  # This is from booking, not session
+
+            if 'id' not in s:
+                print(">>> Creating NEW session")
+                url_prefix = 'create'
+            else:
+                print(f">>> Updating session ID={s['id']}")
+                url_prefix = 'update'
+            r = dc.request(f'{url_prefix}_session', jsonData={'attrs': s})
+            rjson = r.json()
+            if 'error' in rjson:
+                print(Color.red(rjson['error']))
+            else:
+                print(rjson)
+
+        if update := args.update:
+            if os.path.exists(update):  # Update sessions from a JSON file
+                print(f"Loading session from json: {update}...")
+                with open(update) as f:
+                    _session_create_or_update(json.load(f))
+
+            else:  # An id should be provided
+                session_id = int(args.update)
+                r = dc.request('get_sessions', jsonData={'condition': 'id=%s' % session_id})
+                s = r.json()[0]
+                raw = s['extra']['raw']
+                rawPath = raw['path']
+                if os.path.exists(rawPath):
+                    mf = MovieFiles(root=rawPath)
+                    mf.scan()
+
+                    self.worker.request('update_session_extra',
+                                        {'id': self.session['id'], 'extra': extra})
+
+
+                print(json.dumps(s, indent=4))
+            return
+
         sessions = dc.request('get_sessions', jsonData=None).json()
         filters = args.filters or []
 
@@ -162,7 +204,7 @@ def process_sessions(args):
                 session_json = json.load(f)
                 # Drop id field in case it is present
                 session_json.pop('id', None)
-                dc.create_session(session_json)
+                _session_create_or_update(session_json)
 
 
 def process_pucks(args):
@@ -307,6 +349,10 @@ def main():
                    help="List sessions, leave it empty to list all.")
     g.add_argument('--create', '-c', metavar='SESSION_JSON',
                    help='Create a session from the json file. ')
+    g.add_argument('--update', '-u', metavar='JSON_FILE_OR_ID',
+                   help="Update forms with data from the json file. "
+                        "A session ID can also be passed and then"
+                        "it will be updated reading files from raw. ")
     session_p.add_argument('--filters', '-f', nargs='*', metavar='FILTER',
                            help="Filter string to be used with list option.")
 
@@ -331,7 +377,8 @@ def main():
     # ------------------------- Method subparser -------------------------------
     method_p = subparsers.add_parser("method")
     method_p.add_argument('method', metavar='METHOD_NAME')
-    method_p.add_argument('attrs', metavar='ATTRS', nargs='?')
+    method_p.add_argument('data', metavar='JSON_DATA', nargs='*',
+                          help="You can pass ATTRS and CONDITION as json string.")
     method_p.add_argument('--extra', action="store_true")
 
     # ------------------------- Dump subparser -------------------------------
@@ -367,10 +414,17 @@ def main():
 
     elif args.entity == 'method':
         print("method: ", args.method)
-        print("jsonData: ", args.attrs)
+        n = len(args.data)
+        attrs = {}
+        cond = None
+        if n:
+            attrs = json.loads(args.data[0])
+            if n > 1:
+                cond = args.data[1]
 
         with open_client() as dc:
-            r = dc.request(args.method, jsonData={'attrs': json.loads(args.attrs)})
+            r = dc.request(args.method,
+                           jsonData={'attrs': attrs, 'condition': cond})
             result = r.json()
 
             if isinstance(result, list):
