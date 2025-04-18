@@ -19,8 +19,9 @@
 
                                 <select id="application-select" class="selectpicker" data-live-search="true" data-width="auto">
                                     <option value=""></option>
+                                    {% set n = applications|length %}
                                     {% for a in applications %}
-                                        {% set selected = 'selected' if a['code'] == application_code else '' %}
+                                        {% set selected = 'selected' if (a['code'] == application_code or n == 1) else '' %}
                                         {% set alias = '(%s)'|format(a['alias']) if a['alias'] and a['alias'] != None else '' %}
                                         <option value="{{ a['code'] }}" {{selected}}>{{ a['code'] }} {{ alias }}</option>
                                     {% endfor %}
