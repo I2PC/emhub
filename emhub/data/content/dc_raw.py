@@ -194,6 +194,14 @@ def register_content(dc):
         return {'task_events': dc.app.dm.get_task_history(kwargs['task_id'])}
 
     @dc.content
+    def session_log(**kwargs):
+        log_id = f"log:session:{kwargs['session_id']}"
+        return {
+            'log_id': log_id,
+            'log_events': dc.app.dm.get_log_events(log_id)
+        }
+
+    @dc.content
     def raw_test_page(**kwargs):
         return {}
 

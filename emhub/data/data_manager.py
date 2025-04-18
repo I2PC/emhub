@@ -1561,6 +1561,16 @@ class DataManager(DbManager):
 
             return pending
 
+    def set_frames(self, microscopeName, framesInfo):
+        """ Store information about a microscope frames folder reported by a worker.
+        It will be stored in memory for efficient read-write. """
+        self.r.set(f'frames:{microscopeName}', json.dumps(framesInfo))
+
+    def get_frames(self, microscopeName):
+        """ Get frames information for a given microscope. """
+        return json.loads(self.r.get(f'frames:{microscopeName}'))
+
+    # ---------------------------- ENTRIES ---------------------------------
     def get_hosts(self):
         """ Use Redis to cache hosts information, avoiding
         reading it from the config all the time. """
@@ -1598,14 +1608,11 @@ class DataManager(DbManager):
             yield k, self.get_worker_stream(k).get_all_tasks()
 
     def get_task_history(self, task_id, count=None, reverse=True):
-        taskHistoryKey = f"task_history:{task_id}"
-        funcName = 'xrevrange' if reverse else 'xrange'
-        result = getattr(self.r, funcName)(taskHistoryKey, count=count)
-        return result
+        return self.get_log_events(f"task_history:{task_id}",
+                                   count=count, reverse=reverse)
 
     def get_task_lastevent(self, task_id):
-        history = self.get_task_history(task_id, count=1, reverse=True)
-        return history[0] if history else None
+        return self.get_log_lastevent(f"task_history:{task_id}")
 
     def is_task_done(self, task_id):
         last_event = self.get_task_lastevent(task_id)
@@ -1614,6 +1621,33 @@ class DataManager(DbManager):
     def get_task_lastupdate(self, task_id):
         last_event = self.get_task_lastevent(task_id)
         return self.dt_from_redis(last_event[0] if last_event else task_id)
+
+    def update_log(self, log_id, event):
+        """ Add an event to an existing log. """
+        # Let change None values by empty string since Redis does not like None
+        maxlen = event.pop('maxlen', None)
+        r_event = {k: '' if v is None else v for k, v in event.items()}
+        self.r.xadd(log_id, r_event, maxlen=maxlen)
+
+    def get_log_events(self, log_id, count=None, reverse=True):
+        """ Return all the events for that log.
+
+        Args:
+            log_id: id of the log
+            count: number of events to retrieve, all if count is None
+            reverse: if True, retrieve the events in reverse order
+        """
+        funcName = 'xrevrange' if reverse else 'xrange'
+        return getattr(self.r, funcName)(log_id, count=count)
+
+    def get_log_lastevent(self, log_id):
+        """ Shortcut to retrieve the last event from the history. """
+        events = self.get_log_events(log_id, count=1, reverse=True)
+        return events[0] if events else None
+
+    def get_log_lastupdate(self, log_id):
+        last_event = self.get_task_lastevent(log_id)
+        return self.dt_from_redis(last_event[0] if last_event else None)
 
 
 class RepeatRanges:

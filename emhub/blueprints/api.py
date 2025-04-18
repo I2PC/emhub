@@ -454,7 +454,7 @@ def get_sessions():
 @api_bp.route('/poll_sessions', methods=['POST'])
 @flask_login.login_required
 def poll_sessions():
-    # FIXME: this fuction is very old (used in SLL) and
+    # FIXME: this function is very old (used in SLL) and
     # FIXME: needs to be updated
     session_folders = app.dm.get_session_folders()
 
@@ -491,13 +491,20 @@ def poll_sessions():
 @api_bp.route('/poll_active_sessions', methods=['POST'])
 @flask_login.login_required
 def poll_active_sessions():
+    d = dict(request.get_json(silent=True) or request.form)
+    last_id = int(d['attrs'].get('last_id', 0))
+    sleep = int(d['attrs'].get('sleep', 5))
+
+    def _active(s):
+        return s.status == 'active' and s.id > last_id
+
     while True:
         dm = app.dm  # DataManager(app.instance_path, user=app.user)
         sessions = dm.get_sessions(condition='status=="active"')
-        data = [s.json() for s in sessions if s.actions]
+        data = [s.json() for s in sessions if _active(s)]
         if data:
             return send_json_data(data)
-        time.sleep(5)
+        time.sleep(sleep)
         dm.commit()
 
 
@@ -540,6 +547,7 @@ def get_session_data():
 
     return handle_session_data(handle, mode="r")
 
+
 @api_bp.route('/update_session_extra', methods=['POST'])
 def update_session_extra():
     """ Update only certain elements from the extra property. """
@@ -568,6 +576,30 @@ def get_session_users():
             'group': app.dm.get_user_group(b.owner)
         }
     return _handle_item(_session_users, 'session_users')
+
+
+@api_bp.route('/set_frames', methods=['POST'])
+def set_frames():
+    """ Update only certain elements from the extra property. """
+    d = dict(request.get_json(silent=True) or request.form)
+
+    microscope = d['microscope']
+    frames = d['frames']
+
+    from pprint import pprint
+    print(">>>>>>>> ", microscope)
+    pprint(frames)
+
+    return send_json_data({'OK': True})
+
+
+@api_bp.route('/get_frames', methods=['POST'])
+def get_frames():
+    """ Update only certain elements from the extra property. """
+    d = dict(request.get_json(silent=True) or request.form)
+
+    frames = app.dm.get_frames(d['microscope'])
+    return send_json_data({'frames': frames})
 
 
 def _loadFileLines(fn):
@@ -738,9 +770,11 @@ def get_pending_tasks():
     acknowledged as completed.
     """
     def _get_pending_tasks(**attrs):
+        pending_statuses = ['pending', '']
         worker = validate_worker_token(attrs['token'])
         ws = app.dm.get_worker_stream(worker, update=True)
-        tasks = [t for t in ws.get_all_tasks() if t['status'] == 'pending']
+        all_tasks = ws.get_all_tasks()
+        tasks = [t for t in all_tasks if t['status'] in pending_statuses]
         return tasks
 
     return _handle_item(_get_pending_tasks, 'tasks')
@@ -765,6 +799,18 @@ def get_all_tasks():
 
     return _handle_item(_get_all_tasks, 'tasks')
 
+
+@api_bp.post('/update_log')
+def update_log():
+    """ Add a new event for a given log. """
+    def _update_log(**attrs):
+        validate_worker_token(attrs['token'])
+        log_id = attrs['log_id']
+        event = attrs['event']
+        app.dm.update_log(log_id, event)
+        return {'result': 'OK'}
+
+    return _handle_item(_update_log, 'log')
 
 @api_bp.route('/get_workers', methods=['POST'])
 @flask_login.login_required
@@ -965,6 +1011,7 @@ def update_puck():
 @flask_login.login_required
 def delete_puck():
     return handle_puck(app.dm.delete_puck)
+
 
 # -------------------- UTILS functions ----------------------------------------
 

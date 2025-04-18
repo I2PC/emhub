@@ -44,10 +44,15 @@ def register_content(dc):
         appCode = kwargs.get('application', '').upper()
 
         def _userjson(u):
-            return {'id': u.id, 'name': u.name}
+            return {'id': u.id, 'name': u.name, 'email': u.email}
 
         # Group users by PI
         labs = []
+
+        apps = sorted(dc.app.dm.get_visible_applications(),
+                      key=lambda a: len(a.users), reverse=True)
+        if len(apps) == 1:
+            appCode = apps[0].code
 
         if appCode:
             piList = [u for u in dc.app.dm.get_users()
@@ -60,12 +65,7 @@ def register_content(dc):
 
             labs = sorted(labs, key=lambda lab: len(lab), reverse=True)
 
-        apps = sorted(dc.app.dm.get_visible_applications(),
-                      key=lambda a: len(a.users), reverse=True)
         applications = [a.json() for a in apps if a.is_active]
-
-        # if user.is_staff:
-        #     labs.append([_userjson(u) for u in self._get_facility_staff(user.staff_unit)])
 
         return {
             'labs': labs,
