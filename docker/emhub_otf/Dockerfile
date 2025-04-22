@@ -20,9 +20,9 @@ ENV LD_LIBRARY_PATH=/usr/local/relion/lib:$LD_LIBRARY_PATH
 
 # Install system + EMHub dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    #cuda-toolkit-12-3 \
-    #libcufft-dev-12-3 \
-    #libcurand-dev-12-3 \
+    cuda-toolkit-12-3 \
+    libcufft-dev-12-3 \
+    libcurand-dev-12-3 \
     software-properties-common \
     git \
     curl \
