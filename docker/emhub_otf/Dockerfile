@@ -12,6 +12,12 @@ ENV CPATH=/usr/local/cuda/include:$CPATH
 ENV PATH=/usr/local/relion/bin:$PATH
 ENV LD_LIBRARY_PATH=/usr/local/relion/lib:$LD_LIBRARY_PATH
 
+# Add NVIDIA CUDA repo for Ubuntu 22.04 (CUDA 12.3)
+#RUN apt-get update && apt-get install -y wget gnupg ca-certificates && \
+#    wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.1-1_all.deb && \
+#    dpkg -i cuda-keyring_1.1-1_all.deb && \
+#    apt-get update
+
 # Install system + EMHub dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     cuda-toolkit-12-3 \
@@ -35,6 +41,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libatlas-base-dev \
     gfortran \
     build-essential \
+    #python3-pip \
+    #python3-redis \
+    #python3-hiredis \
     && rm -rf /var/lib/apt/lists/*
 
 # crYOLO Dependencies
@@ -53,7 +62,7 @@ RUN add-apt-repository ppa:deadsnakes/ppa \
 WORKDIR /opt
 
 # Install PIP 3.8
-RUN curl -O https://bootstrap.pypa.io/get-pip.py \
+RUN curl -O https://bootstrap.pypa.io/pip/3.8/get-pip.py \
     && python3.8 get-pip.py \
     && rm get-pip.py
 
@@ -74,9 +83,11 @@ RUN curl -L -o cistem.tar.gz https://grigoriefflab.umassmed.edu/sites/default/fi
     && cp /opt/cistem-1.0.0-beta/ctffind* /usr/local/bin/ \
     && rm -r /opt/cistem-1.0.0-beta
 
-# Install Redis
+# Install Redis & friends
+RUN apt -y remove python3-blinker
 RUN pip3 install "redis[hiredis]" \
-    && pip3 install "setuptools<65"
+    && pip3 install "setuptools<65" \
+    && pip3 install blinker
 
 # Install EMTools
 RUN git clone https://github.com/3dem/emtools.git /opt/emtools \
@@ -85,13 +96,20 @@ RUN git clone https://github.com/3dem/emtools.git /opt/emtools \
 
 # Clone the EMHub repository
 RUN git clone https://github.com/3dem/emhub.git /opt/emhub \
-    && pip3 install --ignore-installed /opt/emhub/ \
+    && pip3 install /opt/emhub/ \
     && rm -r /opt/emhub
+
+# Clone the EMWrap respository
+RUN git clone https://github.com/3dem/emwrap.git /opt/emwrap \
+    && pip3 install /opt/emwrap/ \
+    && rm -r /opt/emwrap
 
 # Copy the Relion binaries and fake libtiff.so.6 for relion
 RUN cp /lib/x86_64-linux-gnu/libtiff.so.5 /lib/x86_64-linux-gnu/libtiff.so.6 \
     && cp /usr/local/relion/sm80/bin/* /usr/local/bin \
     && cp /usr/local/relion/sm80/lib/* /usr/local/lib
+
+RUN ln -s /usr/bin/python3.8 /usr/bin/python
 
 WORKDIR /root
 
@@ -100,3 +118,4 @@ WORKDIR /root
 #
 ## CMD to provide a default action
 #CMD ["--help"]
+
