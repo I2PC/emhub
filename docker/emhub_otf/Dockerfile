@@ -76,12 +76,11 @@ RUN wget https://github.com/czimaginginstitute/MotionCor3/releases/download/v1.0
     && cp /opt/MotionCor3_1.0.1_Cuda122_10-26-2023 /usr/bin/MotionCor3 \
     && rm /opt/MotionCor3*
 
-# Install cisTEM (includes ctffind5)
-RUN curl -L -o cistem.tar.gz https://grigoriefflab.umassmed.edu/sites/default/files/cistem-1.0.0-beta-intel-linux.tar.gz \
-    && tar -xzf cistem.tar.gz \
-    && rm cistem.tar.gz \
-    && cp /opt/cistem-1.0.0-beta/ctffind* /usr/local/bin/ \
-    && rm -r /opt/cistem-1.0.0-beta
+# Install ctffind5
+RUN curl -L -o ctffind-5.0.2.tar.gz "https://grigoriefflab.umassmed.edu/system/tdf?path=ctffind-5.0.2.tar.gz&file=1" \
+    && tar -xzf ctffind-5.0.2.tar.gz \
+    && cp /opt/cisTEM/bin/* /usr/local/bin \
+    && rm -r /opt/cisTEM ctffind-5.0.2.tar.gz
 
 # Install Redis & friends
 RUN apt -y remove python3-blinker
@@ -113,9 +112,8 @@ RUN ln -s /usr/bin/python3.8 /usr/bin/python
 
 WORKDIR /root
 
-## Set entrypoint
-#ENTRYPOINT ["AreTomo3"]
+# Set entrypoint (interactive shell)
+ENTRYPOINT ["/bin/bash"]
 #
 ## CMD to provide a default action
 #CMD ["--help"]
-
