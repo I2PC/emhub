@@ -1,0 +1,51 @@
+<div class="container-fluid dashboard-content ">
+
+<div class="card">
+
+      <div class="card-header">
+        <h4 class="modal-title">{{ log_id }} </h4>
+      </div>
+
+      <div class="card-body">
+
+        <div class="row">
+            <!-- Application Form -->
+            <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
+
+                <div class="table-responsive">
+                <table class="table">
+                    <thead class="bg-light">
+                    <tr class="border-0">
+                        <th class="border-0">event id</th>
+                        <th class="border-0">time</th>
+                        <th class="border-0">info</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                        {% for event_id, event in log_events %}
+                                <td>{{ event_id }}</td>
+                                <td>{{ event_id|redis_datetime(elapsed=True) }}</td>
+                                <td>
+
+                                    {% for k, v in event.items() %}
+                                        <div class="row">
+                                            <div class="col-3">{{ k }}</div><div class="col-9">{{ v }}</div>
+                                        </div>
+                                    {% endfor %}
+{#                                    {{ event|tojson }}#}
+                                </td>
+                                </tr>
+                        {% endfor %}
+
+                    </tbody>
+                </table>
+            </div>
+
+            </div>
+            <!-- end Application Form -->
+        </div>
+      </div>
+
+</div>
+
+</div>
