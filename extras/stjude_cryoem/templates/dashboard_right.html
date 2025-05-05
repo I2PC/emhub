@@ -50,6 +50,11 @@
         showBookingForm({booking_id: booking_id });
     }
 
+    function createBookingFromDashboard(resource_id){
+        last_resource_id = resource_id;
+        showBookingForm({});
+    }
+
     function createBookingFromEntry(resource_id, entry_id){
         last_resource_id = resource_id;
         showBookingForm({entry_id: entry_id });

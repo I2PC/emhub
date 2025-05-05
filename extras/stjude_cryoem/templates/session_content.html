@@ -97,6 +97,13 @@
                     {% include 'session_data_card.html' %}
 
             </div> <!-- End of data container -->
+            {% if current_user.is_admin %}
+                <div class="col-12 m-2">
+                    <a href="{{ url_for_content('session_log', session_id=session.id) }}" class="btn btn-info btn-sm mr-0 mb-1">
+                        Session Logs
+                    </a>
+                </div>
+            {% endif %}
         </div>
 
     {% else %}

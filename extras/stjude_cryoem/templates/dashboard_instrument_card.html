@@ -95,11 +95,17 @@
                 <h3 class="mt-2"><span class="badge" style="background: {{ r['color'] }}; color: #fff; font-size: 20px">{{r['name']}}</span></h3>
             </div>
             <div class="row align-items-right justify-content-end col-6">
-                {% if current_user.is_manager and create_slots.get(r['name'], False) %}
-                    <div>
-                    <a href="javascript:createSlots({{ r['id'] }})" class="btn btn-primary btn-sm mr-0">
-                        <i class="fas fa-plus-circle mr-1"></i> Create Slots </a>
-                    </div>
+                {% if current_user.is_manager %}
+                    {% if create_slots.get(r['name'], False) %}
+                        <div>
+                        <a href="javascript:createSlots({{ r['id'] }})" class="btn btn-primary btn-sm mr-0">
+                            <i class="fas fa-plus-circle mr-1"></i> Create Slots </a>
+                        </div>
+                    {% endif %}
+{#                    <div>#}
+{#                        <a href="javascript:createBookingFromDashboard({{ r['id'] }})" class="btn btn-primary btn-sm mr-0">#}
+{#                            <i class="fas fa-calendar mr-1"></i> Book </a>#}
+{#                    </div>#}
 
                 {% endif %}
             </div>

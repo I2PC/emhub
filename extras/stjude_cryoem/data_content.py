@@ -104,8 +104,7 @@ def register_content(dc):
         }
         data.update(dc.get_user_projects(b.owner, status='active'))
         frames = workers_frames(hours=10)['folderGroups']
-        key = f"{transfer_host}:{acq['frames']}"
-        data['frame_folders'] = frames.get(key, {'entries': []})['entries']
+        data['frame_folders'] = frames.get(micName, {'entries': []})['entries']
         return data
 
     @dc.content
@@ -135,7 +134,7 @@ def register_content(dc):
         raw = session.extra['raw']
         group = dm.get_user_group(session.booking.owner)
         gscemRoot = Path.addslash(os.path.join(sconfig['raw']['root'], group))
-        dataPath = raw['path'].replace(gscemRoot, '')
+        dataPath = raw.get('path', 'PENDING').replace(gscemRoot, '')
         judeRootDefault = sconfig['raw']['jude_group_folder'].format(group=group)
         judeRoot = sconfig['raw']['jude_group_mapping'].get(group, judeRootDefault)
 
@@ -231,31 +230,55 @@ def register_content(dc):
         reverse = int(kwargs.get('reverse', 1))
 
         dm = dc.app.dm
-        hosts = dm.get_hosts()
-
         folderGroups = {}
-        # TODO: Get worker that monitor cluster from config
-        for h, host in hosts.items():
-            ws = dm.get_worker_stream(h)
-            for t in ws.get_all_tasks():
-                if t['name'] == 'frames' and t['status'] == 'pending':
-                    event_id, event = dm.get_task_lastevent(t['id'])
-                    if 'error' in event:
-                        continue
-                    entries = json.loads(event.get('entries', []))
-                    usage = json.loads(event['usage'])
-                    folders = []
-                    now = dm.now()
-                    for e in entries:
-                        ddt = dm.dt_from_timestamp(e['ts'])
-                        if total_hours == 0 or now - ddt < td:
-                            e['modified'] = ddt
-                            folders.append(e)
+        sconfig = dm.get_config('sessions')
 
-                    folders.sort(key=lambda f: f[sortKey], reverse=bool(reverse))
-                    root = t['args']['root']
-                    key = f"{h}:{root}"
-                    folderGroups[key] = {'usage': usage, 'entries': folders}
+        for mic, acq in sconfig['acquisition'].items():
+            folders = []
+            usage = {}
+
+            if item := dm.get_frames(mic):
+                entries = json.loads(item.get('entries', []))
+                usage = json.loads(item['usage'])
+                now = dm.now()
+                for e in entries:
+                    ddt = dm.dt_from_timestamp(e['ts'])
+                    if total_hours == 0 or now - ddt < td:
+                        e['modified'] = ddt
+                        folders.append(e)
+
+                folders.sort(key=lambda f: f[sortKey], reverse=bool(reverse))
+
+            folderGroups[mic] = {
+                'usage': usage,
+                'entries': folders,
+                'frames': acq['frames']
+            }
+
+        #
+        # folderGroups = {}
+        # # TODO: Get worker that monitor cluster from config
+        # for h, host in hosts.items():
+        #     ws = dm.get_worker_stream(h)
+        #     for t in ws.get_all_tasks():
+        #         if t['name'] == 'frames' and t['status'] == 'pending':
+        #             event_id, event = dm.get_task_lastevent(t['id'])
+        #             if 'error' in event:
+        #                 continue
+        #             entries = json.loads(event.get('entries', []))
+        #             usage = json.loads(event['usage'])
+        #             folders = []
+        #             now = dm.now()
+        #             for e in entries:
+        #                 ddt = dm.dt_from_timestamp(e['ts'])
+        #                 if total_hours == 0 or now - ddt < td:
+        #                     e['modified'] = ddt
+        #                     folders.append(e)
+        #
+        #             folders.sort(key=lambda f: f[sortKey], reverse=bool(reverse))
+        #             root = t['args']['root']
+        #             key = f"{h}:{root}"
+        #             folderGroups[key] = {'usage': usage, 'entries': folders}
 
         return {
             'folderGroups': folderGroups
