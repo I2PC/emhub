@@ -98,6 +98,9 @@ class TaskHandler(threading.Thread):
         """ Stop the current thread. """
         self._stopEvent.set()
 
+    def stopped(self):
+        return self._stopEvent.is_set()
+
     def _stop_thread(self, error=None):
         self.info(f"STOPPING task handler.")
         if error:
@@ -133,6 +136,15 @@ class TaskHandler(threading.Thread):
                 time.sleep(wait)
             tries -= 1
         return False
+
+    def update_log(self, event):
+        if self.emhub_log is None:
+            raise Exception("emhub_log is not defined.")
+
+        data = {
+            'log_id': self.emhub_log, 'event': event
+        }
+        return self.update_remote('update_log', data, tries=2, wait=5)
 
     def update_task(self, event, tries=-1, wait=10):
         data = {
@@ -221,6 +233,7 @@ class Worker:
         self.logFile = kwargs.get('logFile', 'worker.log')
         self.logsFolder = os.path.expanduser('~/.emhub/sessions/logs')
         self.dc = DataClient(server_url=config.EMHUB_SERVER_URL)
+        self.dc.timeout = 60
         self.dc.login(config.EMHUB_USER, config.EMHUB_PASSWORD)
         self.tasks = {}
         self._tasksLock = threading.Lock()
@@ -260,7 +273,7 @@ class Worker:
                 return requestFunc()
             except Exception as e:
                 retryMsg = f"Waiting {wait} seconds to retry." if tries else 'Not trying anymore.'
-                self.error(f"{errorMsg}. {retryMsg}")
+                self.error(f"REQUEST: {errorMsg}. {retryMsg}")
                 if self.debug:
                     self.error(traceback.format_exc())
                 time.sleep(wait)

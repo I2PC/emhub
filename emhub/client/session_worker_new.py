@@ -30,6 +30,7 @@ import configparser
 from pprint import pprint
 import traceback
 import tempfile
+import multiprocessing
 
 from emtools.utils import Pretty, Process, Path, Color, System, Timer
 from emtools.metadata import EPU, MovieFiles, StarFile
@@ -37,6 +38,15 @@ from emtools.metadata import EPU, MovieFiles, StarFile
 from emhub.client import config
 from emhub.client.worker_new import (TaskHandler, DefaultTaskHandler,
                                      CmdTaskHandler, Worker)
+
+
+def session_start(session):
+    dateStr = session['start'].split('T')[0]
+    return datetime.strptime(dateStr, '%Y-%m-%d')
+
+
+def session_task(session, action):
+    return {'args': {'action': action, 'session_id': session['id']}}
 
 
 class SessionTaskHandler(TaskHandler):
@@ -48,7 +58,7 @@ class SessionTaskHandler(TaskHandler):
 
         targs = self.task['args']
         self.session_id = int(targs['session_id'])
-        self.session_emhub_log = f'log:session:{self.session_id}'
+        self.emhub_log = f'log:session:{self.session_id}'
         self.action = targs.get('action', 'Empty-Action')
 
         self.session = self.get_session()
@@ -69,13 +79,6 @@ class SessionTaskHandler(TaskHandler):
         self.info(f"\t action: {self.action}")
         self.info(f"\t   args: {targs}")
 
-
-    def update_log(self, event):
-        data = {
-            'log_id': self.session_emhub_log, 'event': event
-        }
-        self.update_remote('update_log', data, tries=2, wait=5)
-
     def process(self):
         if self.users is None:
             raise Exception("Could not retrieve users information for this session")
@@ -93,14 +96,15 @@ class SessionTaskHandler(TaskHandler):
         prefix = self.task['args']['action'].upper()
         return f"{prefix}-{self.task['args']['session_id']}"
 
-    def update_session_extra(self, extra):
+    def update_session_extra(self, extra, tries=10):
         def _update_extra():
             extra['updated'] = Pretty.now()
             self.worker.request('update_session_extra',
                                 {'id': self.session['id'], 'extra': extra})
             return True
 
-        return self._request(_update_extra, 'updating session extra')
+        return self._request(_update_extra, 'updating session extra',
+                             tries=tries)
 
     def delete_task(self):
         def _delete():
@@ -130,6 +134,20 @@ class SessionTaskHandler(TaskHandler):
             'done': 1
         })
         self.stop()
+
+    def _elapsed_days(self, key, info, days):
+        """ Return true if the file timestamp is more than a number of days. """
+        now = datetime.now()
+
+        if ts := info.get(f'{key}_creation', None):
+            td = now - datetime.fromtimestamp(ts)
+            f = info.get(key, 'No-file')
+            if td > timedelta(days=days):
+                self.info(f'{key}: {f}, '
+                          f'{Pretty.timestamp(ts)} -> '
+                          f'{Pretty.elapsed(ts)}')
+                return True
+        return False
 
     def monitor(self):
         extra = self.session['extra']
@@ -239,7 +257,7 @@ class SessionTaskHandler(TaskHandler):
 
         def _rsync(file_list, move=False):
             tries = 5
-            sleep = 60
+            sleep = 10
             while tries:
                 try:
                     # Create a named temporary file
@@ -251,20 +269,25 @@ class SessionTaskHandler(TaskHandler):
                             with open(tmpfile.name, 'w') as f:
                                 for fn in existing:
                                     f.write(f"{fn.replace(framesPath, '')}\n")
-                            self.pl.cp(tmpfile.name, debugDstFile)
-                        args = [
-                            "-c",
-                            "--temp-dir=/gscem/testgrp/TRANSFER_TMP/",
-                            f"--files-from={tmpfile.name}"
-                        ]
+                            #self.pl.cp(tmpfile.name, debugDstFile)
+                            args = [
+                                "-c",
+                                "--temp-dir=/gscem/testgrp/TRANSFER_TMP/",
+                                f"--files-from={tmpfile.name}"
+                            ]
+                            if move:
+                                args.append("--remove-source-files")
+                            n, size = Path.rsync(framesPath, rawPath, *args, size=True)
+                            if n > 0:
+                                return n, size
+
                         if missing := [f for f in file_list if not os.path.exists(f)]:
-                            with open(debugDstFile + '_missing.txt', 'w') as f:
+                            missingFn = debugDstFile + '_missing.txt'
+                            self.info("Missing files: ")
+                            with open(missingFn, 'w') as f:
                                 for fn in missing:
                                     f.write(f"{fn.replace(framesPath, '')}\n")
-                        if move:
-                            args.append("--remove-source-files")
-                        if n := Path.rsync(framesPath, rawPath, *args):
-                            return n
+
                 except Exception as e:
                     tries -= 1
                     msg = f"RSYNC error: {str(e)}, sleeping"
@@ -279,35 +302,48 @@ class SessionTaskHandler(TaskHandler):
                       f"{self.n_movies} new movies, seen: {len(self.seen)}")
             if self.n_files > 0:
                 t = Timer()
-                copied = _rsync(self._to_copy)
+
+                if self._to_copy:
+                    self.info(f"Rsyncing (copy) {len(self._to_copy)} files.")
+                    copied, copiedSize = _rsync(self._to_copy)
                 if self.n_movies:
-                    moved = _rsync(self._to_move, move=True)
+                    self.info(f"Rsyncing (move) {len(self._to_move)} files.")
+                    moved, movedSize = _rsync(self._to_move, move=True)
                 else:
                     moved = 0
+                    movedSize = 0
+
                 elapsed = t.getElapsedTime()
+                totalSize = copiedSize + movedSize
                 raw.update(mf.info())
+                seconds = max(1, elapsed.seconds)
+                if totalSize:
+                    speed = totalSize * 3600 / seconds
+                else:
+                    speed = 0
+                self.info("Updating session_extra")
                 self.update_session_extra({'raw': raw})
                 # Remove dict from the task update
-                self.update_log({'new_files': self.n_files,
-                                  'new_movies': self.n_movies,
-                                  'total_files': mf.total_files,
-                                  'total_movies': mf.total_movies,
-                                  'moved_files': moved,
-                                  'copied_files': copied,
-                                  'transfer_time': str(elapsed)
-                                  })
+                self.info("Updating log")
+                self.update_log({
+                    'task_id': self.getLogPrefix(),
+                    'new_files': f"{self.n_files} ({self.n_movies} movies)",
+                    'transferred_size': f"{totalSize} ({Pretty.size(totalSize)})",
+                    'transfer_time': str(elapsed),
+                    'transfer_speed': f"{Pretty.size(speed)} / h"
+                })
             self.n_files = 0
             self.n_movies = 0
             self._to_move = []
             self._to_copy = []
+            self.info("Update DONE!")
 
         def _gsThumb(f):
             return f.startswith('GridSquare') and f.endswith('.jpg')
 
-        td = timedelta(minutes=1)
+        td = timedelta(seconds=30)
         transferred = False
 
-        now = datetime.now()
         self.info(f"Scanning framesPath: {framesPath}")
 
         for root, dirs, files in os.walk(framesPath):
@@ -372,21 +408,10 @@ class SessionTaskHandler(TaskHandler):
         info = mf.info()
         self.framesInfo = None
 
-        def _elapsed(key, info, days):
-            if ts := info.get(f'{key}_creation', None):
-                td = now - datetime.fromtimestamp(ts)
-                f = info.get(key, 'No-file')
-                self.info(f'{key}: {f}, '
-                          f'{Pretty.timestamp(ts)} -> '
-                          f'{Pretty.elapsed(ts)}')
-                if td > timedelta(days=days):
-                    return True
-            return False
-
         def _stop():
             """ Check various conditions that will make the TRANSFER task
             to stop. For example, last raw file older than 3 days. """
-            if self.n_files or len(self.seen):  # Do not check stop while finding new files
+            if transferred or self.n_files or len(self.seen):  # Do not check stop while finding new files
                 return False
 
             frames = False
@@ -394,11 +419,11 @@ class SessionTaskHandler(TaskHandler):
                 mf = MovieFiles()
                 mf.scan(framesPath)
                 self.framesInfo = mf.info()
-                frames = _elapsed('last_file', self.framesInfo, 3)
+                frames = self._elapsed_days('last_file', self.framesInfo, 3)
 
             return (frames or
-                    _elapsed('first_file', info, 5) or
-                    _elapsed('last_file', info, 3))
+                    self._elapsed_days('first_file', info, 5) or
+                    self._elapsed_days('last_file', info, 3))
 
         if _stop():
             update_args = info
@@ -411,7 +436,8 @@ class SessionTaskHandler(TaskHandler):
                 if int(self.framesInfo['movies']) == 0:
                     self.info(f'Stopping transfer, cleaning frames folder: '
                               f'{framesPath}.')
-                    self.pl.rm(framesPath)
+                    #self.pl.rm(framesPath)
+                    self.info(f"FAKE DELETE: rm -rf {framesPath}")
             self.update_log(update_args)
             self.stop()
 
@@ -428,21 +454,24 @@ class SessionTaskHandler(TaskHandler):
 
         if self.count == 1:
             # How much time to wait before stopping this delivery task
-            # from the time no more files are delivered, by default 15 days
-            self.deliver_wait = timedelta(seconds=self.task['args'].get('wait', 15 * 86400))
+            # from the time no more files are delivered, by default 3 days
+            self.deliver_wait = timedelta(seconds=self.task['args'].get('wait', 3 * 86400))
 
             if last := extra.get('last_delivered', None):
                 self.last_delivered = Pretty.parse_datetime(last)
             else:
                 self.last_delivered = datetime.now()
 
-        # TODO: Increment the sleeping time when there are not new files
-        self.sleep = 300
+            # Let's start with a 1 min sleep and double it until max 10 minutes
+            self.sleep = 60
 
         if not gscemPath:
             self.info(f"Monitoring GSCEM FOLDER: {gscemPath} "
                       f"does not exists, waiting...")
+            self.update_session = True
             return
+        else:
+            self.update_session = False
 
         dataPath = gscemPath.replace(gscemRoot, '')
         judeRootDefault = sconfig_raw['jude_group_folder'].format(group=group)
@@ -455,12 +484,16 @@ class SessionTaskHandler(TaskHandler):
         self.info(f"Syncing files from {gscemPath} to {judePath}")
         t = Timer()
         sleep_minutes = self.sleep // 60
-        msg = ''
 
         try:
-            n = Path.rsync(gscemPath, judePath)
+            n, size = Path.rsync(gscemPath, judePath, size=True)
+            elapsed = t.getElapsedTime()
+            seconds = max(1, elapsed.seconds)
         except Exception as e:
-            n = -1
+            n = 0
+            size = 0
+            elapsed = 0
+            seconds = 1
             msg = f"Error during the rsync: {str(e)}"
             self.info(msg)
             sleep_minutes = 5  # try soon
@@ -473,19 +506,28 @@ class SessionTaskHandler(TaskHandler):
                 'jude': {
                     'last_delivered': Pretty.datetime(self.last_delivered)
                 }})
-            msg = f"Transfer time: {str(t.getElapsedTime())}"
+            msg = ''
         else:
-            sleep_minutes = min(60, sleep_minutes * 2)
+            sleep_minutes = min(10, sleep_minutes * 2)
             msg = f"No files delivered since: {Pretty.datetime(self.last_delivered)}"
             self.info(msg)
-            if datetime.now() - self.last_delivered > self.deliver_wait:
-                self.info("Delivery wait ended, stopping task.")
-                self.stop()
+            if sleep_minutes == 10:  # Check stop conditions
+                mf = MovieFiles()
+                mf.scan(gscemPath)
+                # Check if last file is more than 3 days old (and no files tranferred)
+                self.info("Checking stop conditions.")
+                if self._elapsed_days('last_file', mf.info(), 3):
+                    self.info("No files delivered and last files is more than 3 days old, STOPPING.")
+                    self.stop()
 
         self.sleep = sleep_minutes * 60  # Bring sleep time back to 5 minutes
 
+        speed = size * 3600 / seconds
         self.update_log({
             'transferred_files': n,
+            'transferred_size': f"{size} ({Pretty.size(size)})",
+            'transfer_speed': f"{Pretty.size(speed)} / h",
+            'transfer_time': str(elapsed),
             'msg': msg,
             'sleeping': sleep_minutes
         })
@@ -548,7 +590,7 @@ class SessionTaskHandler(TaskHandler):
                 # OTF is not running, let's check if we need to launch it
                 if raw_exists and n > 8:
                     self.info(f"Launching OTF after {n} images found.")
-                    self.worker.notify_launch_otf(self.task)
+                    #self.worker.notify_launch_otf(self.task)
                     self.create_otf_folder(otf_path)
                     otf_exists = True
                     self.launch_otf()
@@ -560,20 +602,6 @@ class SessionTaskHandler(TaskHandler):
                 self.update_log({'count': self.count})
 
             if otf_exists and raw_exists:
-                # epuFolder = os.path.join(otf_path, 'EPU')
-                # epuStar = os.path.join(epuFolder, 'movies.star')
-
-                # if self.epu_session is None:
-                #     self.epu_session = EPU.Session(raw_path,
-                #                                    outputStar=epuStar,
-                #                                    backupFolder=epuFolder,
-                #                                    pl=self.pl)
-                # self.epu_session.scan()
-                # if not os.path.exists(epuStar):
-                #     self.info(f"File {epuStar} does not exist yet.")
-                # else:
-                #     with StarFile(epuStar) as sf:
-                #         self.info(f"Scanned EPU folder, movies: {sf.getTableSize('Movies')}")
                 if self.update_session:
                     self.info(f"No longer need to update session.")
                     self.update_session = False  # after launching no need to update
@@ -739,6 +767,7 @@ class FramesTaskHandler(TaskHandler):
         self.microscope = microscope
         self.root_frames = root_frames
         TaskHandler.__init__(self, *args, **kwargs)
+        self.emhub_log = f'frames:{microscope}'
         self.entries = {}
 
     def getLogPrefix(self):
@@ -746,59 +775,63 @@ class FramesTaskHandler(TaskHandler):
         return f"FRAMES-{self.microscope}"
 
     def process(self):
-        args = {'logId': self.getLogPrefix()}
+        args = {
+            'elapsed': '',
+            'maxlen': 3  # Only keep up to 3 events for this log
+        }
         updated = False
 
-        try:
-            for e in os.listdir(self.root_frames):
-                entryPath = os.path.join(self.root_frames, e)
-                s = os.stat(entryPath)
-                if os.path.isdir(entryPath):
-                    if e not in self.entries:
-                        self.entries[e] = {'mf': MovieFiles(), 'ts': 0}
-                    dirEntry = self.entries[e]
-                    if dirEntry['ts'] < s.st_mtime:
-                        dirEntry['mf'].scan(entryPath)
-                        dirEntry['ts'] = s.st_mtime
-                        updated = True
-                elif os.path.isfile(entryPath):
-                    if e not in self.entries or self.entries[e]['ts'] < s.st_mtime:
-                        self.entries[e] = {
-                            'type': 'file',
-                            'size': s.st_size,
-                            'ts': s.st_mtime
-                        }
-                        updated = True
+        self.info("Checking for changes.")
 
-            if updated:
-                entries = []
-                for e, entry in self.entries.items():
-                    if 'mf' in entry:  # is a directory
-                        newEntry = {
-                            'type': 'dir',
-                            'size': entry['mf'].total_size,
-                            'movies': entry['mf'].total_movies,
-                            'ts': entry['ts']
-                        }
-                    else:
-                        newEntry = entry
-                    newEntry['name'] = e
-                    entries.append(newEntry)
-
-                args['entries'] = json.dumps(entries)
-                u = shutil.disk_usage(self.root_frames)
-                args['usage'] = json.dumps({'total': u.total, 'used': u.used})
-
-        except Exception as e:
-            updated = True  # Update error
-            args['error'] = f"Error: {e}"
-            args.update({'error': str(e), 'stack': traceback.format_exc()})
+        t = Timer()
+        for e in os.listdir(self.root_frames):
+            entryPath = os.path.join(self.root_frames, e)
+            s = os.stat(entryPath)
+            if os.path.isdir(entryPath):
+                if e not in self.entries:
+                    self.entries[e] = {'mf': MovieFiles(), 'ts': 0}
+                dirEntry = self.entries[e]
+                if dirEntry['ts'] < s.st_mtime:
+                    dirEntry['mf'].scan(entryPath)
+                    dirEntry['ts'] = s.st_mtime
+                    updated = True
+            elif os.path.isfile(entryPath):
+                if e not in self.entries or self.entries[e]['ts'] < s.st_mtime:
+                    self.entries[e] = {
+                        'type': 'file',
+                        'size': s.st_size,
+                        'ts': s.st_mtime
+                    }
+                    updated = True
 
         if updated:
-            self.info("Sending frames folder info")
-            self.update_log(args)
+            entries = []
+            for e, entry in self.entries.items():
+                if 'mf' in entry:  # is a directory
+                    newEntry = {
+                        'type': 'dir',
+                        'size': entry['mf'].total_size,
+                        'movies': entry['mf'].total_movies,
+                        'ts': entry['ts']
+                    }
+                else:
+                    newEntry = entry
+                newEntry['name'] = e
+                entries.append(newEntry)
 
-        self.sleep = 30  # will wait 30 seconds before next update
+            args['entries'] = json.dumps(entries)
+            u = shutil.disk_usage(self.root_frames)
+            args['usage'] = json.dumps({'total': u.total, 'used': u.used})
+
+        args['elapsed'] = str(t.getElapsedTime())
+
+        if updated:
+            self.info(f"Changes detected, elapsed: {args['elapsed']}. Updating...")
+            self.update_log(args)
+        else:
+            self.info(f"No changes, elapsed: {args['elapsed']}.")
+
+        self.sleep = 60  # will wait 30 seconds before next update
 
 
 class SessionWorker(Worker):
@@ -811,8 +844,12 @@ class SessionWorker(Worker):
 
     def __init__(self, **kwargs):
         Worker.__init__(self, **kwargs)
-        # Login into EMhub and keep a client instance
-        self.transfer = None
+        self.processes = {}
+        self.jsonData = {
+            'active': {},
+            'done': [],
+            'last_id': 0
+        }
 
     def setup(self):
         Worker.setup(self)
@@ -820,51 +857,157 @@ class SessionWorker(Worker):
         self.sconfig = self.request_config('sessions')
         self.resources = self.request_dict('get_resources',
                                            {"attrs": ["id", "name"]})
+        self.jsonFile = os.path.join(self.logsFolder, 'worker.json')
 
-    def handle_tasks(self, tasks):
-        for t in tasks:
-            if t['name'] == 'transfer' and self.transfer is None:
-                mics = t['args']['microscopes']
-                self.transfer = {
-                    'microscopes': {m: [] for m in mics},
-                    'sessions': {}
-                }
+    def _jsonLoad(self):
+        if os.path.exists(self.jsonFile):
+            with open(self.jsonFile) as f:
+                self.jsonData = json.load(f)
+                self.last_id = self.jsonData['last_id']
 
-                # Add one handler to monitor the frames folder for each microscope
-                ths = [FramesTaskHandler(m, self.sconfig['acquisition'][m]['frames'], self, t) for m in mics]
-                self.add_tasks_handlers(*ths)
-                # Create a separate thread to poll sessions
-                threading.Thread(target=self.poll_sessions, daemon=True).start()
+    def _jsonDump(self):
+        with open(self.jsonFile, 'w') as f:
+            json.dump(self.jsonData, f, indent=4)
+
+    def _create_frames_worker(self, microscope):
+        task = {
+            'args': {'action': 'frames', 'session_id': microscope}
+        }
+        return TaskWorker(task)
+
+    def _initialize_tasks(self):
+        # TODO: This could be tuned for one worker to take care of some
+        # microscopes and not all
+        mics = ['Krios01', 'Krios02', 'Arctica01']
+
+        self.sessions_td = timedelta(days=7)
+
+        self._jsonLoad()
+        # Remove active, it will be repopulated
+        self.jsonData['active'] = {}
+
+        # Add tasks for frames monitoring
+        tasks = [{'args': {'action': 'frames', 'session_id': m}} for m in mics]
+        self.add_tasks_workers(tasks)
+
+        # Create a separate thread to poll sessions, individual handlers
+        # will be created for each Task transfer
+        threading.Thread(target=self.poll_sessions, daemon=True).start()
+
+    def run(self):
+        self.setup()
+        self._initialize_tasks()
+
+        while True:
+            try:
+                time.sleep(60)  # FIXME: More worker duties can be added later
+                self.check_workers()
+
+            except Exception as e:
+                self.error('FATAL ERROR: ' + str(e))
+                self.error(traceback.format_exc())
+                time.sleep(30)
+
+    def check_workers(self):
+        """ Check if the workers are running or are stopped, because the
+        job is done or an error.
+        """
+        self.info("Checking running workers")
+
+        stopped = []
+        crashed = []
+        alive = 0
+        for task_id, v in self.tasks.items():
+            tw = v['worker']
+            mp = v['processes']
+            if not mp.is_alive():
+                if tw.stopped():  # Properly stopped
+                    stopped.append(task_id)
+                else:  # Crashed jobs without proper
+                    # TODO: Re-run crashed jobs?
+                    crashed.append(task_id)
+            else:
+                alive += 1
+
+        self.info(f"Running workers: {len(self.tasks)}, "
+                  f"alive: {alive}, "
+                  f"stopped: {len(stopped)},"
+                  f"crashed: {len(crashed)}")
+
+        if stopped:
+            with self._tasksLock:
+                for task_id in stopped:
+                    del self.tasks[task_id]
+                    self.jsonData['done'].append(task_id)
+
+                self._jsonDump()
+                self.info(f"Removed task workers: {stopped}, "
+                          f"total workers: {len(self.tasks)}")
+
+    def handle_active_sessions(self, sessions):
+        # Add transfer tasks
+        self.add_tasks_workers(session_task(s, 'transfer') for s in sessions)
+
+        # Wait a bit to allow creation of gscem folder
+        time.sleep(60)
+
+        # Add deliver tasks
+        self.add_tasks_workers(session_task(s, 'deliver') for s in sessions)
 
     def poll_sessions(self):
         """ Poll active sessions from EMhub server and keep trying, to register
         any new session and process it accordingly. """
-        last_id = 1860
+        last_id = self.last_id
         while True:
             try:
                 attrs = {
-                    'last_id': last_id
+                    'last_id': last_id,
+                    'sleep': 30
                 }
                 self.info(f"Polling new sessions...last_id = {last_id}")
                 r = self.dc.request('poll_active_sessions', jsonData={'attrs': attrs})
-                if sessions := r.json():
-                    ids = [s['id'] for s in sessions]
-                    self.info(f"Got sessions: {ids}", flush=True)
-                    last_id = max(ids)
 
+                if all_sessions := r.json():
+                    now = datetime.now()
+                    sessions = [s for s in all_sessions
+                                if session_start(s) - now < self.sessions_td]
+
+                    # Some new active sessions
+                    if ids := [s['id'] for s in sessions]:
+                        self.info(f"Got sessions: {ids}")
+                        self.handle_active_sessions(sessions)
+                        with self._tasksLock:
+                            last_id = max(ids)
+                            self._jsonDump()
             except:
                 time.sleep(30)
 
-    def add_tasks_handlers(self, *task_handlers):
+    def add_tasks_workers(self, tasks):
         """ Add several tasks, some might be related to sessions. """
         try:
             with self._tasksLock:
-                for th in task_handlers:
-                    self.tasks[th.getLogPrefix()] = th
-                    th.start()
-                allth = ','.join(th.getLogPrefix() for th in task_handlers)
-                self.info(f"Added {len(task_handlers)} new task handlers. "
-                          f"Current tasks handlers: {allth}")
+                new_ids = []
+                for task in tasks:
+                    tw = TaskWorker(task)
+                    if tw.id in self.jsonData['done']:
+                        self.info(f"Skipping already DONE task: {tw.id}")
+                        continue
+
+                    mp = multiprocessing.Process(target=tw.run,
+                                                 daemon=True, name=tw.id)
+                    self.tasks[tw.id] = {
+                        'task': task,
+                        'worker': tw,
+                        'processes': mp
+                    }
+                    new_ids.append(tw.id)
+                    mp.start()
+                    self.jsonData['active'][tw.id] = {'task': task, 'pid': mp.pid}
+
+                self._jsonDump()
+
+                self.info(f"Added task workers: {new_ids}, "
+                          f"total workers: {len(self.tasks)}")
         except Exception as e:
             self.error(str(e))
 
@@ -877,20 +1020,55 @@ class SessionWorker(Worker):
         pass
 
 
+class OtfWorker(SessionWorker):
+    """ Worker that will handle the OTF sessions. """
+    def _initialize_tasks(self):
+        self._jsonLoad()
+        # Remove active, it will be repopulated
+        self.jsonData['active'] = {}
+        # Create a separate thread to poll sessions, individual handlers
+        # will be created for each Task transfer
+        threading.Thread(target=self.poll_sessions, daemon=True).start()
+
+    def handle_active_sessions(self, sessions):
+        # Add transfer tasks
+        self.add_tasks_workers(session_task(s, 'otf') for s in sessions)
+
+
 class TaskWorker(Worker):
     """ Override Worker to handle a single Task. """
     def __init__(self, task, **kwargs):
         Worker.__init__(self, **kwargs)
-        task_id = "{action}-{session_id}".format(**task['args'])
+        self.id = "{action}-{session_id}".format(**task['args'])
         # Let's override log folder and file
-        self.logsFolder = os.path.join(self.logsFolder, task_id)
+        self.logsFolder = os.path.join(self.logsFolder, self.id)
         self.logFile = 'task.log'
-        task['id'] = task_id.upper()
+        self._stoppedFile = os.path.join(self.logsFolder, 'STOPPED')
+        task['id'] = self.id.upper()
         self.task = task
 
     def run(self):
         self.setup()
-        SessionTaskHandler(self, self.task).run()
+
+        with open(os.path.join(self.logsFolder, 'pid'), 'w') as f:
+            f.write(f"{os.getpid()}\n")
+
+        sconfig = self.request_config('sessions')
+        a = self.task['args']['action']
+
+        if a == 'frames':
+            mic = self.task['args']['session_id']
+            th = FramesTaskHandler(mic, sconfig['acquisition'][mic]['frames'], self, self.task)
+        else:
+            th = SessionTaskHandler(self, self.task)
+
+        th.run()
+        if th.stopped():
+            with open(self._stoppedFile, 'w') as f:
+                pass
+
+    def stopped(self):
+        return os.path.exists(self._stoppedFile)
 
 
 def main():
@@ -903,12 +1081,6 @@ def main():
     worker_p = subparsers.add_parser("worker")
 
     g = worker_p.add_mutually_exclusive_group()
-    g.add_argument('--update', metavar='USER_JSON_STR',
-                   help="Update user with the given JSON")
-    g.add_argument('--list', '-l', nargs='*', metavar='USER_ID')
-    worker_p.add_argument('--filters', '-f', nargs='*', metavar='FILTER',
-                          help="Filter string to be used with list option."
-                               "For example: ")
 
     # ------------------------- Form subparser -------------------------------
     task_p = subparsers.add_parser("task")
@@ -923,7 +1095,10 @@ def main():
         os.environ['EMHUB_SERVER_URL'] = args.url
 
     if args.mode == 'worker':
-        process_users(args)
+        SessionWorker().run()
+
+    elif args.mode == 'otf':
+        OtfWorker().run()
 
     elif args.mode == 'task':
         task = {

@@ -39,6 +39,7 @@ import os
 import sys
 import json
 import argparse
+from datetime import datetime
 from pprint import pprint
 
 from .data_client import open_client, config
@@ -50,6 +51,11 @@ from emtools.metadata import MovieFiles
 def date_str(datetimeStr):
     """ Helper to retrieve the date. """
     return datetimeStr.split('T')[0]
+
+
+def date(datetimeStr):
+    dateStr = datetimeStr.split('T')[0]
+    return datetime.strptime(dateStr, '%Y-%m-%d')
 
 
 def process_users(args):
@@ -178,6 +184,10 @@ def process_sessions(args):
             return eval(f, {}, {'s': session})
 
         def _all(session):
+            if args.from_date:
+                print("Checking start date: ", date(session['start']) >= date(args.from_date))
+                return date(session['start']) >= date(args.from_date)
+
             if filters:
                 return all(_filter(f, session) for f in filters)
             return True
@@ -193,7 +203,7 @@ def process_sessions(args):
             else:
                 row_format = u"{:<6}{:<12}{:<6}{:<35}"
                 print(row_format.format("ID", "Date", "OwnerId", "Name"))
-                for s in sessions:
+                for s in sessions_dict.values():
                     print(row_format.format(s['id'],
                                             date_str(s['start']),
                                             s['owner_id'],
@@ -355,6 +365,9 @@ def main():
                         "it will be updated reading files from raw. ")
     session_p.add_argument('--filters', '-f', nargs='*', metavar='FILTER',
                            help="Filter string to be used with list option.")
+    session_p.add_argument('--from_date', metavar='FROM_DATE',
+                           help="Retrieve sessions starting from this date onwards."
+                                "Format: YYYY-MM-DD. ")
 
     # ------------------------- Puck subparser -------------------------------
     puck_p = subparsers.add_parser("puck")

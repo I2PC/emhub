@@ -70,6 +70,7 @@ class DataClient:
         self._server_url = server_url or config.EMHUB_SERVER_URL
         # Store the last request object
         self.cookies = self.r = None
+        self.timeout = 30  # 30 seconds timeout on requests
 
     def login(self, username=None, password=None):
         """ Login into the EMhub server with the given credentials.
@@ -221,7 +222,8 @@ class DataClient:
 
         self.r = requests.post('%s/%s/%s'
                                % (self._server_url, bp, method),
-                               json=jsonData or {},  cookies=self.cookies)
+                               json=jsonData or {},  cookies=self.cookies,
+                               timeout=self.timeout)
         self.r.raise_for_status()
         return self.r
 
