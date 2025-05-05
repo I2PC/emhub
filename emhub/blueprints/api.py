@@ -485,7 +485,7 @@ def poll_sessions():
                     'title': e['title']
                  })
             return send_json_data(data)
-        time.sleep(3)
+        time.sleep(10)
 
 
 @api_bp.route('/poll_active_sessions', methods=['POST'])
@@ -494,18 +494,24 @@ def poll_active_sessions():
     d = dict(request.get_json(silent=True) or request.form)
     last_id = int(d['attrs'].get('last_id', 0))
     sleep = int(d['attrs'].get('sleep', 5))
+    tries = int(d['attrs'].get('tries', 5))
 
     def _active(s):
         return s.status == 'active' and s.id > last_id
 
-    while True:
+    while tries:
         dm = app.dm  # DataManager(app.instance_path, user=app.user)
-        sessions = dm.get_sessions(condition='status=="active"')
+        sessions = dm.get_sessions() #condition='status=="active"')
         data = [s.json() for s in sessions if _active(s)]
+
         if data:
             return send_json_data(data)
         time.sleep(sleep)
+        tries -= 1
         dm.commit()
+
+        return send_json_data([])
+
 
 
 @api_bp.route('/create_session', methods=['POST'])
