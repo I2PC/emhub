@@ -48,7 +48,7 @@ class TestData:
     def _action(self, title):
         print(Color.bold(f'\n>>> {title}'))
 
-    def __init__(self, dm, json_file):
+    def __init__(self, dm, json_file, fix_dates=False):
         self.instance_path = dm._dataPath
         self.json_data = None
         print(f">>> Loading JSON data from {Color.bold(json_file)}")
@@ -59,7 +59,11 @@ class TestData:
         now = dm.now()
         feb27 = dm.date(dt.datetime(2023, 2, 27))
         firstMonday = self.__firstMonday(now - dt.timedelta(days=60))
-        self.date_shift = dt.timedelta(days=(firstMonday - feb27).days)
+
+        if fix_dates:
+            self.date_shift = dt.timedelta(days=(firstMonday - feb27).days)
+        else:
+            self.date_shift = dt.timedelta(days=0)
 
         self.dm = dm
         dm.create_admin()
@@ -84,15 +88,52 @@ class TestData:
         self._action('Populating Forms')
 
         for form in self.json_data['forms']:
+            if form['name'] == 'config:projects':
+                # Let's create the special entry 'news'
+                # for creating news that are stored
+                # in a "special" project
+                entries = form['definition']['entries']
+                entries['news'] = {
+                    "group": 1,
+                    "iconClass": "fas fa-box fa-inverse",
+                    "imageClass": "img--picture",
+                    "label": "News"
+                }
             dm.create_form(**form)
+
+        # Create special entry for news
+        dm.create_form(**{
+            "name": "entry_form:news",
+            "definition": {
+                "params": [
+                    {
+                        "id": "active",
+                        "label": "Active",
+                        "type": "bool"
+                    },
+                    {
+                        "enum": {
+                            "choices": [
+                                "info",
+                                "warning",
+                                "danger"
+                            ],
+                            "display": "radio"
+                        },
+                        "id": "type",
+                        "label": "Type",
+                        "default": "info"
+                    }
+                ],
+                "title": "News Form"
+        }})
 
     def _populateUsers(self, dm):
         self._action('Populating Users')
 
         for uDict in self.json_data['users']:
-            first, last = uDict['name'].lower().split()
             uDict['username'] = uDict['email']
-            uDict['password'] = last
+            uDict['password'] = uDict['email']
             dm.create_user(**uDict)
 
     def _populateResources(self, dm):
@@ -126,17 +167,10 @@ class TestData:
             apps.append(a)
 
             # Add PIs
-            for piName in pi_list:
-                pi = dm.get_user_by(username=piName)
+            for pid in pi_list:
+                pi = dm.get_user_by(id=pid)
                 if pi:
                     a.users.append(pi)
-
-        # Let's make random assignment of all pi's to either
-        # first or second application
-        for user in dm.get_users():
-            if user.is_pi:
-                n = len(user.name)
-                apps[n % 2].users.append(user)
 
         dm.commit()
 
@@ -165,6 +199,21 @@ class TestData:
             pDict['title'] = f"Project {pDict['id']} Title"
             dm.create_project(**pDict)
 
+        # Create a special project for news
+        dm.create_project(**{
+            "id": 3,
+            "title": "Special Project for News",
+            "status": "special:news",
+            "user_id": 1,
+            "creation_user_id": 1,
+            "last_update_user_id": 1,
+            "extra": {
+                "user_can_edit": True,
+                "is_confidential": False,
+                "collaborators_ids": []
+            }
+        })
+
     def _populateBookings(self, dm):
         self._action('Populating Bookings')
 
@@ -175,7 +224,6 @@ class TestData:
             except:
                 print(f"Error creating booking with args: {bDict}")
                 traceback.print_exc()
-
 
     def _populateSessions(self, dm):
         self._action('Populating Sessions')
@@ -198,6 +246,7 @@ class TestData:
                              'creation_date',
                              'last_update_date')
             dm.create_entry(**entry)
+
 
     def _createTemplateFiles(self):
         instance_path = self.instance_path
@@ -265,7 +314,13 @@ def create_instance(instance_path, json_file, force):
     instance_path = instance_path or '~/.emhub/instances/test'
     instance_path = os.path.expanduser(instance_path)
 
-    json_file = json_file or os.path.join(here, 'test_instance_data.json')
+    if json_file:
+        fix_dates = False
+    else:
+        # For the test dataset we want to "fix" the dates by shifting
+        # all dates to the current day to make them visible
+        json_file = os.path.join(here, 'test_instance_data.json')
+        fix_dates = True
 
     if os.path.exists(instance_path):
         if force:
@@ -280,7 +335,7 @@ def create_instance(instance_path, json_file, force):
         raise Exception(f"Input JSON file '{json_file}' does not exists.")
 
     dm = DataManager(instance_path, cleanDb=True)
-    TestData(dm, json_file)
+    TestData(dm, json_file, fix_dates=fix_dates)
 
     return dm
 

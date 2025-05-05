@@ -195,10 +195,19 @@ def register_content(dc):
 
     @dc.content
     def session_log(**kwargs):
-        log_id = f"log:session:{kwargs['session_id']}"
+        session_id = int(kwargs['session_id'])
+        log_id = f"log:session:{session_id}"
+        data = log_events(log_id=log_id, **kwargs)
+        data['session'] = dc.app.dm.get_session_by(id=session_id)
+        return data
+
+    @dc.content
+    def log_events(**kwargs):
+        log_id = kwargs['log_id']
         return {
             'log_id': log_id,
-            'log_events': dc.app.dm.get_log_events(log_id)
+            'log_events': dc.app.dm.get_log_events(log_id),
+            'title': f'Log {log_id}'
         }
 
     @dc.content

@@ -120,8 +120,12 @@ def main():
 
     if create is not None:
         n = len(create)
-        instance_path = create[0] if n > 0 else None
-        json_file = create[1] if n > 1 else None
+
+        def _path(i):
+            return os.path.abspath(create[i]) if n > i else None
+
+        instance_path = _path(0)
+        json_file = _path(1)
         create_instance(instance_path, json_file, args.force)
 
     elif minimal := args.create_minimal:

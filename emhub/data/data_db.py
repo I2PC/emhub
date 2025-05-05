@@ -48,7 +48,8 @@ class DbManager:
         if cleanDb and os.path.exists(dbPath):
             os.remove(dbPath)
 
-        engine = sqlalchemy.create_engine('sqlite:///' + dbPath, echo=do_echo)
+        engine = sqlalchemy.create_engine('sqlite:///' + dbPath, echo=do_echo,
+                                          pool_size=20, max_overflow=0)
 
         self._db_session = scoped_session(sessionmaker(autocommit=False,
                                                        autoflush=False,

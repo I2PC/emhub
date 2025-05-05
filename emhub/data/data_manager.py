@@ -1568,7 +1568,9 @@ class DataManager(DbManager):
 
     def get_frames(self, microscopeName):
         """ Get frames information for a given microscope. """
-        return json.loads(self.r.get(f'frames:{microscopeName}'))
+        # return json.loads(self.r.get(f'frames:{microscopeName}'))
+        e = self.get_log_lastevent(f'frames:{microscopeName}')
+        return e[1] if e else None
 
     # ---------------------------- ENTRIES ---------------------------------
     def get_hosts(self):

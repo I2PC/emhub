@@ -31,6 +31,7 @@ Register content functions related to Sessions
 import os
 import datetime as dt
 from collections import defaultdict
+from random import shuffle
 
 from emtools.utils import Pretty
 from emhub.utils import (shortname, get_quarter, pretty_quarter, pretty_date,
@@ -362,13 +363,20 @@ def register_content(dc):
         dm = dc.app.dm  # shortcut
         centers = dm.get_config('sessions').get('centers', {})
         groups = dm.get_config('sessions').get('groups', {})
-        groups_colors = dm.get_config('reports')['groups_colors']
+
+        colors = ['#3cb44b', '#4363d8', '#f58231', '#911eb4', '#46f0f0', '#ffe119', '#008080', '#f032e6', '#bcf60c', '#fabebe',  '#e6beff', '#9a6324', '#fffac8', '#800000', '#aaffc3', '#808000', '#ffd8b1', '#000075',  '#808080', '#000000', '#e6194b']
+        pi_colors = {}
+        groups_colors = dm.get_config('reports').get('groups_colors', None)
+
         types_colors = {
             'downtime': '#B22222', 'maintenance': '#FF7F50', 'special': '#20B2AA'
         }
 
         def _pi_color(pi_email):
-            return groups_colors.get(groups.get(pi_email, ''), '#E8F0F2')
+            if groups_colors:
+                return groups_colors.get(groups.get(pi_email, ''), '#E8F0F2')
+            else:
+                return pi_colors[pi_email]
 
         def _filter(b):
             return not b.is_slot
@@ -385,6 +393,9 @@ def register_content(dc):
             for pi in app.pi_list:
                 pi_list.append(pi.id)
                 pi_apps[pi.id] = app
+                if pi.email not in pi_colors:
+                    i = len(pi_colors) % len(colors)
+                    pi_colors[pi.email] = colors[i]
 
         bookings, range_dict = dc.get_booking_in_range(kwargs,
                                                        asJson=False,

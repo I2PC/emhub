@@ -157,7 +157,6 @@ def register_content(dc):
         if kwargs['booking_id']:
             booking_id = int(kwargs['booking_id'])
             booking = dc.app.dm.get_booking_by(id=booking_id)
-            print("Booking id: ", booking_id, 'experiment', booking.experiment)
         else:
             booking = None
 
