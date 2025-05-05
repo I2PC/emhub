@@ -5,26 +5,27 @@
     {% include 'include_header.html' %}
 
     <!-- workers row -->
-    <div class="row" id="workers_frames_content">
+    <div class="row col-12 m-0 p-0" id="workers_frames_content">
 
-
-<div class="col-7">
-<h3>Groups: {{ folderGroups|length }}</h3>
 
 {% if current_user.is_admin %}
 
 
 
-{% for group, info in folderGroups.items() %}
+{% for mic, info in folderGroups.items() %}
+    <div class="col-auto mb-4" style="min-width: 600px">
 
     <div class="card">
         <div class="card-header">
            <div class="row">
-               <h3 class="col-7">Frames: {{ group }}</h3>
-               {% set u = info['usage']['used'] %}
-               {% set t = info['usage']['total'] %}
-               {% set p = '%0.f' % (u * 100.0 / t) %}
-               <h3 class="col-4">Used: {{ u|pretty_size }} of {{ t|pretty_size }} ({{ p }} %)</h3>
+               <h3 class="col-3">Frames: {{ mic }}</h3>
+               <h3 class="col-4">{{ info['frames'] }}</h3>
+               {% if info['usage'] %}
+                   {% set u = info['usage']['used'] %}
+                   {% set t = info['usage']['total'] %}
+                   {% set p = '%0.f' % (u * 100.0 / t) %}
+                   <h3 class="col-4">Used: {{ u|pretty_size }} of {{ t|pretty_size }} ({{ p }} %)</h3>
+               {% endif %}
            </div>
         </div>
         <div class="card-body p-0">
@@ -56,12 +57,11 @@
         </div>
     </div>
 
+        </div>
+
 {% endfor %}
 
 {% endif %}
-
-</div>
-
 
 
     </div>

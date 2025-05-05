@@ -1,55 +1,18 @@
-<!-- ============================================================== -->
-<!-- Task History Modal Content -->
-<!-- ============================================================== -->
-<div class="container-fluid dashboard-content ">
 
-<div class="card">
+<div class="container-fluid dashboard-content">
+    <!-- Header -->
+    {% set title = "Session Log " %}
+    {% set navigation = [('Sessions', url_for_content('sessions_list')), (session.shortname, '')] %}
+    {% include 'include_header.html' %}
 
-      <div class="card-header">
-        <h3 class="modal-title"> Session {{ session_id }} Log </h3>
-      </div>
-
-      <div class="card-body">
-
-        <div class="row">
-            <div class="col-12">{{ log_id }}</div>
-            <!-- Application Form -->
-            <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
-
-                <div class="table-responsive">
-                <table class="table">
-                    <thead class="bg-light">
-                    <tr class="border-0">
-                        <th class="border-0">event id</th>
-                        <th class="border-0">time</th>
-                        <th class="border-0">info</th>
-                    </tr>
-                    </thead>
-                    <tbody>
-                        {% for event_id, event in log_events %}
-                                <td>{{ event_id }}</td>
-                                <td>{{ event_id|redis_datetime(elapsed=True) }}</td>
-                                <td>
-
-                                    {% for k, v in event.items() %}
-                                        <div class="row">
-                                            <div class="col-3">{{ k }}</div><div class="col-9">{{ v }}</div>
-                                        </div>
-                                    {% endfor %}
-{#                                    {{ event|tojson }}#}
-                                </td>
-                                </tr>
-                        {% endfor %}
-
-                    </tbody>
-                </table>
-            </div>
-
-            </div>
-            <!-- end Application Form -->
-        </div>
-      </div>
+    <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12" id="session_content">
+       {% include "log_events.html" %}
+    </div>
+{#    <div class="row col-6">#}
+{#        <div class="row col-12"><h5 id="reload_label">Reloading in seconds</h5></div>#}
+{#    </div>#}
 
 </div>
 
-</div>
+
+

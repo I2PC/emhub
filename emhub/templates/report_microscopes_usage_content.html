@@ -83,19 +83,25 @@
                                     {% elif entry['key'] == 'maintenance' %}
                                         {% set color = 'color: rgb(255,107,53);' %}
                                     {% else %}
+                                        <tr style="{{ color }}">
+                                            <td> {{ entry['label'] }} </td>
+                                            <th> {{ entry['total_days'] / 2 }} </th>
+
+                                            <td>
+                                                {% if total_usage > 0 %}
+                                                    {{ '%0.2f'|format(entry['total_days'] * 100 / total_usage) }}
+                                                {% endif %}
+                                            </td>
+                                            <td>{{ entry['values']['data'] | pretty_size}}</td>
+                                            <td>{{ entry['values']['images'] }}</td>
+                                            <td>
+                                                {% if entry['bookings'] %}
+                                                <div class="col-1"><a href="javascript:selectEntryList('{{ entry['key'] }}', {{ resource['id'] }})"><i class="fas fa-eye"></i></a></div>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+
                                     {% endif %}
-                                    <tr style="{{ color }}">
-                                        <td> {{ entry['label'] }} </td>
-                                        <th> {{ entry['total_days'] / 2 }} </th>
-                                        <td>{{ '%0.2f'|format(entry['total_days'] * 100 / total_usage) }}</td>
-                                        <td>{{ entry['values']['data'] | pretty_size}}</td>
-                                        <td>{{ entry['values']['images'] }}</td>
-                                        <td>
-                                            {% if entry['bookings'] %}
-                                            <div class="col-1"><a href="javascript:selectEntryList('{{ entry['key'] }}', {{ resource['id'] }})"><i class="fas fa-eye"></i></a></div>
-                                            {% endif %}
-                                        </td>
-                                    </tr>
                                 {% endfor %}
 
                                 </tbody>
