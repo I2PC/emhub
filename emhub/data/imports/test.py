@@ -190,13 +190,18 @@ class TestData:
 
     def __fix_dates(self, attrs, *keys):
         for k in keys:
-            attrs[k] = self.__shift_date(attrs[k])
+            if k in attrs:
+                attrs[k] = self.__shift_date(attrs[k])
 
     def _populateProjects(self, dm):
         self._action('Populating Projects')
+
         for pDict in self.json_data['projects']:
             self.__fix_dates(pDict, 'creation_date', 'last_update_date')
-            pDict['title'] = f"Project {pDict['id']} Title"
+
+            if 'title' not in pDict:
+                pDict['title'] = f"Project {pDict['id']} Title"
+
             dm.create_project(**pDict)
 
         # Create a special project for news
