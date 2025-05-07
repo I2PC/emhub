@@ -298,8 +298,11 @@ cd {instance_path} && redis-server redis.conf --daemonize yes\n""")
             f.write(f"""
 #!/usr/bin/bash 
 
+ABS="$( realpath ${{BASH_SOURCE[0]}})"
+DIR="$( dirname $ABS)"
+
 export FLASK_APP=emhub
-export EMHUB_INSTANCE={instance_path}
+export EMHUB_INSTANCE=${{DIR}}
 export EMHUB_USER=admin
 export EMHUB_PASSWORD=admin
 export EMHUB_SERVER_URL=http://127.0.0.1:5000
