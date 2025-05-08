@@ -6,8 +6,9 @@
 {% set project = entry.project %}
 {% set pi = project.user.get_pi() %}
 {% set is_manager = current_user.is_manager %}
-{% set can_edit = current_user.can_edit_project(project) %}
-{% set readonly = '' if can_edit else 'readonly' %}
+{% set read_only = read_only or False %}
+{% set can_edit = not read_only and current_user.can_edit_project(project) %}
+{% set readonly_str = '' if can_edit else 'readonly' %}
 {% set disabled = '' if can_edit else 'disabled' %}
 
   <div class="modal-dialog modal-dialog-centered modal-xl" role="document" style="max-width: 80%">
@@ -36,7 +37,7 @@
                             {% if is_manager %}
                              <input type="text" class="form-control datetimepicker-input" data-target="#entry-date" id="entry-date" value="{{ entry.date|pretty_date }}" data-toggle="datetimepicker" />
                             {% else %}
-                                <input type="text" class="form-control" id="entry-date" value="{{ entry.date|pretty_date }}" readonly />
+                                <input type="text" class="form-control" id="entry-date" value="{{ entry.date|pretty_date }}" readonly_st />
                             {% endif %}
                         </div>
                     </div>
@@ -46,7 +47,7 @@
                         <div class="form-group row">
                             <label class="col-12 col-sm-3 col-form-label text-sm-right">Title</label>
                             <div class="col-12 col-sm-8 col-lg-6">
-                                <input type="text" {{ readonly }} required="" placeholder="Enter Title" id="entry-title" class="form-control" value="{{ entry.title }}">
+                                <input type="text" {{ readonly_st }} required="" placeholder="Enter Title" id="entry-title" class="form-control" value="{{ entry.title }}">
                             </div>
                         </div>
                     {% endif %}
@@ -56,7 +57,7 @@
                     <div class="form-group row">
                         <label class="col-12 col-sm-3 col-form-label text-sm-right">Description </label>
                         <div class="col-12 col-sm-8 col-lg-6">
-                            <textarea {{ readonly }} required="" class="form-control" id="entry-description">{{ entry.description }}</textarea>
+                            <textarea {{ readonly_st }} required="" class="form-control" id="entry-description">{{ entry.description }}</textarea>
                         </div>
                     </div>
                     {% endif %}
@@ -85,8 +86,6 @@
           {% if can_edit %}
               {% set btnOkText = "Update" if entry.id else "Create" %}
                <button class="btn btn-outline-dark" onclick="onEntryOkButtonClick()">{{ btnOkText }}</button>
-          {% else %}
-
           {% endif %}
 
       </div>

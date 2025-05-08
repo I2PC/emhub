@@ -2,7 +2,7 @@
 
 /* ---------------------- PROJECTS ------------------------------------ */
 
-/* Show the Application Form, either for a new booking or an existing one */
+/* Show the Project Form */
 function showProjectForm(project_id, modalId) {
     if (!modalId)
         modalId = 'project-modal';
@@ -62,13 +62,14 @@ function projectAjaxDone(jsonResponse) {
 }
 
 /* --------------------- ENTRIES ------------------------------ */
-function showEntryForm(entry_id, project_id, entry_type, copy_entry) {
+function showEntryForm(entry_id, project_id, entry_type, copy_entry, read_only) {
     show_modal_from_ajax('entry-modal',
                          get_ajax_content("entry_form",
                                    {entry_id: entry_id,
                                     entry_type: entry_type,
                                     entry_project_id: project_id,
-                                    copy_entry: copy_entry
+                                    copy_entry: copy_entry,
+                                    read_only: read_only
                                    }));
 }  // function showEntryForm
 

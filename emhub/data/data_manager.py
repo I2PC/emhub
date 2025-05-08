@@ -878,6 +878,9 @@ class DataManager(DbManager):
         if validate := attrs.pop('validate', True):
             self.__check_project(**attrs)
 
+        if 'user_id' not in attrs:
+            attrs['user_id'] = self._user.id
+
         now = self.now()
         attrs.update({
             'date': now,

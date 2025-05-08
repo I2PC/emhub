@@ -107,6 +107,7 @@ def register_content(dc):
         dm = dc.app.dm  # shortcut
         user = dc.app.user
         select_resource = int(kwargs.pop('select_resource', 1))
+        read_only = bool(int(kwargs.pop('read_only', 0)))
 
         if 'start' in kwargs and 'end' in kwargs:
             dates = {
@@ -116,13 +117,13 @@ def register_content(dc):
         else:
             dates = None
 
-        read_only = False
         if 'booking_id' in kwargs:
             booking_id = kwargs['booking_id']
             booking = dm.get_booking_by(id=booking_id)
             pi = user.get_pi()
             pid = 0 if pi is None else pi.id
-            read_only = not (user.is_manager or user.id == booking.owner.id or user.id == pid)
+            if not read_only:
+                read_only = not (user.is_manager or user.id == booking.owner.id or user.id == pid)
 
             if dates:
                 booking.start = dates['start']

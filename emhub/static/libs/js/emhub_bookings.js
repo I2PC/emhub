@@ -80,6 +80,25 @@ function showBookingForm(booking_params, modalId)
                                                     booking_params));
 }
 
+/** Show the booking form for a new booking */
+function createBooking(resource_id){
+    var start = new Date();
+    var end = new Date();
+
+    start.setHours(9);
+    start.setMinutes(0);
+    end.setHours(23);
+    end.setMinutes(59);
+
+    showBookingForm({
+        resource_id: resource_id,
+        select_resource: 0,
+        start: start.toISOString(),
+        end: end.toISOString()
+        // operator_id: operator_id
+    });
+}
+
 /**
  * Retrieve the booking parameters from the Form
  */
@@ -168,24 +187,20 @@ function onOkButtonClick(is_new) {
  */
 function onDeleteButtonClick() {
     const booking = getBookingParams(false);
+    if (!invalidRepeatParams(booking))
+        deleteBooking({id: booking.id, modify_all: booking.modify_all})
+}
 
+function deleteBooking(deleteParams){
     confirm("Delete Booking",
         "Are you sure to DELETE this Booking?",
          "Cancel", "Delete",
         function () {
-            if (invalidRepeatParams(booking))
-            return;
-
-            let deleteInfo = {
-                id: booking.id,
-                modify_all: booking.modify_all,
-            };
-
             var ajaxContent = $.ajax({
                 url: Api.urls.booking.delete,
                 type: "POST",
                 contentType: 'application/json; charset=utf-8',
-                data: JSON.stringify({attrs: deleteInfo}),
+                data: JSON.stringify({attrs: deleteParams}),
                 dataType: "json"
             });
 

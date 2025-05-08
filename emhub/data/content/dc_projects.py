@@ -134,6 +134,8 @@ def register_content(dc):
         user_id = dc.app.user.id
         now = dm.now()
         entry_id = kwargs['entry_id']
+        read_only = bool(int(kwargs.pop('read_only', 0)))
+
         if entry_id:
             entry = dm.get_entry_by(id=entry_id)
             if kwargs.get('copy_entry', False):
@@ -179,7 +181,8 @@ def register_content(dc):
             'entry': entry,
             'entry_type_label': entry_config['label'],
             'definition': None if form is None else form.definition,
-            'form_config': form_config
+            'form_config': form_config,
+            'read_only': read_only
         })
 
         return data
