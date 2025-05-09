@@ -192,6 +192,21 @@ class RelionSessionData(SessionData):
     def get_classes2d(self, runId=None):
         return self.get_classes2d_from_run(runId=runId)
 
+    def save_classes2d_selection(self, runId, selection):
+        batch = self.get_classes2d_runs()[runId]
+        p = os.path.join(self.classes2d, 'Classes2D', batch, '*_classes.mrcs')
+        if files := glob(p):
+            files.sort()
+            avgMrcs = files[-1]
+            dataStar = avgMrcs.replace('_classes.mrcs', '_data.star')
+            modelStar = dataStar.replace('_data.', '_model.')
+            selectionFn = modelStar + '.selection'
+            with open(selectionFn, 'w') as f:
+                json.dump(selection, f)
+            return self.relpath(selectionFn)
+
+        return None
+
     @classmethod
     def get_classes2d_data(cls, **kwargs):
         """ Get classes information from a relion *classes.mrcs files pattern. """
@@ -213,6 +228,12 @@ class RelionSessionData(SessionData):
             modelTable = kwargs.get('modelTable', '')
             avgMrcs = None
 
+        selectionFn = modelStar + '.selection'
+        selection = []
+        if os.path.exists(selectionFn):
+            with open(selectionFn) as f:
+                selection = json.load(f)
+
         if dataStar and modelStar:
             with StarFile(dataStar) as sf:
                 n = sf.getTableSize('particles')
@@ -226,10 +247,12 @@ class RelionSessionData(SessionData):
                     if mrc_stack is None:
                         avgMrcs = avgMrcs or os.path.join(root, avgMrcs)
                         mrc_stack = mrcfile.open(avgMrcs, permissive=True)
+                    clsId = int(i)
                     items.append({
-                        'id': '%03d' % int(i),
+                        'id': '%03d' % clsId,
                         'size': round(float(row.rlnClassDistribution) * n),
-                        'average': avgThumb.from_array(mrc_stack.data[int(i) - 1, :, :])
+                        'average': avgThumb.from_array(mrc_stack.data[int(i) - 1, :, :]),
+                        'selected': not selection or clsId in selection
                     })
             items.sort(key=lambda c: c['size'], reverse=True)
             mrc_stack.close()

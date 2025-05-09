@@ -453,19 +453,116 @@ function drawMicrograph(containerId, micrograph, drawValue) {
     image.src = 'data:image/png;base64,' + micrograph.thumbnail;
 }
 
-function drawClasses2d(containerId, classes, header, showSel){
+function nothing(){
+}
+
+function drawClasses2d(containerId, classes, showSel, run_id){
     var container = document.getElementById(containerId);
-    var imgStr, infoStr = null;
-    var html = '<div class="col-12">' + header + '</div>';
+
+    var imgSelHtml = `<div class="row" id="${containerId}SelRow" >`;
+    var imgUnselHtml = `<div class="row" id="${containerId}UnselRow" >`;
+    var totalClasses = classes.length;
+    var totalImages = 0;
+    var selClasses = 0;
+    var selImages = 0;
 
     for (var cls2d of classes) {
-        let borderColor = showSel && cls2d.sel ? 'limegreen' : 'white';
-        imgStr = '<img width="100px" src="data:image/png;base64,' + cls2d.average + '" style="border: solid 3px ' + borderColor + ';">';
-        infoStr = '<p class="text-muted mb-0"><small>size: ' + cls2d.size + ', id: ' + cls2d.id + '</small></p>';
-        html += '<div style="padding: 3px; min-width: 90px;">' + imgStr + infoStr + '</div>';
+        var borderColor = 'transparent';
+        //
+        // if (showSel && cls2d.sel)
+        //     borderColor = 'limegreen';
 
+        cls2d.sel = cls2d.selected && cls2d.size > 0;
+        var boxStr = '<div class="class_box" style="padding: 3px; min-width: 90px;" '
+        boxStr += `data-id="${cls2d.id}" data-size="${cls2d.size}" data-sel="${cls2d.sel}" >`;
+
+        var imgStr = '<img width="100px" ';
+        //imgStr += `onclick=classClicked(this) `
+
+        imgStr += 'src="data:image/png;base64,' + cls2d.average + '" style="border: solid 3px ' + borderColor + ';">';
+        let infoStr = '<p class="text-muted mb-0"><small>size: ' + cls2d.size + ', id: ' + cls2d.id + '</small></p>';
+        boxStr +=  imgStr + infoStr + '</div>';
+        if (cls2d.sel) {
+            imgSelHtml += boxStr;
+            selClasses += 1;
+            selImages += cls2d.size;
+        }
+        else
+            imgUnselHtml += boxStr;
+        totalImages += cls2d.size;
     }
+
+    imgSelHtml += '</div>';
+    imgUnselHtml += '</div>';
+
+    var headerHtml = selectionLabel('Total:', totalClasses, totalImages, false);
+    var selHtml = `<div class="row"><div class="col-12 mt-3" id="${containerId}SelLabel" >Selected: </div></div>`;
+    var unselHtml = `<div class="row"><div class="col-12  mt-3" id="${containerId}UnselLabel" >Unselected: </div></div>`;
+    var buttonInvert = `<a href="javascript:nothing()" id="${containerId}Invert" class="col-12 btn btn-outline-dark btn-sm mr-2 mt-5"><i class="fas fa-exchange-alt"></i> Invert Select </a>`;
+    var buttonSave = `<a  href="javascript:nothing()" class="col-12 btn btn-outline-dark btn-sm mt-5" role="button" id="${containerId}Save"><i class="fas fa-save"></i> Save Selection </a>`;
+
+    var html = `<div class="row col-12 m-0 p-0">`;
+    html += `<div class="col-12">${headerHtml}</div>`;
+    html += `<div class="col-6">${selHtml}</div>`;
+    html += `<div class="col-1"></div>`;
+    html += `<div class="col-5">${unselHtml}</div>`;
+    html += `<div class="col-6">${imgSelHtml}</div>`;
+    html += `<div class="col-1">${buttonInvert} ${buttonSave}</div>`;
+    html += `<div class="col-5">${imgUnselHtml}</div>`;
+    html += '</div>'
+
     container.innerHTML = html;
+    updateSelectionLabels();
+
+    $(`#${containerId}Invert`).on('click', function (){
+        $('.class_box').each(function (i){
+            invertClass(this);
+        });
+        updateSelectionLabels();
+    });
+
+    $(`#${containerId}Save`).on('click', function (){
+        var selected = [];
+       $('.class_box').each(function (i){
+            if ($(this).data('sel'))
+                selected.push(parseInt($(this).data('id')));
+        });
+       session_saveSelection2D(run_id, selected);
+    })
+
+
+    $('.class_box').on('click', function (e) {
+        invertClass(this);
+        updateSelectionLabels();
+    });
+
+    function invertClass(box) {
+        let selected = $(box).data('sel');
+        let suffix = selected ? 'Unsel' : 'Sel';
+        $(box).appendTo(`#${containerId}${suffix}Row`);
+        let sign = selected ? -1 : 1;
+        selClasses += sign;
+        selImages += sign * $(box).data('size');
+        $(box).data('sel', !selected);  // Invert selection
+    }
+
+    function selectionLabel(label, nClasses, nImages, percent) {
+        var label = `<label>${label} <strong>${nClasses}</strong> classes from <strong>${nImages}</strong> particles</label>`;
+        if (percent) {
+            let p = nImages * 100 / totalImages;
+            label += ` (${p.toFixed(2)} %)`;
+        }
+        return label;
+    }
+    function updateSelectionLabels(){
+        //let selLabel = '<font color="green" weight="bold">Selected</font>'
+        let selLabel = '<span class="badge mr-2" style="background: green; color: #fff;">Selected</span>';
+        let unselLabel = '<span class="badge mr-2" style="background: red; color: #fff;">Unselected</span>';
+        $(`#${containerId}SelLabel`).html(selectionLabel(selLabel, selClasses, selImages, true));
+        let unselClasses = totalClasses - selClasses;
+        let unselImages =  totalImages - selImages;
+        $(`#${containerId}UnselLabel`).html(selectionLabel(unselLabel, unselClasses, unselImages, true));
+    }
 }
 
 function drawVolData(containerId, volSlices){
@@ -907,6 +1004,14 @@ class PlotCard extends Card {
 }  // class GridSquareCard
 
 /* --------------------------- Session Live functions ------------------------*/
+function session_saveSelection2D(run_id, selection){
+    return session_getData({
+        result: 'classes2d',
+        run_id: run_id,
+        selection: selection
+    });
+}
+
 function session_getData2D(run_id){
     overlay_2d.show("Loading Class2D, run " + run_id);
     return session_getData({result: 'classes2d', run_id: run_id})
@@ -930,45 +1035,31 @@ function session_getData(attrs) {
             if ('error' in jsonResponse) {
                 error = jsonResponse.error;
             }
+            else if ('selection_file' in jsonResponse){
+                showMessage("Selection saved", "File: " + jsonResponse.selection_file);
+            }
             else {
                 let classes2d = jsonResponse.classes2d;
 
                 if (nonEmpty(classes2d)) {
                     let items = classes2d.items;
                     let n = items.length;
-                    let sel = classes2d.selection;
-                    let nsel = sel.length;
                     var total = 0;
-                    var totalSel = 0;
-                    var itemsSel = [];
 
-                    for (var i = 0; i < n; ++i) {
-                        cls = items[i];
-                        total += cls.size;
-                        if (sel.indexOf(parseInt(cls.id)) >= 0) {
-                            cls.sel = true;
-                            totalSel += cls.size;
-                            itemsSel.push(cls);
-                        }
-                        else
-                            cls.sel = false;
-                    }
                     classes2d_container = document.getElementById('classes2d_container');
+                    classes2d_container.innerHTML = '<div id="classes2d_all" class="row col-12" style="vertical-align: top;"></div>';
 
-                    let col =  nsel ? '7' : '12';
-                    classes2d_container.innerHTML = '<div id="classes2d_all" class="row col-' + col + '" style="vertical-align: top;"></div>';
-
-                    if (nsel) {
-                        classes2d_container.innerHTML += '<div id="classes2d_sel" class="row col-4 align-content-start ml-5"></div>'
-
-                        let cPercent = (nsel * 100 / n).toFixed(0);
-                        let pPercent = (totalSel * 100 / total).toFixed(0);
-                        let selHeader = '<label>Selection</label>: <strong>' + nsel + '</strong> classes (' + cPercent + '%) from <strong>' + totalSel + '</strong> particles (' + pPercent + '%)';
-                        drawClasses2d('classes2d_sel', itemsSel, selHeader);
-                    }
+                    // if (nsel) {
+                    //     classes2d_container.innerHTML += '<div id="classes2d_sel" class="row col-4 align-content-start ml-5"></div>'
+                    //
+                    //     let cPercent = (nsel * 100 / n).toFixed(0);
+                    //     let pPercent = (totalSel * 100 / total).toFixed(0);
+                    //     let selHeader = '<label>Selection</label>: <strong>' + nsel + '</strong> classes (' + cPercent + '%) from <strong>' + totalSel + '</strong> particles (' + pPercent + '%)';
+                    //     drawClasses2d('classes2d_sel', itemsSel, selHeader);
+                    // }
 
                     let header = '<label>All</label>: <strong>' + n + '</strong> classes from <strong>' + total + '</strong> particles';
-                    drawClasses2d('classes2d_all', items, header, true);
+                    drawClasses2d('classes2d_all', items, header, true, attrs.run_id);
 
                     $('#selectpicker-classes2d').find('option').remove();
 

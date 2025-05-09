@@ -788,7 +788,11 @@ class DataContent:
 
         elif result == 'classes2d':
             runId = int(kwargs.get('run_id', -1))
-            data['classes2d'] = sdata.get_classes2d(runId=runId)
+
+            if selection := kwargs.get('selection', None):  # Save selection file, not load classes 2d
+                data['selection_file'] = sdata.save_classes2d_selection(runId, selection)
+            else:
+                data['classes2d'] = sdata.get_classes2d(runId=runId)
 
         return data
 
