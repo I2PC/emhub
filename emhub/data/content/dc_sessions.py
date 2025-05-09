@@ -146,19 +146,23 @@ def register_content(dc):
         dm = dc.app.dm  # shortcut
         all_sessions = dm.get_sessions()
         sessions = []
-        bookingDict = {}
+        now = dm.now()
+        d30 = dt.timedelta(days=30)
 
         for s in all_sessions:
+            if now - s.start > d30:
+                continue
+
             if s.booking:
                 a = s.booking.application
                 if a is None or a.allows_access(dc.app.user):
                     sessions.append(s)
-                    b = dc.booking_to_event(s.booking, prettyDate=True, piApp=True)
-                    bookingDict[s.booking.id] = b
+                    #b = dc.booking_to_event(s.booking, prettyDate=True, piApp=True)
+                    #bookingDict[s.booking.id] = b
 
         return {
             'sessions': sessions,
-            'bookingDict': bookingDict,
+            #'bookingDict': bookingDict,
             'show_extra': show_extra
         }
 

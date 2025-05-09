@@ -598,7 +598,8 @@ class DataContent:
         extra = 'extra' in kwargs
         pid = int(kwargs.get('pid', 0))
         scope = kwargs.get('scope', 'lab')
-        stats = kwargs.get('stats', False)
+        stats = bool(int(kwargs.get('stats', 0)))
+        print(">>>>> get_user_projects: stats = ", stats, flush=True)
 
         project_perms = dm.get_config("permissions")['projects']
         project_config = dm.get_config("projects")
@@ -667,7 +668,7 @@ class DataContent:
                         projects[p.id].sessions.append(s)
 
             # Update Sessions stats
-            for p in projects.values():
+            for i, p in enumerate(projects.values()):
                 days = sessions = images = size = 0
                 for b in p.bookings:
                     # Only count days for microscopes
@@ -688,6 +689,7 @@ class DataContent:
                 }
                 p.user_can_edit = user.can_edit_project(p)
                 p.display_title = 'Hidden title' if (p.is_confidential and not p.user_can_edit) else p.title
+
 
         can_create = self.app.dm.user_can_create_projects(self.app.user)
         return {'projects': projects.values(),
