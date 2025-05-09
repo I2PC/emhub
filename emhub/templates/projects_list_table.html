@@ -8,9 +8,13 @@
                 <th>user/pi</th>
                 <th>title</th>
                 <th>{{ resource_days_tag }} days</th>
-                {% if 'sessions' in extra_columns %} <th>sessions</th> {% endif %}
-                {% if 'images' in extra_columns %} <th>images</th> {% endif %}
-                {% if 'data' in extra_columns %} <th>data</th> {% endif %}
+                {% set show_sessions = 'sessions' in extra_columns %}
+                {% set show_images = 'images' in extra_columns %}
+                {% set show_data = 'data' in extra_columns %}
+
+                {% if show_sessions %} <th>sessions</th> {% endif %}
+                {% if show_images %} <th>images</th> {% endif %}
+                {% if show_data %} <th>data</th> {% endif %}
 
                 {% if show_extra %}
                     <th>extra</th>
@@ -40,18 +44,28 @@
                     {% set app = ' / %s'|format(apps[0].code) if apps and show_application else '' %}
                     <td>{{ p.user|pairname }} {{ app }}</td>
                     <td>{{ p.display_title }}</td>
-                    <td>{{ p.stats['days'] }}</td>
 
-                    {% if 'sessions' in extra_columns %}
+                        <td>
+                            {% if 'data' in extra_columns and p.stats %}
+                                {{ p.stats['days'] }}
+                            {% endif %}
+                        </td>
+
+
+                    {% if show_sessions %}
                        <td style="max-width: 300px">
                         {{ macros.session_list(p.sessions) }}
-                    </td>
+                        </td>
                     {% endif %}
-                    {% if 'images' in extra_columns %}
-                        <td>{{ p.stats['images'] }}</td>
+                    {% if show_images %}
+                        <td>
+                           {% if p.stats %} {{ p.stats['images'] }} {% endif %}
+                        </td>
                     {% endif %}
-                    {% if 'data' in extra_columns %}
-                        <td>{{ p.stats['size'] }}</td>
+                    {% if show_data %}
+                        <td>
+                           {% if p.stats %}  {{ p.stats['size'] }} {% endif %}
+                        </td>
                     {% endif %}
 
                     {%  if show_extra %}
@@ -73,7 +87,7 @@
         $('#projects-table').DataTable({
             sDom: 'lfrtip',
             paging: true,
-            info: false,
+            info: true,
             order: [[ 1, "desc" ]], // sorted by 'last_updated' in reverse order
             pageLength: 25
             //ordering: false

@@ -13,7 +13,7 @@
         <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
             <div class="card">
                 <div class="card-header">
-                    <h5 class="mb-0">Sessions List</h5>
+                    <h5 class="mb-0">Sessions List (Last 30 days)</h5>
                 </div>
                 <div class="card-body">
                     <div class="table-responsive">
@@ -106,10 +106,11 @@
 
 
 <script>
-    var bookingDict = {{ bookingDict|tojson }};
+    {#var bookingDict = {{ bookingDict|tojson }};#}
     var order_col = {{  1 if is_admin else 0 }};
 
     $('#sessions-table').DataTable({
+        pageLength: 25,
         order: [[order_col, "desc"]]
     });
 
