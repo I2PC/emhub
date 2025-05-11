@@ -172,6 +172,10 @@ def register_content(dc):
             formName = experiments.get(resource.name, 'experiment')
         else:
             formName = 'experiment'
+
+        if not formName:
+            raise Exception("There is no Experiment defined for "
+                            "this Instrument.")
         form = dm.get_form_by(name=formName)
         data = dc.dynamic_form(form, **kwargs)
         return data
