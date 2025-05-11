@@ -222,7 +222,15 @@ function onCancelButtonClick() {
 }
 
 function showExperimentForm(booking_id) {
+    var local_booking = getFormAsJson('booking-form');
     var params = {booking_id: booking_id};
+
+    if (!nonEmpty(local_booking.resource_id)){
+        showError("Select a resource before opening the Experiment form.");
+        return
+    }
+    params.resource_id = local_booking.resource_id;
+
     if (last_experiment)
         params.form_values = JSON.stringify(last_experiment);
 

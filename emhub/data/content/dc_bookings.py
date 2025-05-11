@@ -155,16 +155,24 @@ def register_content(dc):
 
     @dc.content
     def experiment_form(**kwargs):
+        dm = dc.app.dm
         if kwargs['booking_id']:
             booking_id = int(kwargs['booking_id'])
-            booking = dc.app.dm.get_booking_by(id=booking_id)
+            booking = dm.get_booking_by(id=booking_id)
         else:
             booking = None
+
+        resource = dm.get_resource_by(id=int(kwargs['resource_id']))
 
         if 'form_values' not in kwargs and booking:
             kwargs['form_values'] = json.dumps(booking.experiment)
 
-        form = dc.app.dm.get_form_by(name='experiment')
+        bconfig = dm.get_config('bookings')
+        if experiments := bconfig.get('experiment_forms', None):
+            formName = experiments.get(resource.name, 'experiment')
+        else:
+            formName = 'experiment'
+        form = dm.get_form_by(name=formName)
         data = dc.dynamic_form(form, **kwargs)
         return data
 
