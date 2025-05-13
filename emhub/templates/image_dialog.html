@@ -7,6 +7,9 @@
           {% if image_title %}
                 <h3 class="modal-title" id="error-modal-title" style="color: red">{{ image_title }}</h3>
           {% endif %}
+        {% if image_download %}
+               <a href="{{ image_download }}"><i class="fas fa-download"></i></a>
+          {% endif %}
         <button type="button" class="close" data-dismiss="modal" aria-label="Close">
           <span aria-hidden="true">&times;</span>
         </button>
@@ -15,6 +18,7 @@
           <div class="text-center">
               <img id="image-dialog-img" src="{{ image_data }}" alt="image-dialog">
           </div>
+
       </div>
     </div>
   </div>

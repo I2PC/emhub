@@ -100,7 +100,8 @@
         entry: {
             create: "{{ url_for('api.create_entry') }}",
             update: "{{ url_for('api.update_entry') }}",
-            delete: "{{ url_for('api.delete_entry') }}"
+            delete: "{{ url_for('api.delete_entry') }}",
+            image: "{{ url_for('images.entry') }}"
         },
         template: {
             create: "{{ url_for('api.create_template') }}",
@@ -194,6 +195,10 @@
             if (r.id == resourceId)
                 return r;
         return null;
+    }
+
+    function getEntryImage(entry_id, imageName){
+
     }
 
 </script>

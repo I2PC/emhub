@@ -29,6 +29,7 @@
 Register content functions related to Sessions
 """
 import os
+import flask
 
 from emtools.image import Thumbnail
 
@@ -274,7 +275,8 @@ def register_content(dc):
         thumb = Thumbnail(output_format='base64', max_size=(1024, 1024))
         return {
             'image_title': kwargs.get('title', ''),
-            'image_data': 'data:image/%s;base64, ' + thumb.from_path(filepath)
+            'image_data': 'data:image/%s;base64, ' + thumb.from_path(filepath),
+            'image_download': flask.url_for('images.entry', entry=entry_id, file=kwargs['file'], attachment=1)
         }
 
     @dc.content

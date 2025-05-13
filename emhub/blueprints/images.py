@@ -72,7 +72,8 @@ def extra():
     try:
         name = os.path.basename(request.args['path'])
         path = os.path.join(app.instance_path, 'extra', 'images')
-        return flask.send_from_directory(path, name)
+        attachment = bool(int(request.args.get('attachment', 0)))
+        return flask.send_from_directory(path, name, as_attachment=attachment)
     except FileNotFoundError:
         flask.abort(404)
 
@@ -82,11 +83,19 @@ def entry():
     """ Allow to access images in the 'extra' folder as an extension
     to the existing images in EMhub. """
     try:
+        if request.is_json:
+            args = request.get_json()
+        elif request.form:
+            args = request.form.to_dict()
+        else:
+            args = request.args.to_dict()
+
         dm = app.dm
-        entry_id = int(request.args['entry'])
+        entry_id = int(args['entry'])
         entry = dm.get_entry_by(id=entry_id)
-        path, name = os.path.split(app.dm.get_entry_path(entry, request.args['file']))
-        return flask.send_from_directory(path, name)
+        path, name = os.path.split(app.dm.get_entry_path(entry, args['file']))
+        attachment = bool(int(request.args.get('attachment', 0)))
+        return flask.send_from_directory(path, name, as_attachment=attachment)
     except FileNotFoundError:
         flask.abort(404)
 

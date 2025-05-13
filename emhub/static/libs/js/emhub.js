@@ -780,6 +780,37 @@ function filebrowser_onView(fileUpload, entry_id){
 }
 
 
+function filebrowser_onDownload(fileUpload, entry_id){
+    var textId = fileUpload.id.replace("--download", "--text");
+    let fileName = $('#' + textId).val();
+    // // alert("Viewing file: " + fileName + " from input: " + $('#' + textId).attr('name'));
+    // let params = {
+    //
+    // }
+    // var ajaxContent = $.ajax({
+    //     url: endpoint,
+    //     type: "POST",
+    //     contentType: 'application/json; charset=utf-8',
+    //     data: JSON.stringify({attrs: attrs}),
+    //     dataType: "json"
+    // });
+    //
+    // ajaxContent.done(handleAjaxDone);
+    // ajaxContent.fail(handleAjaxFail);
+
+    //send_ajax_json(Api.urls.entry.image, {entry_id: entry_id, file: fileName})
+    var ajaxContent = $.ajax({
+        url: Api.urls.entry.image,
+        type: "POST",
+        data: {entry: entry_id, file: fileName},
+        //contentType: 'application/json; charset=utf-8',
+        dataType: "json"
+    });
+
+    //ajaxContent.done(done);
+    ajaxContent.fail(ajax_request_failed);
+}
+
 //----------------------------- Utils functions --------------------------
 
 /** Make all elements of the same height. Input can be a list of id's or a pattern. */
