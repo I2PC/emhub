@@ -422,7 +422,6 @@ class SessionTaskHandler(TaskHandler):
                 frames = self._elapsed_days('last_file', self.framesInfo, 3)
 
             return (frames or
-                    self._elapsed_days('first_file', info, 5) or
                     self._elapsed_days('last_file', info, 3))
 
         if _stop():

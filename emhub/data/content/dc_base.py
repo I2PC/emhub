@@ -40,9 +40,10 @@ from flask import current_app as app
 
 from emhub.utils import (pretty_datetime, datetime_to_isoformat, pretty_date,
                          datetime_from_isoformat, get_quarter, pretty_quarter,
-                         image, shortname)
+                         shortname)
 
 from emtools.utils import Pretty, Timer
+from emtools.image import Thumbnail
 from emtools.metadata import Bins, TsBins, EPU
 
 
@@ -562,8 +563,8 @@ class DataContent:
 
             fn = dm.get_resource_image_path(r)
             if os.path.exists(fn):
-                base64 = image.Base64Converter(max_size=(128, 128))
-                return 'data:image/%s;base64, ' + base64.from_path(fn)
+                thumb = Thumbnail(output_format='base64', max_size=(128, 128))
+                return 'data:image/%s;base64, ' + thumb.from_path(fn)
             else:
                 return flask.url_for('images.static', filename=r.image)
 

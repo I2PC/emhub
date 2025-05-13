@@ -30,6 +30,8 @@ Register content functions related to Sessions
 """
 import os
 
+from emtools.image import Thumbnail
+
 
 def register_content(dc):
 
@@ -205,12 +207,12 @@ def register_content(dc):
         images = []
 
         # Convert images in data form to base64
-        base64 = image.Base64Converter(max_size=(512, 512))
+        thumb = Thumbnail(output_format='base64')
 
         for k, v in data.items():
             if k.endswith('_image') and v.strip():
                 fn = dm.get_entry_path(entry, v)
-                data[k] = 'data:image/%s;base64, ' + base64.from_path(fn)
+                data[k] = 'data:image/%s;base64, ' + thumb.from_path(fn)
 
         for k, v in data.items():
             if k.endswith('_images') or k.endswith('images_table'):
@@ -261,6 +263,18 @@ def register_content(dc):
             'images': images,
             'pi_info': pi_info,
             'session': session
+        }
+
+    @dc.content
+    def entry_image(**kwargs):
+        dm = dc.app.dm
+        entry_id = int(kwargs['entry'])
+        entry = dm.get_entry_by(id=entry_id)
+        filepath = dm.get_entry_path(entry, kwargs['file'])
+        thumb = Thumbnail(output_format='base64', max_size=(1024, 1024))
+        return {
+            'image_title': kwargs.get('title', ''),
+            'image_data': 'data:image/%s;base64, ' + thumb.from_path(filepath)
         }
 
     @dc.content

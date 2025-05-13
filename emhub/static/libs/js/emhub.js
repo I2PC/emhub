@@ -772,6 +772,13 @@ function filebrowser_updateFilePath(fileUpload) {
     }
 }
 
+function filebrowser_onView(fileUpload, entry_id){
+    var textId = fileUpload.id.replace("--view", "--text");
+    let fileName = $('#' + textId).val();
+    // alert("Viewing file: " + fileName + " from input: " + $('#' + textId).attr('name'));
+    showEntryImage(entry_id, fileName)
+}
+
 
 //----------------------------- Utils functions --------------------------
 

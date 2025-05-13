@@ -276,6 +276,28 @@ function showBookingCosts() {
 }  // function showBookingCosts
 
 
+function showEntryImage(entry_id, imageName){
+    var params = {
+        entry: entry_id,
+        file: imageName
+    };
+    var ajaxContent = get_ajax_content("entry_image", params);
+    showImageDialog(ajaxContent);
+}
+
+function showImageDialog(ajaxContent) {
+    ajaxContent.done(function(html) {
+        $("#image-modal").html(html);
+        $('#image-modal').modal('show');
+    });
+
+    ajaxContent.fail(function(jqXHR, textStatus) {
+        alert( "Image request failed: " + textStatus );
+    });
+
+}  // function showExperimentForm
+
+
 /*------------  Calendar related functions --------------- */
 
 function createCalendar() {

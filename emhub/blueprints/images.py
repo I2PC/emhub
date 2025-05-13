@@ -77,6 +77,20 @@ def extra():
         flask.abort(404)
 
 
+@images_bp.route("/entry", methods=['GET', 'POST'])
+def entry():
+    """ Allow to access images in the 'extra' folder as an extension
+    to the existing images in EMhub. """
+    try:
+        dm = app.dm
+        entry_id = int(request.args['entry'])
+        entry = dm.get_entry_by(id=entry_id)
+        path, name = os.path.split(app.dm.get_entry_path(entry, request.args['file']))
+        return flask.send_from_directory(path, name)
+    except FileNotFoundError:
+        flask.abort(404)
+
+
 @images_bp.route("/get_mic_data", methods=['POST'])
 def get_mic_data():
     """ Load micrograph data from a given micId.
