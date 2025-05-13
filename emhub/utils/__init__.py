@@ -28,8 +28,6 @@ import json
 import datetime as dt
 import numpy as np
 
-from . import image
-
 
 def pretty_json(d):
     print(json.dumps(d, indent=4))
