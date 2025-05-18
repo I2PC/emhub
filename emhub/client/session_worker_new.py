@@ -39,6 +39,8 @@ from emhub.client import config
 from emhub.client.worker_new import (TaskHandler, DefaultTaskHandler,
                                      CmdTaskHandler, Worker)
 
+from emwrap.mix.otf import OTF
+
 
 def session_start(session):
     dateStr = session['start'].split('T')[0]
@@ -280,6 +282,8 @@ class SessionTaskHandler(TaskHandler):
                             n, size = Path.rsync(framesPath, rawPath, *args, size=True)
                             if n > 0:
                                 return n, size
+                            else:
+                                tries -= 1
 
                         if missing := [f for f in file_list if not os.path.exists(f)]:
                             missingFn = debugDstFile + '_missing.txt'
@@ -326,7 +330,6 @@ class SessionTaskHandler(TaskHandler):
                 # Remove dict from the task update
                 self.info("Updating log")
                 self.update_log({
-                    'task_id': self.getLogPrefix(),
                     'new_files': f"{self.n_files} ({self.n_movies} movies)",
                     'transferred_size': f"{totalSize} ({Pretty.size(totalSize)})",
                     'transfer_time': str(elapsed),
@@ -435,8 +438,8 @@ class SessionTaskHandler(TaskHandler):
                 if int(self.framesInfo['movies']) == 0:
                     self.info(f'Stopping transfer, cleaning frames folder: '
                               f'{framesPath}.')
-                    #self.pl.rm(framesPath)
-                    self.info(f"FAKE DELETE: rm -rf {framesPath}")
+                    self.pl.rm(framesPath)
+                    #self.info(f"FAKE DELETE: rm -rf {framesPath}")
             self.update_log(update_args)
             self.stop()
 
@@ -531,23 +534,24 @@ class SessionTaskHandler(TaskHandler):
             'sleeping': sleep_minutes
         })
 
-    def stop_all_otf(self, done=False):
-        return
-        self.info("Stopping all OTF tasks.")
-        stopped = self.worker.notify_launch_otf(self.task)
-        self.info(f"Stopped: {stopped}")
-        event = {'stopped_tasks': json.dumps(stopped)}
-        if done:
-            event['done'] = 1
-            self.stop()
-        self.update_log(event)
-
     def get_path_from(self, pathDict, referencePath, root, suffix=''):
         path = pathDict.get('path', None)
         if not path:
             folder = os.path.basename(Path.rmslash(referencePath)) + suffix
             path = os.path.join(root, folder)
         return path
+
+    def _otf_check_processes(self, otf_folder):
+            processes = Process.ps('emw', workingDir=otf_folder, children=True)
+            procList = []
+            for folder, procs in processes.items():
+                for p in procs:
+                    procList.append({
+                        'pid': p.pid,
+                        'ppid': p.info['ppid'],
+                        'name': p.info['name'],
+                    })
+            return procList
 
     def otf(self):
         extra = self.session['extra']
@@ -563,14 +567,7 @@ class SessionTaskHandler(TaskHandler):
             self.stop()
             return
 
-        # Stop all OTF tasks running in this worker
-        if 'stop' in self.task['args']:
-            self.stop_all_otf(done=True)
-
         clear = 'clear' in self.task['args'] and self.count == 1
-
-        if clear:
-            self.stop_all_otf(done=False)
 
         try:
             n = raw.get('movies', 0)
@@ -594,11 +591,26 @@ class SessionTaskHandler(TaskHandler):
                     otf_exists = True
                     self.launch_otf()
                     self.update_log({'otf_path': otf['path'],
-                                      'otf_status': otf['status'],
-                                      'count': self.count})
+                                     'otf_status': otf['status'],
+                                     'count': self.count})
                     self.update_session = False  # after launching no need to update
             else:
-                self.update_log({'count': self.count})
+                # TODO: Check related process and if not, then relaunch otf in resume mode
+                procs = self._otf_check_processes(otf_path)
+                n = len(procs)
+                if n == 0:
+                    otf_status = 'stopped'
+                else:
+                    otf_status = 'running'
+                    # TODO: Check if stalled, even with processes, no processing is ongoing
+
+                otf = extra['otf']
+                otf['status'] = otf_status
+                self.update_log({'count': self.count,
+                                 'status': otf_status,
+                                 'processes_count': len(procs),
+                                 'processes_list': json.dumps(procs)})
+                self.update_session_extra({'otf': otf})
 
             if otf_exists and raw_exists:
                 if self.update_session:
@@ -688,43 +700,27 @@ class SessionTaskHandler(TaskHandler):
         with open(_path('README.txt'), 'w') as configfile:
             config.write(configfile)
 
-        if workflow == 'relion':
-            opts = self.sconfig['otf']['relion']['options']
-            with open(_path('relion_it_options.py'), 'w') as f:
-                optStr = ",\n".join(f"'{k}' : '{v.format(**acq)}'" for k, v in opts.items())
-                f.write("{\n%s\n}\n" % optStr)
-
-        elif workflow == 'scipion':
-            opts = self.sconfig['otf']['scipion']['options']
-            cryolo_model = otf.get('cryolo_model', None)
-
-            if cryolo_model:
-                model = os.path.basename(cryolo_model)
-                os.symlink(cryolo_model, _path(model))
-                opts['picking'] = {'cryolo_model': model}
-
-            with open(_path('scipion_otf_options.json'), 'w') as f:
-                opts['acquisition'] = acq
-                json.dump(opts, f, indent=4)
-
-        elif workflow == 'emwrap':
-            from emwrap.mix.otf import OTF
-            OTF(otf_path).create(self.session, self.sconfig, self.resources.values())
+        # emwrap workflow
+        OTF(otf_path).create(self.session, self.sconfig, self.resources.values())
 
         # Update OTF status
         if update_session:
             self.info("Updating session, otf: %s" % str(otf))
             self.update_session_extra({'otf': otf})
+            self.update_log({
+                'created': Pretty.now(),
+                'otf_folder': otf['path']
+            })
 
     def launch_otf(self):
         """ Launch OTF for a session. """
-        self.info(f"Running OTF")
+        self.info(f"Launching OTF")
         otf = self.session['extra']['otf']
         otf_path = otf['path']
         workflow = otf.get('workflow', 'none').lower()
         if workflow == 'none':
             msg = 'OTF workflow is None, so no doing anything.'
-            self.pl.logger.info(msg)
+            self.info(msg)
             self.update_log({'msg': msg, 'done': 1})
             self.stop()
         else:
@@ -736,6 +732,8 @@ class SessionTaskHandler(TaskHandler):
             command = workflow_conf['command']
             cmd = command.format(otf_path=otf_path, session_id=self.session['id'])
             self.pl.system(cmd + ' &')
+            self.update_log({'launched': Pretty.now(), 'cmd': cmd})
+            self.info(f"Launched OTF command: {cmd}")
 
     def stop_otf(self):
         """ Stop the thread that is doing OTF and all subprocess.
@@ -858,11 +856,20 @@ class SessionWorker(Worker):
                                            {"attrs": ["id", "name"]})
         self.jsonFile = os.path.join(self.logsFolder, 'worker.json')
 
+        # Initialize timedelta for checking new sessions
+        self.sessions_td = timedelta(days=7)
+
+        self._jsonLoad()
+        # Remove active, it will be repopulated
+        self.jsonData['active'] = {}
+
     def _jsonLoad(self):
+        self.last_id = 1900
+
         if os.path.exists(self.jsonFile):
             with open(self.jsonFile) as f:
                 self.jsonData = json.load(f)
-                self.last_id = self.jsonData['last_id']
+                self.last_id = max(self.last_id, self.jsonData['last_id'])
 
     def _jsonDump(self):
         with open(self.jsonFile, 'w') as f:
@@ -875,27 +882,16 @@ class SessionWorker(Worker):
         return TaskWorker(task)
 
     def _initialize_tasks(self):
-        # TODO: This could be tuned for one worker to take care of some
-        # microscopes and not all
-        mics = ['Krios01', 'Krios02', 'Arctica01']
-
-        self.sessions_td = timedelta(days=7)
-
-        self._jsonLoad()
-        # Remove active, it will be repopulated
-        self.jsonData['active'] = {}
-
-        # Add tasks for frames monitoring
-        tasks = [{'args': {'action': 'frames', 'session_id': m}} for m in mics]
-        self.add_tasks_workers(tasks)
-
-        # Create a separate thread to poll sessions, individual handlers
-        # will be created for each Task transfer
-        threading.Thread(target=self.poll_sessions, daemon=True).start()
+        """ This method should be implemented in subclasses"""
+        pass
 
     def run(self):
         self.setup()
         self._initialize_tasks()
+
+        # Create a separate thread to poll sessions, individual handlers
+        # will be created for each Task transfer
+        threading.Thread(target=self.poll_sessions, daemon=True).start()
 
         while True:
             try:
@@ -944,14 +940,8 @@ class SessionWorker(Worker):
                           f"total workers: {len(self.tasks)}")
 
     def handle_active_sessions(self, sessions):
-        # Add transfer tasks
-        self.add_tasks_workers(session_task(s, 'transfer') for s in sessions)
-
-        # Wait a bit to allow creation of gscem folder
-        time.sleep(60)
-
-        # Add deliver tasks
-        self.add_tasks_workers(session_task(s, 'deliver') for s in sessions)
+        """ Implement in subclasses what to do with existing active sessions. """
+        pass
 
     def poll_sessions(self):
         """ Poll active sessions from EMhub server and keep trying, to register
@@ -1019,15 +1009,30 @@ class SessionWorker(Worker):
         pass
 
 
-class OtfWorker(SessionWorker):
+class SessionTransferWorker(SessionWorker):
     """ Worker that will handle the OTF sessions. """
     def _initialize_tasks(self):
-        self._jsonLoad()
-        # Remove active, it will be repopulated
-        self.jsonData['active'] = {}
-        # Create a separate thread to poll sessions, individual handlers
-        # will be created for each Task transfer
-        threading.Thread(target=self.poll_sessions, daemon=True).start()
+        # TODO: This could be tuned for one worker to take care of some
+        # microscopes and not all
+        mics = ['Krios01', 'Krios02', 'Arctica01']
+
+        # Add tasks for frames monitoring
+        tasks = [{'args': {'action': 'frames', 'session_id': m}} for m in mics]
+        self.add_tasks_workers(tasks)
+
+    def handle_active_sessions(self, sessions):
+        # Add transfer tasks
+        self.add_tasks_workers(session_task(s, 'transfer') for s in sessions)
+        # Wait a bit to allow creation of gscem folder
+        time.sleep(60)
+        # Add deliver tasks
+        self.add_tasks_workers(session_task(s, 'deliver') for s in sessions)
+
+
+class SessionOtfWorker(SessionWorker):
+    """ Worker that will handle the OTF sessions. """
+    def _initialize_tasks(self):
+        pass
 
     def handle_active_sessions(self, sessions):
         # Add transfer tasks
@@ -1071,15 +1076,14 @@ class TaskWorker(Worker):
 
 
 def main():
-    p = argparse.ArgumentParser(prog='emh-session')
+    p = argparse.ArgumentParser(prog='emh-session-worker')
     p.add_argument('--url', '-u', default='')
 
     subparsers = p.add_subparsers(dest='mode')
 
     # ------------------------- USER subparser -------------------------------
     worker_p = subparsers.add_parser("worker")
-
-    g = worker_p.add_mutually_exclusive_group()
+    worker_p.add_argument('action')
 
     # ------------------------- Form subparser -------------------------------
     task_p = subparsers.add_parser("task")
@@ -1094,10 +1098,12 @@ def main():
         os.environ['EMHUB_SERVER_URL'] = args.url
 
     if args.mode == 'worker':
-        SessionWorker().run()
-
-    elif args.mode == 'otf':
-        OtfWorker().run()
+        if args.action == 'transfer':
+            SessionTransferWorker().run()
+        elif args.action == 'otf':
+            SessionOtfWorker().run()
+        else:
+            raise Exception(f"Unknown action {args.action} for 'worker' mode.")
 
     elif args.mode == 'task':
         task = {

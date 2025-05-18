@@ -141,8 +141,12 @@ class TaskHandler(threading.Thread):
         if self.emhub_log is None:
             raise Exception("emhub_log is not defined.")
 
+        # Make task_id appears first
+        e = {'task_id': self.getLogPrefix()}
+        e.update(event)
+
         data = {
-            'log_id': self.emhub_log, 'event': event
+            'log_id': self.emhub_log, 'event': e
         }
         return self.update_remote('update_log', data, tries=2, wait=5)
 
