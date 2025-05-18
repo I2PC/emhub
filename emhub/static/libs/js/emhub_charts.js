@@ -1049,17 +1049,7 @@ function session_getData(attrs) {
                     classes2d_container = document.getElementById('classes2d_container');
                     classes2d_container.innerHTML = '<div id="classes2d_all" class="row col-12" style="vertical-align: top;"></div>';
 
-                    // if (nsel) {
-                    //     classes2d_container.innerHTML += '<div id="classes2d_sel" class="row col-4 align-content-start ml-5"></div>'
-                    //
-                    //     let cPercent = (nsel * 100 / n).toFixed(0);
-                    //     let pPercent = (totalSel * 100 / total).toFixed(0);
-                    //     let selHeader = '<label>Selection</label>: <strong>' + nsel + '</strong> classes (' + cPercent + '%) from <strong>' + totalSel + '</strong> particles (' + pPercent + '%)';
-                    //     drawClasses2d('classes2d_sel', itemsSel, selHeader);
-                    // }
-
-                    let header = '<label>All</label>: <strong>' + n + '</strong> classes from <strong>' + total + '</strong> particles';
-                    drawClasses2d('classes2d_all', items, header, true, attrs.run_id);
+                    drawClasses2d('classes2d_all', items, true, attrs.run_id);
 
                     $('#selectpicker-classes2d').find('option').remove();
 
@@ -1067,7 +1057,7 @@ function session_getData(attrs) {
                     for (var i = 0; i < nRuns; ++i) {
                         let run = classes2d.runs[i];
                         //let selected = attrs.run_id == run.id ? 'selected' : '';
-                        let optStr = '<option value="' + run.id + '">' + run.label + '</option>';
+                        let optStr = `<option value="${run.id}"> ${run.label} </option>`;
                         $('#selectpicker-classes2d').append(optStr);
                     }
                     let selectedValue = classes2d.runs[attrs.run_id].id.toString();
