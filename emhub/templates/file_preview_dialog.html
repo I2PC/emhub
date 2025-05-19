@@ -1,0 +1,40 @@
+<!-- ============================================================== -->
+<!-- Error Modal Content -->
+<!-- ============================================================== -->
+  <div class="modal-dialog modal-dialog-centered modal-xl" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+          {% if file_title %}
+                <h3 class="modal-title" id="error-modal-title" style="color: red">{{ file_title }}</h3>
+          {% endif %}
+        {% if file_download %}
+               <a href="{{ file_download }}"><i class="fas fa-download"></i></a>
+          {% endif %}
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+          <div class="text-center">
+              {% if filetype == 'image' %}
+                <img id="image-dialog-img" src="{{ file_data }}" alt="image-dialog">
+              {% elif filetype == 'text' %}
+                    <textarea required="" class="form-control" id="template-description" rows="40">
+                        {{ file_data }}
+                    </textarea>
+              {% else %}
+                  <label>
+                      <br>Do not know how to preview file: <bold>{{ filename }}</bold>
+                      <br>But you can still download it.
+                  </label>
+              {% endif %}
+          </div>
+
+      </div>
+    </div>
+  </div>
+<!-- ============================================================== -->
+<!-- End of Error Modal Content -->
+<!-- ============================================================== -->
+
+

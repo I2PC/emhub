@@ -31,6 +31,7 @@ Register content functions related to Sessions
 import os
 import flask
 
+from emtools.utils import Path
 from emtools.image import Thumbnail
 
 
@@ -267,16 +268,32 @@ def register_content(dc):
         }
 
     @dc.content
-    def entry_image(**kwargs):
+    def entry_file_preview(**kwargs):
         dm = dc.app.dm
         entry_id = int(kwargs['entry'])
         entry = dm.get_entry_by(id=entry_id)
-        filepath = dm.get_entry_path(entry, kwargs['file'])
+        filename = kwargs['file']
+        filepath = dm.get_entry_path(entry, filename)
         thumb = Thumbnail(output_format='base64', max_size=(1024, 1024))
+
+        filetype = 'unknown'
+        filedata = ''
+
+        if Path.isImage(filename):
+            filetype = 'image'
+            filedata = 'data:image/%s;base64, ' + thumb.from_path(filepath)
+        elif Path.isText(filename):
+            filetype = 'text'
+            with open(filepath) as f:
+                filedata = f.read()
+
         return {
-            'image_title': kwargs.get('title', ''),
-            'image_data': 'data:image/%s;base64, ' + thumb.from_path(filepath),
-            'image_download': flask.url_for('images.entry', entry=entry_id, file=kwargs['file'], attachment=1)
+            'file_title': kwargs.get('title', ''),
+            'file_data': filedata,
+            'file_download': flask.url_for('images.entry', entry=entry_id,
+                                           file=filename, attachment=1),
+            'filename': filename,
+            'filetype': filetype
         }
 
     @dc.content
@@ -345,5 +362,75 @@ def register_content(dc):
                 'users': [u for u in dm.get_users() if u.is_manager]
                 }
 
+    @dc.content
+    def logbooks(**kwargs):
+        dm = dc.app.dm
+        conditionStr = "status='special:logbook'"
+        data = {
+            'logbooks': [p for p in dm.get_projects() if p.status == 'special:logbook']
+        }
+        return data
 
+    @dc.content
+    def logbook_content(**kwargs):
+        dm = dc.app.dm
+
+        if resource_id := int(kwargs.get('resource', 0)):
+            resource = dm.get_resource_by(id=resource_id)
+            if resource is None:
+                raise Exception(f"There is no resource with id: {resource_id}")
+            conditionStr = f"resource_id={resource_id}"
+
+            return {
+                'logtitle': resource.name + " Log",
+                'resource': resource,
+                'bookings': dm.get_bookings(condition=conditionStr, orderBy='start')
+            }
+        elif logbook_id := int(kwargs.get('logbook', 0)):
+            logbook = dm.get_project_by(id=logbook_id)
+
+            if logbook is None:
+                raise Exception(f"There is no project with id: {logbook_id}")
+
+            if logbook.status != 'special:logbook':
+                raise Exception(f"Project with id {logbook_id} is not a logbook.")
+
+            return {
+                'logtitle': logbook.title,
+                'logbook': logbook,
+                'entries_menu': logbook.extra['entries_menu']
+            }
+
+    @dc.content
+    def logbook_form(**kwargs):
+        dm = dc.app.dm
+        logbook_id = int(kwargs['logbook_id'])
+        entry_forms = [f for f in dm.get_forms()
+                       if f.name.startswith('entry_form:')]
+
+        if logbook_id:
+            logbook = dm.get_project_by(id=logbook_id)
+            selected_entries = [e[0] for e in logbook.extra['entries_menu']]
+        else:
+            user = dc.app.user
+            now = dm.now()
+            logbook = dm.Project(status='special:logbook',
+                                 date=now,
+                                 last_update_date=now,
+                                 last_update_user_id=user.id,
+                                 title='',
+                                 description='',
+                                 extra={'user_can_edit': True})
+            logbook.creation_user = logbook.user = user
+            selected_entries = []
+
+        def _formToEntry(f):
+            return [f.name.replace('entry_form:', ''),
+                    f.definition['title']]
+
+        return {
+            'logbook': logbook,
+            'entries': [_formToEntry(f) for f in entry_forms],
+            'selected_entries': selected_entries
+        }
 

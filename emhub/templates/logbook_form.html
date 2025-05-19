@@ -1,0 +1,118 @@
+<!-- ============================================================== -->
+<!-- Logbook Form Modal Content -->
+<!-- ============================================================== -->
+{% set is_manager = current_user.is_manager %}
+{% set can_edit = is_manager or current_user.can_edit_project(project) %}
+{% set readonly = '' if can_edit else 'readonly' %}
+{% set status_readonly = '' if is_manager else 'readonly' %}
+{% set disabled = '' if is_manager else 'disabled' %}
+
+  <div class="modal-dialog modal-dialog-centered modal-xl" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title" id="project-modal-title"> Logbook (id = {{ logbook.id }}) {{ readonly }} </h3>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="row">
+            <!-- Application Form -->
+            <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
+                <form id="project-form" data-parsley-validate="" novalidate="">
+                    <input type="hidden" id="project-id" name="project-id" value="{{ logbook.id or '' }}" data-key="id">
+
+                    <!-- Title Row -->
+                    <div class="form-group row">
+                        <label class="col-12 col-sm-3 col-form-label text-sm-right">Title</label>
+                        <div class="col-12 col-sm-8 col-lg-6">
+                            <input type="text" {{ readonly }} required="" placeholder="Enter Title" id="project-title" class="form-control" value="{{ logbook.title }}" data-key="title">
+                        </div>
+                    </div>
+
+                    <!-- Title Row -->
+                    <div class="form-group row">
+                        <label class="col-12 col-sm-3 col-form-label text-sm-right">Entries</label>
+                        <div class="col-12 col-sm-8 col-lg-6">
+                            <select id="project-select-entries" class="selectpicker show-tick" data-width="100%" multiple>
+                                {% for entry in entries %}
+                                    {% set selected = 'selected' if entry[0] in selected_entries else '' %}
+                                    <option value="{{ loop.index0 }}" {{selected}} data-subtext="{{ entry[0] }}">{{ entry[1] }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Description Row -->
+                    <div class="form-group row">
+                        <label class="col-12 col-sm-3 col-form-label text-sm-right">Description </label>
+                        <div class="col-12 col-sm-8 col-lg-6">
+                            <textarea {{ readonly }} required="" class="form-control" id="project-description" data-key="description">{{ logbook.description }}</textarea>
+                        </div>
+                    </div>
+
+
+                </form>
+            </div>
+            <!-- end Application Form -->
+        </div>
+      </div>
+
+      <div class="modal-footer">
+
+          <button type="button" id="project-btn-cancel"  class="btn btn-outline-secondary" data-dismiss="modal">Cancel</button>
+
+          {% if can_edit %}
+              {% set btnOkText = "Update" if logbook.id else "Create" %}
+               <button class="btn btn-outline-dark" onclick="onLogbookOkButtonClick()">{{ btnOkText }}</button>
+          {% else %}
+
+          {% endif %}
+
+      </div>
+    </div>
+  </div>
+<!-- ============================================================== -->
+<!-- End of Application Modal Content -->
+<!-- ============================================================== -->
+
+<script>
+
+    var all_entries = {{entries|tojson}};
+
+function onLogbookOkButtonClick() {
+    // If this variable exists, it means that the creation user is not manager
+
+    var project = getFormAsJson('project-form');
+    var entries = [];
+
+    if (!nonEmpty(project.title)) {
+        showError("Title can not be empty.")
+        return
+    }
+
+    for (var v of $('#project-select-entries').selectpicker('val')) {
+        entries.push(all_entries[parseInt(v)]);
+    }
+
+    if (entries.length < 1) {
+        showError("Please select at least one type of entry.")
+        return
+    }
+
+    project.status = "special:logbook";
+    project.extra = {entries_menu: entries}
+
+    send_ajax_json(Api.get('project', project.id), project, projectAjaxDone);
+}  // function onTemplateOkButtonClick
+
+
+    (function(window, document, $, undefined) {
+    "use strict";
+
+    $('select').selectpicker();
+
+})(window, document, window.jQuery);
+
+
+</script>

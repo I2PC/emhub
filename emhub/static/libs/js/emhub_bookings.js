@@ -281,7 +281,7 @@ function showEntryImage(entry_id, imageName){
         entry: entry_id,
         file: imageName
     };
-    var ajaxContent = get_ajax_content("entry_image", params);
+    var ajaxContent = get_ajax_content("entry_file_preview", params);
     showImageDialog(ajaxContent);
 }
 
