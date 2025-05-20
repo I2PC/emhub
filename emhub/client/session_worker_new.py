@@ -600,6 +600,25 @@ class SessionTaskHandler(TaskHandler):
                 n = len(procs)
                 if n == 0:
                     otf_status = 'stopped'
+                    # Check if the input files have not changed, so the status
+                    # will be finished
+                    with open(os.path.join(otf_path, 'session.json')) as f:
+                        session_json = json.load(f)
+
+                    starKeys = ['movies', 'micrographs', 'coordinates']
+                    now = datetime.now()
+                    old_td = timedelta(hours=8)
+
+                    def _old(k):
+                        starFile = session_json[k]
+                        if not os.path.exists(starFile):
+                            return False
+                        s = os.stat(starFile)
+                        ts = datetime.fromtimestamp(s.st_mtime)
+                        return ts - now > old_td
+
+                    otf_status = 'finished' if all(_old(k) for k in starKeys) else 'stopped'
+
                 else:
                     otf_status = 'running'
                     # TODO: Check if stalled, even with processes, no processing is ongoing
@@ -611,11 +630,14 @@ class SessionTaskHandler(TaskHandler):
                                  'processes_count': len(procs),
                                  'processes_list': json.dumps(procs)})
                 self.update_session_extra({'otf': otf})
+                if otf_status == 'finished':
+                    self.stop()
 
             if otf_exists and raw_exists:
                 if self.update_session:
                     self.info(f"No longer need to update session.")
                     self.update_session = False  # after launching no need to update
+                    self.sleep = 120
 
         except Exception as e:
             self.worker.logger.exception(e)
