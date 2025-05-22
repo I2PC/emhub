@@ -22,15 +22,35 @@
                 <form id="project-form" data-parsley-validate="" novalidate="">
                     <input type="hidden" id="project-id" name="project-id" value="{{ logbook.id or '' }}" data-key="id">
 
-                    <!-- Title Row -->
-                    <div class="form-group row">
-                        <label class="col-12 col-sm-3 col-form-label text-sm-right">Title</label>
-                        <div class="col-12 col-sm-8 col-lg-6">
-                            <input type="text" {{ readonly }} required="" placeholder="Enter Title" id="project-title" class="form-control" value="{{ logbook.title }}" data-key="title">
-                        </div>
-                    </div>
+                    {% if logbook_resources %}
 
-                    <!-- Title Row -->
+                        <!-- Resource Row -->
+                        <div class="form-group row">
+                            <label class="col-12 col-sm-3 col-form-label text-sm-right">Resource</label>
+
+                            <div class="col-7">
+                                <select id="project-select-resource" class="selectpicker show-tick" data-width="auto" data-key="resource_id" title="Select Resource to book..." {{ select_readonly }}>
+                                {% for r in logbook_resources %}
+                                    <option value="{{r['id']}}" data-content="<span class='badge' style='background: {{ r['color'] }}; color: #fff;'>{{r['name']}}</span>">{{r['name']}}</option>
+                                {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+
+                    {% else %}
+
+                        <!-- Title Row -->
+                        <div class="form-group row">
+                            <label class="col-12 col-sm-3 col-form-label text-sm-right">Title</label>
+                            <div class="col-12 col-sm-8 col-lg-6">
+                                <input type="text" {{ readonly }} required="" placeholder="Enter Title" id="project-title" class="form-control" value="{{ logbook.title }}" data-key="title">
+                            </div>
+                        </div>
+
+                    {% endif %}
+
+
+                    <!-- Entries Row -->
                     <div class="form-group row">
                         <label class="col-12 col-sm-3 col-form-label text-sm-right">Entries</label>
                         <div class="col-12 col-sm-8 col-lg-6">
@@ -85,23 +105,38 @@ function onLogbookOkButtonClick() {
 
     var project = getFormAsJson('project-form');
     var entries = [];
-
-    if (!nonEmpty(project.title)) {
-        showError("Title can not be empty.")
-        return
-    }
+    let has_resource = 'resource_id' in project;
 
     for (var v of $('#project-select-entries').selectpicker('val')) {
         entries.push(all_entries[parseInt(v)]);
     }
 
-    if (entries.length < 1) {
-        showError("Please select at least one type of entry.")
-        return
-    }
-
     project.status = "special:logbook";
     project.extra = {entries_menu: entries}
+
+    /* When it is not an Instrument Logbook, let's validate that it has
+    a title and also entries are selected
+     */
+    if (!has_resource) {
+
+        if (!nonEmpty(project.title)) {
+            showError("Title can not be empty.")
+            return
+        }
+
+        if (entries.length < 1 && !has_resource) {
+            showError("Please select at least one type of entry.")
+            return
+        }
+    }
+    else {
+        project.title = $( "#project-select-resource option:selected" ).text(); // $('#project-select-resource').selectpicker('text');
+        project.extra.resource_id = parseInt(project.resource_id);
+        delete project.resource_id;
+    }
+
+    {#alert(JSON.stringify(project, null, 4));#}
+    {#return#}
 
     send_ajax_json(Api.get('project', project.id), project, projectAjaxDone);
 }  // function onTemplateOkButtonClick

@@ -362,44 +362,81 @@ def register_content(dc):
                 'users': [u for u in dm.get_users() if u.is_manager]
                 }
 
+    def _logbooks():
+        for p in dc.app.dm.get_projects():
+            if p.status == 'special:logbook':
+                r = p.extra.get('resource_id', 0)
+                yield r, p
+
+    def _resources():
+        return dc.get_resources(all=True, image=True)['resources']
+
     @dc.content
     def logbooks(**kwargs):
-        dm = dc.app.dm
-        conditionStr = "status='special:logbook'"
-        data = {
-            'logbooks': [p for p in dm.get_projects() if p.status == 'special:logbook']
+        logbooks = []
+        rlogbooks = []
+        for r, p in _logbooks():
+            if r:
+                rlogbooks.append(p)
+            else:
+                logbooks.append(p)
+
+        return {
+            'logbooks': logbooks,
+            'rlogbooks': rlogbooks,
+            'resources_dict': {r['id']: r for r in _resources()}
         }
-        return data
 
     @dc.content
     def logbook_content(**kwargs):
         dm = dc.app.dm
+        logbook_id = int(kwargs.get('logbook', 0))
+        logbook = dm.get_project_by(id=logbook_id)
 
-        if resource_id := int(kwargs.get('resource', 0)):
-            resource = dm.get_resource_by(id=resource_id)
-            if resource is None:
-                raise Exception(f"There is no resource with id: {resource_id}")
-            conditionStr = f"resource_id={resource_id}"
+        if logbook is None:
+            raise Exception(f"There is no logbook with id: {logbook_id}")
 
-            return {
-                'logtitle': resource.name + " Log",
-                'resource': resource,
-                'bookings': dm.get_bookings(condition=conditionStr, orderBy='start')
-            }
-        elif logbook_id := int(kwargs.get('logbook', 0)):
-            logbook = dm.get_project_by(id=logbook_id)
+        if logbook.status != 'special:logbook':
+            raise Exception(f"Project with id {logbook_id} is not a logbook.")
 
-            if logbook is None:
-                raise Exception(f"There is no project with id: {logbook_id}")
+        logentries = [{
+            'id': e.id,
+            'date': e.date,
+            'type': e.type,
+            'title': e.title,
+            'desc': e.description,
+            'user': e.creation_user,
+            'last_update_date': e.last_update_date
+            } for e in logbook.entries
+        ]
+        if r := logbook.extra.get('resource_id', 0):
+            resource = dm.get_resource_by(id=r)
+            title = resource.name
+            for b in dm.get_bookings(condition=f"resource_id={r}", orderBy='start'):
+                e = {
+                    'id': b.id,
+                    'date': b.start,
+                    'type': 'booking',
+                    'title': b.title,
+                    'desc': b.description,
+                    'user': b.creator,
+                    'last_update_date': b.end
+                }
+                logentries.append(e)
+                for s in b.session:
+                    se = dict(e)
+                    se.update(session_id=s.id, type='session', title='Name = ' + s.shortname)
+                    logentries.append(se)
+        else:
+            resource = None
+            title = logbook.title
 
-            if logbook.status != 'special:logbook':
-                raise Exception(f"Project with id {logbook_id} is not a logbook.")
-
-            return {
-                'logtitle': logbook.title,
-                'logbook': logbook,
-                'entries_menu': logbook.extra['entries_menu']
-            }
+        return {
+            'logtitle': title,
+            'logbook': logbook,
+            'logentries': logentries,
+            'entries_menu': logbook.extra['entries_menu']
+        }
 
     @dc.content
     def logbook_form(**kwargs):
@@ -407,6 +444,7 @@ def register_content(dc):
         logbook_id = int(kwargs['logbook_id'])
         entry_forms = [f for f in dm.get_forms()
                        if f.name.startswith('entry_form:')]
+        resources = None
 
         if logbook_id:
             logbook = dm.get_project_by(id=logbook_id)
@@ -423,6 +461,9 @@ def register_content(dc):
                                  extra={'user_can_edit': True})
             logbook.creation_user = logbook.user = user
             selected_entries = []
+            rlogbooks = {r: p for r, p in _logbooks() if r}
+            if int(kwargs.get('resources', 0)):
+                resources = [r for r in _resources() if r['id'] not in rlogbooks]
 
         def _formToEntry(f):
             return [f.name.replace('entry_form:', ''),
@@ -431,6 +472,7 @@ def register_content(dc):
         return {
             'logbook': logbook,
             'entries': [_formToEntry(f) for f in entry_forms],
-            'selected_entries': selected_entries
+            'selected_entries': selected_entries,
+            'logbook_resources': resources,
         }
 

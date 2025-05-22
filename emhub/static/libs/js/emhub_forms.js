@@ -266,8 +266,6 @@ function showCreateSession(bookingId, create_session_func) {
 
 /* Show the Resource Form, either for a new booking or an existing one */
 function createSession(bookingId, totalSessions, create_session_func) {
-    console.log("createSession, func: " + create_session_func);
-
     if (totalSessions === 0)
         showCreateSession(bookingId, create_session_func);
     else
@@ -277,6 +275,21 @@ function createSession(bookingId, totalSessions, create_session_func) {
         });
 
 }  // function showResource
+
+function showSessionForm(bookingId, sessionId){
+
+    var content = get_ajax_content('session_form', {
+        booking_id: bookingId,
+        session_id: sessionId
+    });
+    show_modal_from_ajax("session-modal", content);
+}
+
+
+function createOrUpdateSession(session_params){
+    let url = nonEmpty(session_params.id) ? Api.urls.session.update : Api.urls.session.create;
+    send_ajax_json(url, session_params, sessionAjaxDone)
+}
 
 
 // ---------------------- Run Form related Functions ---------------------------

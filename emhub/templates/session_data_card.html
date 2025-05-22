@@ -10,11 +10,12 @@
                 {% set stats = session.stats %}
                 {% set extra = session.extra %}
                 {% set otf_path = extra.get('otf', {}).get('path', '') if session.data_path else '' %}
+                {% set raw = extra.get('raw', {}) %}
                 <table class="table table-striped table-bordered">
                     <tbody>
                         {{ macros.trow('EPU Session Name', epu_session, 'h3') }}
-                        {{ macros.trow('Frames Folder', extra['raw']['frames']) }}
-                        {{ macros.trow('Raw path', extra['raw']['path']) }}
+                        {{ macros.trow('Frames Folder', raw.get('frames', '')) }}
+                        {{ macros.trow('Raw path', raw.get('path', '')) }}
                         {{ macros.trow('OTF path', otf_path) }}
                         {{ macros.trow('Size', session.size|pretty_size) }}
                         {{ macros.trow('Files', session.total_files) }}

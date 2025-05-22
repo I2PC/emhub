@@ -252,7 +252,6 @@ class TestData:
                              'last_update_date')
             dm.create_entry(**entry)
 
-
     def _createTemplateFiles(self):
         instance_path = self.instance_path
 

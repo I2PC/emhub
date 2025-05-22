@@ -11,9 +11,16 @@
     {% import "entry_macros.html" as macros %}
     {% set is_manager = current_user.is_manager %}
 
-        <div class="row col-12"><h2 class="mr-5">Instruments</h2></div>
+        <div class="row col-12"><h3 class="mr-5 mt-2">Instruments</h3>
+            <div class="mb-4">
+                <a class="btn btn-primary" href="javascript:javascript:showLogbookForm(0, 1)" role="button" id="addBookingBtn" style="min-width: 220px">
+                        <i class="fas fa-plus-circle"></i> Create Instrument Logbook </a>
+            </div>
+        </div>
+
         <div class="row">
-            {% for r in resources %}
+            {% for lb in rlogbooks %}
+                {% set r = resources_dict[lb.extra['resource_id']] %}
 
                 <div class="col-auto mb-4" style="min-width: 450px; max-width: 450px;">
                     <div class="card h-100">
@@ -23,15 +30,22 @@
                                     <img src="{{ r['image'] }}" alt="{{ r['name'] }}" width="48" style="margin-right: 0;">
                                 </div>
                                 <div class="col-4 text-left ml-0 pl-0 mt-2">
-{#                                    <h3>{{ r['name'] }}</h3>#}
-                                    <h3><a href="{{ url_for_content('logbook_content', resource=r['id']) }}" class="badge" style="background: {{ r['color'] }}; color: #fff; font-size: 20px">{{r['name']}}</a></h3>
+                                    <h3><a href="{{ url_for_content('logbook_content', logbook=lb.id) }}" class="badge" style="background: {{ r['color'] }}; color: #fff; font-size: 20px">{{r['name']}}</a></h3>
                                 </div>
                                 <div class="row align-items-right justify-content-end col-6">
                                     <div class="toolbar ml-auto d-flex">
-                                        <a class="" id="href-{{ r['id'] }}" href="{{ url_for_content('logbook_content', resource=r['id']) }}"><i class="fas fa-clipboard-list"></i></a>
+                                        <a class="" id="href-{{ r['id'] }}" href="{{ url_for_content('logbook_content', logbook=lb.id) }}"><i class="fas fa-clipboard-list"></i></a>
 
                                         {% if is_manager %}
                                             <a href="javascript:createBooking({{ r['id'] }})"><i class="fas fa-plus-circle ml-3"></i></a>
+
+                                             <div class="dropdown ml-2">
+                                                <a class="toolbar" href="#" role="button" id="dropdownMenuLink2-{{ lb.id }}" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false"> <i class="fas fa-ellipsis-v"></i>  </a>
+                                                    <div class="dropdown-menu dropdown-menu-right" aria-labelledby="dropdownMenuLink2-{{ lb.id }}">
+                                                        <a class="dropdown-item" href="javascript:showLogbookForm({{ lb.id }}, 0)">Edit</a>
+                                                        <a class="dropdown-item" href="javascript:deleteLogbook({{ lb.id }}, 0)">Delete</a>
+                                                    </div>
+                                            </div>
                                         {% endif %}
                                     </div>
                                 </div>
@@ -47,10 +61,10 @@
         </div>
 
     </br>
-        <div class="row col-12"><h2 class="mr-5 mt-1">Logbooks</h2>
-            <div class="mb-3">
-                <a class="btn btn-primary" href="javascript:javascript:showLogbookForm(0)" role="button" id="addBookingBtn">
-                        <i class="fas fa-plus-circle"></i> Create Logbook </a>
+        <div class="row col-12"><h3 class="mr-5 mt-2">Logbooks</h3>
+            <div class="mb-4">
+                <a class="btn btn-primary" href="javascript:javascript:showLogbookForm(0, 0)" role="button" id="addBookingBtn"  style="min-width: 220px">
+                        <i class="fas fa-plus-circle"></i> Create General Logbook </a>
             </div>
         </div>
             <div class="row">
@@ -76,18 +90,6 @@
                                                 {% set entries_menu = lb.extra['entries_menu'] %}
                                                 {% set n = entries_menu|length %}
                                                 {% if n > 1 %}
-<!--                                                    <a class="btn btn-primary dropdown-toggle" href="#" role="button" id="addEntryBtn-{{lb.id}}" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">-->
-<!--                                                        <i class="fas fa-plus-circle"></i> Add Entry </a>-->
-<!--                                                    <div class="dropdown-menu dropdown-menu-left" aria-labelledby="addEntryBtn-{{lb.id}}">-->
-<!--                                                        {% for entry in entries_menu %}-->
-<!--                                                            {% if not entry %}-->
-<!--                                                                <div class="dropdown-divider"></div>-->
-<!--                                                            {% else %}-->
-<!--                                                                <a class="dropdown-item" href="javascript:showEntryForm(null, {{ lb.id }}, '{{ entry[0] }}')">{{ entry[1] }}</a>-->
-<!--                                                            {% endif %}-->
-<!--                                                        {% endfor %}-->
-<!--                                                    </div>-->
-
                                                     <div class="dropdown ml-2">
                                                         <a class="toolbar" href="#" role="button" id="dropdownMenuLink-{{ lb.id }}" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false"> <i class="fas fa-plus-circle"></i>  </a>
                                                         <div class="dropdown-menu dropdown-menu-right" aria-labelledby="dropdownMenuLink-{{ lb.id }}">
@@ -110,8 +112,8 @@
                                                 <div class="dropdown ml-2">
                                                     <a class="toolbar" href="#" role="button" id="dropdownMenuLink2-{{ lb.id }}" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false"> <i class="fas fa-ellipsis-v"></i>  </a>
                                                         <div class="dropdown-menu dropdown-menu-right" aria-labelledby="dropdownMenuLink2-{{ lb.id }}">
-                                                            <a class="dropdown-item" href="javascript:showLogbookForm({{ lb.id }})">Edit</a>
-                                                            <a class="dropdown-item" href="javascript:deleteLogbook({{ lb.id }})">Delete</a>
+                                                            <a class="dropdown-item" href="javascript:showLogbookForm({{ lb.id }}, 0)">Edit</a>
+                                                            <a class="dropdown-item" href="javascript:deleteLogbook({{ lb.id }}, 0)">Delete</a>
                                                         </div>
                                                 </div>
                                             {% endif %}
@@ -145,10 +147,10 @@
 <script>
 
     /* Show the Project Form */
-function showLogbookForm(logbook_id) {
+function showLogbookForm(logbook_id, resources) {
     let modalId = 'logbook-modal';
     show_modal_from_ajax(modalId,
-        get_ajax_content("logbook_form", {logbook_id: logbook_id}));
+        get_ajax_content("logbook_form", {logbook_id: logbook_id, resources: resources}));
 }  // function showProjectForm
 
 function deleteLogbook(logbook_id) {

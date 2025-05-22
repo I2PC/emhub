@@ -41,10 +41,42 @@ def register_content(dc):
 
     @dc.content
     def session_form(**kwargs):
-        session_id = kwargs['session_id']
-        session = dc.app.dm.get_session_by(id=session_id)
-        data = {'session': session.json()}
-        return data
+        dm = dc.app.dm
+
+        booking_id = int(kwargs['booking_id'])
+        b = dm.get_booking_by(id=booking_id)
+        dateStr = Pretty.date(b.start).replace('-', '')
+        bconfig = dm.get_config('bookings')
+        definition = None
+        use_editor = 1
+        form = None
+
+        tdata = {}
+
+        if formName := bconfig.get('session_forms', {}).get(b.resource.name, None):
+            if form := dm.get_form_by(name=formName):
+                definition = form.definition
+                use_editor = 0
+
+        if session_id := int(kwargs.get('session_id', 0)):
+            session = dm.get_session_by(id=session_id)
+            if form:
+                dc.set_form_values(form, session.extra.get('data', {}))
+                dc.load_form_content(form, tdata)
+        else:
+            session = dm.Session(booking_id=booking_id,
+                                 status='active',
+                                 data_path='')
+        tdata.update({
+            'booking': b,
+            'session': session.json(),
+            'definition': definition,
+            'new_session': session.id is None,
+            'use_editor': use_editor,
+            'session_name_prefix': f'{dateStr}{b.resource.name}:',
+        })
+
+        return tdata
 
     @dc.content
     def sessions_overview(**kwargs):
@@ -168,6 +200,11 @@ def register_content(dc):
 
     @dc.content
     def create_session_form(**kwargs):
+        # session_id = int(kwargs['session_id'])
+        session = None
+        return {
+            'session': session
+        }
         raise Exception("How to create sessions needs to be defined "
                         "on the extras for each specific EMhub customization.")
 

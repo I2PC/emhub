@@ -5,11 +5,12 @@
 {% set can_edit = is_manager %}
 {% set readonly = '' if can_edit else 'readonly' %}
 {% set disabled = '' if can_edit else 'disabled' %}
+{% set form_title = 'New Session' if new_session else "Session (Id = %d)"|format(1) %}
 
   <div class="modal-dialog modal-dialog-centered modal-xl" role="document" style="max-width: 80%">
     <div class="modal-content">
       <div class="modal-header">
-        <h3 class="modal-title" id="session-modal-title"> {{ session['name'] }} (Id = {{ session['id'] }})</h3>
+        <h3 class="modal-title" id="session-modal-title"> {{ form_title }}</h3>
         <button type="button" class="close" data-dismiss="modal" aria-label="Close">
           <span aria-hidden="true">&times;</span>
         </button>
@@ -20,34 +21,61 @@
             <!-- Session Form -->
             <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
                 <form id="session-form" data-parsley-validate="" novalidate="">
-                    <input type="hidden" id="session-id" name="session-id" value="{{ session['id'] }}">
+                    <input type="hidden" id="session-id" data-key="id" value="{{ session['id'] or '' }}">
+                    <input type="hidden" id="booking-id" data-key="booking_id" value="{{ booking.id }}">
 
-                    <!-- Status Row -->
-                    <div class="form-group row">
-                        <label class="col-12 col-sm-3 col-form-label text-sm-right">Name</label>
-                        <div class="col-12 col-sm-8 col-lg-6">
-                            <input type="text" required="" id="session-status" class="form-control" value="{{ session.status }}">
+                        <!-- Session Name Row -->
+                        <div class="form-group row">
+                            <label class="col-12 col-sm-3 col-form-label text-sm-right">Name</label>
+                            <div class="col-12 col-sm-8 col-lg-6">
+                                <input type="text" required="" id="session-name" data-key="name" class="form-control" value="{{ session['name'] or ''  }}">
+                            </div>
                         </div>
-                    </div>
+
+                        <!-- Owner Row -->
+                        <div class="form-group row">
+                            <label class="col-12 col-sm-3 col-form-label text-sm-right">Owner</label>
+                            <div class="col-12 col-sm-8 col-lg-6">
+                                <h4 class="col-12 text-sm-left">{{ booking.owner.name }}</h4>
+                            </div>
+                        </div>
+
+                        <!-- Operator Row -->
+                        <div class="form-group row">
+                            <label class="col-12 col-sm-3 col-form-label text-sm-right">Staff</label>
+                            <div class="col-12 col-sm-8 col-lg-6">
+                                <label class="col-12 col-sm-3 col-form-label text-sm-left">{{ booking.operator.name }}</label>
+                                <input type="hidden" id="operator-id" name="operator-id" value="{{ booking.operator.id }}">
+                            </div>
+                        </div>
 
                     <!-- Data Path Row -->
                     <div class="form-group row">
                         <label class="col-12 col-sm-3 col-form-label text-sm-right">Data Path</label>
                         <div class="col-12 col-sm-8 col-lg-6">
-                            <input type="text" required="" id="session-datapath" class="form-control" value="{{ session.data_path }}">
-                        </div>
-                    </div>
-
-                    <!-- Extra JSON Row -->
-                    <div class="form-group row">
-                        <label class="col-12 col-sm-3 col-form-label text-sm-right">Extra (JSON) </label>
-                        <div class="col-12 col-sm-8 col-lg-6">
-                            <div id="editor" class="editor-json-black"></div>
+                            <input type="text" required="" id="session-datapath" data-key="data_path" class="form-control" value="{{ session['data_path'] }}">
                         </div>
                     </div>
 
                 </form>
+                    <!-- Extra JSON Row -->
+                    <div class="form-group row">
+                        {% if definition %}
+                            <div class="simple-outline-card col-11 ml-4">
+
+                            {% include "dynamic_form.html" %}
+
+                            </div>
+                        {% else %}
+                            <label class="col-12 col-sm-3 col-form-label text-sm-right">Extra (JSON) </label>
+                            <div class="col-12 col-sm-8 col-lg-6">
+                                <div id="editor" class="editor-json-black"></div>
+                            </div>
+                        {% endif %}
+                    </div>
             </div>
+
+
             <!-- end Session Form -->
         </div>
 
@@ -75,24 +103,64 @@
 <script>
     var session = {{ session|tojson }};
     var editor = null;
+    var use_editor = {{ use_editor|tojson }};
+
+    // Internal unique prefix to make the session unique
+    // and avoid name clashes
+    var session_name_prefix = {{ session_name_prefix|tojson }};
 
 (function(window, document, $, undefined) {
 "use strict";
-    editor = ace.edit("editor");
-    //editor.renderer.setShowGutter(false);
-    editor.setTheme("ace/theme/monokai");
-    editor.session.setMode("ace/mode/json");
-    editor.setValue(JSON.stringify(session.extra, null, 4));
+
+    // Remove unique internal prefix from session name for displaying
+    let sessionName = $('#session-name').val();
+    $('#session-name').val(sessionName.replace(session_name_prefix, ''));
+
+    if (use_editor) {
+        editor = ace.edit("editor");
+        //editor.renderer.setShowGutter(false);
+        editor.setTheme("ace/theme/monokai");
+        editor.session.setMode("ace/mode/json");
+        let jsonValue = nonEmpty(session.extra) ? JSON.stringify(session.extra, null, 4) : "{}";
+        editor.setValue(jsonValue);
+
+    }
 
 })(window, document, window.jQuery);
 
 function onSessionOk() {
-    updateSession({
-        id: session.id,
-        status: $('#session-status').val(),
-        data_path: $('#session-datapath').val(),
-        extra: JSON.parse(editor.getValue())
-    });
+    params = getFormAsJson('session-form');
+
+    // Validate that the name is not empty
+    if (!nonEmpty(params.name)) {
+        showError("Session Name can not be empty.");
+        return;
+    }
+    // We are not checking about raw data path
+    params.check_raw = false;
+
+    // Add the unique prefix to avoid naming conflicts
+    params.name = session_name_prefix + params.name;
+    params.extra = nonEmpty(session.extra) ? session.extra : {};
+    params.extra.data = getFormAsJson('dynamic-form');
+
+    //alert(JSON.stringify(params, null, 4));
+    //return;
+
+    if (use_editor) {
+        try {
+          // Code that might throw an error
+          params.extra = JSON.parse(editor.getValue())
+        } catch (error) {
+          // Code to handle the error
+            showError("Parsing JSON, error: " + error.message);
+            return;
+        } 
+    }
+
+
+    createOrUpdateSession(params);
 }
+
 
 </script>

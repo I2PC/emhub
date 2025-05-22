@@ -100,7 +100,6 @@
     (function(window, document, $, undefined) {
     "use strict";
         // entry-date-picker
-    console.log("Entry form loaded");
     var entry_date = new Date("{{ entry.date|pretty_date }}");
     $('#entry-date').datetimepicker({format: 'YYYY/MM/DD', date: entry_date});
 

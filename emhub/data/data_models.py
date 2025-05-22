@@ -1052,6 +1052,18 @@ def create_data_models(dm):
                     (self.booking.project if self.booking else None))
 
         @property
+        def raw(self):
+            if 'raw' not in self.extra:
+                self.__setExtra('raw', {})
+            return self.__getExtra('raw')
+
+        @property
+        def otf(self):
+            if 'otf' not in self.extra:
+                self.__setExtra('otf', {})
+            return self.__getExtra('otf')
+
+        @property
         def images(self):
             raw = self.extra.get('raw', {})
             return raw.get('movies', 0)

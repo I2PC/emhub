@@ -657,6 +657,11 @@ class DataManager(DbManager):
 
     def create_session(self, **attrs):
         """ Add a new session row. """
+
+        from pprint import pprint
+        pprint(attrs)
+
+
         create_data = attrs.pop('create_data', False)
         check_raw = attrs.pop('check_raw', True)
         tasks = attrs.pop('tasks', [])
@@ -684,12 +689,15 @@ class DataManager(DbManager):
             raise Exception("Session name already exist, "
                             "choose a different one.")
 
-        extra = attrs.get('extra', {})
-        raw_folder = extra['raw'].get('path', '')
-        if check_raw and raw_folder and not os.path.exists(raw_folder):
-            raise Exception(f"Missing Raw data folder '{raw_folder}'")
 
-        otf = extra['otf']
+        extra = attrs.get('extra', {})
+        if check_raw:
+            raw_folder = extra['raw'].get('path', '')
+            if raw_folder and not os.path.exists(raw_folder):
+                raise Exception(f"Missing Raw data folder '{raw_folder}'")
+
+        # Make it consistent between extra['otf']['path'] and data_path
+        otf = extra.get('otf', {})
         otf_folder = otf.get('path', '')
         if otf_folder:
             data_path = otf_folder
@@ -739,10 +747,12 @@ class DataManager(DbManager):
 
     def delete_session(self, **attrs):
         """ Remove a session row. """
-        sessionId = attrs['id']
-        session = self.Session.query.get(sessionId)
-        data_path = self._session_data_path(session)
-        self.delete(session)
+        sid = int(attrs['id'])
+        if session := self.get_session_by(id=sid):
+            data_path = self._session_data_path(session)
+            self.delete(session)
+        else:
+            raise Exception("Invalid session id: " + sid)
 
         if os.path.exists(data_path) and os.path.isfile(data_path):
             os.remove(data_path)
