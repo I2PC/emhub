@@ -6,11 +6,12 @@
 {% set readonly = '' if is_manager else 'readonly' %}
 {% set disabled = '' if is_manager else 'disabled' %}
 {% set create = not application.id  %}
+{% set title = "New Application" if create else "Application (ID = %s)"|format(application.id) %}
 
   <div class="modal-dialog modal-dialog-centered modal-xl" role="document">
     <div class="modal-content">
       <div class="modal-header">
-        <h3 class="modal-title" id="application-modal-title"> Application: {{ application.code }}{{ '*' if create else '' }} </h3>
+        <h3 class="modal-title" id="application-modal-title"> {{ title }} </h3>
         <button type="button" class="close" data-dismiss="modal" aria-label="Close">
           <span aria-hidden="true">&times;</span>
         </button>
@@ -22,7 +23,14 @@
                 <form id="validationform" data-parsley-validate="" novalidate="">
                     <input type="hidden" id="application-id" name="application-id" value="{{ application.id }}">
                     <input type="hidden" id="application-template_id" name="application-template_id" value="{{ template_id }}">
-                    <input type="hidden" id="application-code" name="application-code" value="{{ application.code }}">
+
+                    <!-- Code Row -->
+                    <div class="form-group row">
+                        <label class="col-12 col-sm-3 col-form-label text-sm-right">Code</label>
+                        <div class="col-12 col-sm-8 col-lg-6">
+                            <input type="text" required="" placeholder="Enter Code (should be unique)" id="application-code" class="form-control" value="{{ application.code }}">
+                        </div>
+                    </div>
 
                     <!-- Created Row -->
                     <div class="form-group row">
@@ -193,7 +201,6 @@
 <!-- ============================================================== -->
 <!-- End of Application Modal Content -->
 <!-- ============================================================== -->
-
 
 
 <script>

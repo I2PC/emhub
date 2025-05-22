@@ -161,9 +161,11 @@ function onApplicationOkButtonClick() {
 
     var application = {
         status: $('#application-status-select').selectpicker('val'),
+        code: $('#application-code').val(),
         title: $('#application-title').val(),
         alias: $('#application-alias').val(),
         description: $('#application-description').val(),
+        template_id: $('#application-template_id').val(),
         resource_allocation: {
             quota: {
                 krios: parseInt($('#quota-krios').val()),
@@ -195,13 +197,8 @@ function onApplicationOkButtonClick() {
         else if (pi.status == "to remove")
             application.pi_to_remove.push(pi.id);
 
-    if (!isNaN(application_id)) {
+    if (nonEmpty(application_id))
         application.id = application_id;
-    }
-    else {
-        application.code = $('#application-code').val();
-        application.template_id = $('#application-template_id').val();
-    }
 
     var ajaxContent = $.ajax({
         url: Api.get('application', application_id),

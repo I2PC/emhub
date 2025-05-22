@@ -320,20 +320,22 @@ def register_content(dc):
             app = dm.get_application_by(id=kwargs['application_id'])
         else:  # New Application
             template = dm.get_template_by(id=kwargs['template_id'])
-            if not template.code_prefix:
-                raise Exception("It is not possible to create Applications from this template. \n"
-                                "Maybe they need to be imported from the Portal. ")
+            appCode = ''
+            if template.code_prefix:
+                code_prefix = template.code_prefix.upper()
+                # Try to figure out an autonumbering based on the template
+                # code prefix and existing applications
+                max_code = 0
+                for a in dm.get_applications():
+                    code = a.code
+                    if code.startswith(code_prefix):
+                        try:
+                            max_code = max(max_code, int(code[3:]))
+                        except:
+                            pass
+                appCode = '%s%05d' % (code_prefix, max_code + 1)
 
-            max_code = 0
-            for a in dm.get_applications():
-                code = a.code
-                if code.startswith(template.code_prefix):
-                    try:
-                        max_code = max(max_code, int(code[3:]))
-                    except:
-                        pass
-
-            app = dm.Application(code='%s%05d' % (template.code_prefix.upper(), max_code + 1),
+            app = dm.Application(code=appCode,
                                  title='', alias='', description='',
                                  creator=dc.app.user,
                                  resource_allocation=dm.Application.DEFAULT_ALLOCATION,
