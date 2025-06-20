@@ -65,7 +65,7 @@ def main():
         """ Synchronize content from 'src' to 'dst'. """
         if not os.path.exists(dst):
             logger.mkdir(dst)
-        cmd = f"rsync -av '{src}/' '{dst}/'"
+        cmd = f"rsync -av --no-perms '{src}/' '{dst}/'"
         logger.system(cmd)
 
     with open_client() as dc:
