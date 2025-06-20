@@ -993,6 +993,20 @@ def delete_entry():
     return _handle_item(handle, 'entry')
 
 
+# ------------------------------ SEND EMAIL ---------------------------------
+@api_bp.route('/send_email', methods=['POST'])
+@flask_login.login_required
+def send_email():
+    def handle(**attrs):
+        if app.mm is None:
+            raise Exception("ERROR: You need to configure a Mail server within EMhub "
+                            "to send emails.")
+        app.mm.send_mail([attrs['dst']], attrs['subject'], attrs['body'])
+        print(attrs)
+        return True
+
+    return _handle_item(handle, 'result')
+
 # ------------------------------ PUCKS ---------------------------------
 
 @api_bp.route('/get_pucks', methods=['GET', 'POST'])
