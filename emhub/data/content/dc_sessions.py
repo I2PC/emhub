@@ -205,12 +205,30 @@ def register_content(dc):
     @dc.content
     def create_session_form(**kwargs):
         # session_id = int(kwargs['session_id'])
-        session = None
-        return {
-            'session': session
+        dm = dc.app.dm  # shortcut
+        user = dc.app.user
+        booking_id = int(kwargs['booking_id'])
+        b = dm.get_booking_by(id=booking_id)
+        can_edit = b.project and user.can_edit_project(b.project)
+
+        if not (user.is_manager or user.same_pi(b.owner) or can_edit):
+            raise Exception("You can not create Sessions for this Booking. "
+                            "Only members of the same lab can do it.")
+
+        sconfig = dm.get_config('sessions')
+
+        # load default acquisition params for the given microscope
+        micName = b.resource.name
+        acq = sconfig['acquisition'][micName]
+        dateStr = Pretty.date(b.start).replace('-', '')
+
+        data = {
+            'booking': b,
+            'acquisition': acq,
+            'session_name_prefix': f'{dateStr}{b.resource.name}:',
         }
-        raise Exception("How to create sessions needs to be defined "
-                        "on the extras for each specific EMhub customization.")
+        data.update(dc.get_user_projects(b.owner, status='active'))
+        return data
 
     @dc.content
     def processing_content(**kwargs):
