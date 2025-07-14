@@ -36,8 +36,10 @@
 (function(window, document, $, undefined) {
     "use strict";
     $(function() {
-        var filesData = {{ files|tojson }};
-        create_hc_files_pie('files-pie', filesData);
+        {% if files %}
+            var filesData = {{ files|tojson }};
+            create_hc_files_pie('files-pie', filesData);
+        {% endif %}
     });
 })(window, document, window.jQuery);
 

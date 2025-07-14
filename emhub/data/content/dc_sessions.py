@@ -107,6 +107,10 @@ def register_content(dc):
         return data
 
     @dc.content
+    def session_content(**kwargs):
+        return session_details(**kwargs)
+
+    @dc.content
     def session_details(**kwargs):
         session_id = kwargs['session_id']
         dm = dc.app.dm  # shortcut

@@ -658,10 +658,6 @@ class DataManager(DbManager):
     def create_session(self, **attrs):
         """ Add a new session row. """
 
-        from pprint import pprint
-        pprint(attrs)
-
-
         create_data = attrs.pop('create_data', False)
         check_raw = attrs.pop('check_raw', True)
         tasks = attrs.pop('tasks', [])
@@ -1237,9 +1233,11 @@ class DataManager(DbManager):
         if self._user.is_manager:
             return True
 
-        # FIXME: Now only checking if 'user' in permissions, not based on roles
         perms = self.get_config('permissions')
-        return any(t in resource.tags and 'user' in u
+        def _user_allowed(roles):
+            return 'user' in roles or self._user.has_any_role(roles)
+
+        return any(t in resource.tags and _user_allowed(u)
                     for t, u in perms.get(permissionKey, {}).items())
 
     # ------------------- BOOKING helper functions -----------------------------

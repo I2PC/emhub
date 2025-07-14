@@ -50,7 +50,9 @@
             <input type="text" required="" placeholder="{{ help }}"  readonly class="form-control col-9" value="{{ value }}" id="{{ param_id }}--text" {{ data_key }}>
 
             <!-- FIXME: Now I'm hardcoding the usage of entry.id for image display, but it might not available in other cases -->
-            <div ><button type="button" class="btn btn-sm btn-outline-light ml-2" onclick="filebrowser_onView(this, {{ entry.id }})" id="{{ param_id }}--view" ><i class="fas fa-eye"></i>   </button></div>
+            {% if entry %}
+                <div ><button type="button" class="btn btn-sm btn-outline-light ml-2" onclick="filebrowser_onView(this, {{ entry.id }})" id="{{ param_id }}--view" ><i class="fas fa-eye"></i>   </button></div>
+            {% endif %}
             <div ><button type="button" class="btn btn-sm btn-outline-light ml-2" onclick="filebrowser_onClear(this)" id="{{ param_id }}--clear"><i class="far fa-trash-alt"></i>   </button></div>
             <div ><button type="button" class="btn btn-sm btn-outline-light ml-2" onclick="filebrowser_onBrowse(this)" id="{{ param_id }}--browse"><i class="far fa-folder-open"></i>   </button></div>
             <input type="file" required="" capture id="{{ param_id }}--file" class="browser-file-input" hidden>

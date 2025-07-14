@@ -101,33 +101,6 @@ class TestData:
                 }
             dm.create_form(**form)
 
-        # Create special entry for news
-        dm.create_form(**{
-            "name": "entry_form:news",
-            "definition": {
-                "params": [
-                    {
-                        "id": "active",
-                        "label": "Active",
-                        "type": "bool"
-                    },
-                    {
-                        "enum": {
-                            "choices": [
-                                "info",
-                                "warning",
-                                "danger"
-                            ],
-                            "display": "radio"
-                        },
-                        "id": "type",
-                        "label": "Type",
-                        "default": "info"
-                    }
-                ],
-                "title": "News Form"
-        }})
-
     def _populateUsers(self, dm):
         self._action('Populating Users')
 
