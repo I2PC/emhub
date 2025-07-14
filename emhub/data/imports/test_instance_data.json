@@ -253,7 +253,11 @@
     "data": {
         "gain": "/jude/facility/data/gains/*{microscope}*gain*.mrc",
         "images": ""
-    }
+    },
+    "create_session": {
+      "Krios01": "create_session_form",
+      "Arctica01": "create_session_form"
+  }
 }
   },
   {
