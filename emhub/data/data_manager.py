@@ -969,7 +969,13 @@ class DataManager(DbManager):
         self.update_form(id=form.id, definition=definition, cache=cache)
 
     def get_entry_config(self, entry_type):
-        return self.get_config('projects')['entries'][entry_type]
+        default_config = {
+            "group": 1,
+            "iconClass": "fas fa-box fa-inverse",
+            "imageClass": "img--picture",
+            "label": ""
+        }
+        return self.get_config('projects')['entries'].get(entry_type, default_config)
 
     def get_projects_config_permissions(self):
         return {e['label']: e['value']

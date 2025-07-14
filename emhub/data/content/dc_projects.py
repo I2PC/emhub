@@ -172,6 +172,7 @@ def register_content(dc):
             'show_title': True,
             'show_desc': True,
         }
+        entry_label = entry_config['label']
 
         data = {}
 
@@ -180,10 +181,11 @@ def register_content(dc):
             if 'config' in form.definition:
                 form_config = form.definition['config']
             dc.load_form_content(form, data)
+            entry_label = entry_label or form.definition['title']
 
         data.update({
             'entry': entry,
-            'entry_type_label': entry_config['label'],
+            'entry_type_label': entry_label,
             'definition': None if form is None else form.definition,
             'form_config': form_config,
             'read_only': read_only
