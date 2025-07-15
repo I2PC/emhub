@@ -945,6 +945,7 @@ def register_content(dc):
 
         local_tag = dm.get_config('bookings').get('local_tag', '')
         local_scopes = {}
+        resource_create_session = {}
 
         for b in dm.get_bookings_range(prev7, next30):
             # if not user.is_manager and not user.same_pi(b.owner):
@@ -953,6 +954,8 @@ def register_content(dc):
             if not local_tag or local_tag in r.tags:
                 local_scopes[r.id] = r
                 add_booking(b)
+                if r.name not in resource_create_session:
+                    resource_create_session[r.name] = dm.get_create_session_template(r.name)
 
         scopes = {r.id: r for r in dm.get_resources()}
 
@@ -984,7 +987,6 @@ def register_content(dc):
             for k, bookingValues in rbookings.items():
                 bookingValues.sort(key=lambda b: b.start)
 
-        resource_create_session = dm.get_config('sessions').get('create_session', {})
         dataDict.update({'bookings': bookings,
                          'resource_bookings': resource_bookings,
                          'resource_create_session': resource_create_session,

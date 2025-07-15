@@ -280,10 +280,15 @@
         "gain": "/jude/facility/data/gains/*{microscope}*gain*.mrc",
         "images": ""
     },
-    "create_session": {
-      "Krios01": "create_session_form",
-      "Arctica01": "create_session_form"
-  }
+      "create_session": {
+        "Krios01": {
+            "template": "create_session_form",
+            "extra_form": "krios01_extra"
+        },
+        "Arctica01": {
+            "template": "create_session_form"
+        }
+    }
 }
   },
   {
@@ -623,6 +628,50 @@
             ],
            "content": [{"func": "grids_storage"}]
         }
+    },
+    {
+      "name": "entry_form:krios01_extra",
+      "definition": {
+          "title": "Krios Acquisition",
+          "params": [
+              {
+                  "id": "detector",
+                  "label": "Detector",
+                  "enum": {
+                      "choices": [
+                          "Gatan K3",
+                          "Falcon 4"
+                      ],
+                      "display": "radio"
+                  }
+              },
+              {
+                  "id": "detector_mode",
+                  "label": "Detector Mode",
+                  "enum": {
+                      "choices": [
+                          "Integrating (Linear)",
+                          "Electron-Counting (Counted)",
+                          "Super-Resolution"
+                      ],
+                      "display": "combo"
+                  }
+              },
+              {
+                  "id": "collection_software",
+                  "label": "Collection Software",
+                  "enum": {
+                      "choices": [
+                          "EPU v3.6.0",
+                          "EPU v2.12.1",
+                          "SerialEM 3.8.15",
+                          "SerialEM 3.9.beta"
+                      ],
+                      "display": "combo"
+                  }
+              }
+          ]
+      }
     },
     {
         "name": "entry_form:screening",

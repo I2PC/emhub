@@ -114,6 +114,21 @@
 
                     {% include 'session_data_card.html' %}
 
+                    {% if session_extra_form %}
+                        <div class="col-12">
+                            <div class="card"> <!-- Extra Card -->
+                                <div class="card-header">
+                                    <h3 class="card-header-title"> Extra Form </h3>
+                                </div>
+
+                                <div class="card-body">
+                                    {% set definition = session_extra_form.definition %}
+                                    {% include "dynamic_form.html" %}
+                                </div>
+                            </div> <!-- End of Extra Card -->
+                        </div>
+                    {% endif %}
+
             </div> <!-- End of Right column -->
         </div>
 

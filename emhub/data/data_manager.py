@@ -964,6 +964,24 @@ class DataManager(DbManager):
         form = self.get_form_by_name(f'entry_form:{formName}')
         return form.definition if form else default
 
+    def get_session_form(self, resource_name):
+        """ Find if there is a form associated to this session instrument. """
+        create_session = self.get_config('sessions').get('create_session', {})
+        resource_config = create_session.get(resource_name, {})
+
+        if formName := resource_config.get('extra_form', None):
+            return self.get_form_by_name(f'entry_form:{formName}')
+
+        return None
+
+    def get_create_session_template(self, resource_name):
+        """ Find if there is a template associated to this instrument
+        for session creation. """
+        create_session = self.get_config('sessions').get('create_session', {})
+        resource_config = create_session.get(resource_name, {})
+
+        return resource_config.get('template', None)
+
     def update_config(self, configName, definition, cache=False):
         form = self.get_form_by_name(f'config:{configName}')
         self.update_form(id=form.id, definition=definition, cache=cache)

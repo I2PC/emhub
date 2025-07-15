@@ -22,7 +22,7 @@
 
     <!-- Create Session Form -->
     <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
-        <form id="session-form" data-parsley-validate="" novalidate="">
+
 
             <div class="tab-regular">
                 <ul class="nav nav-tabs nav-fill" id="myTab7" role="tablist">
@@ -31,19 +31,25 @@
                         <a class="nav-link active" id="session-general-tab" data-toggle="tab" href="#session-general" role="tab" aria-controls="current" aria-selected="true">General</a>
                     </li>
 
+                    {% if session_extra_form %}
+                        <li class="nav-item">
+                            <a class="nav-link" id="session-extra-tab" data-toggle="tab" href="#session-extra" role="tab" aria-controls="summary" aria-selected="false">Extra</a>
+                        </li>
+                    {%  endif %}
+
                     {% if is_admin %}
-                    <li class="nav-item">
-                        <a class="nav-link" id="session-advanced-tab" data-toggle="tab" href="#session-advanced" role="tab" aria-controls="summary" aria-selected="false">Advanced</a>
-                    </li>
+                        <li class="nav-item">
+                            <a class="nav-link" id="session-advanced-tab" data-toggle="tab" href="#session-advanced" role="tab" aria-controls="summary" aria-selected="false">Admin</a>
+                        </li>
                     {% endif %}
 
                 </ul>
 
                 <div class="tab-content" id="myTabContent7">
-
                     <!-- tab "Current" -->
                     <div class="tab-pane fade show active" id="session-general" role="tabpanel" aria-labelledby="session-general-tab">
 
+                    <form id="session-form" data-parsley-validate="" novalidate="">
                     <div class="row">
                         <div class="col-7">
                             <!-- Session's Name -->
@@ -107,23 +113,32 @@
 
                     </div>
 
+                    </form>
                     </div>
 
-{#                <div class="tab-pane fade" id="session-acq" role="tabpanel" aria-labelledby="session-acq-tab">#}
-{##}
-{#                </div>#}
+
+                 {% if session_extra_form %}
+                     <div class="tab-pane fade" id="session-extra" role="tabpanel" aria-labelledby="session-extra-tab">
+                        <form id="session_extra_form">
+                            {% set definition = session_extra_form.definition %}
+                            {% include "dynamic_form.html" %}
+                        </form>
+                    </div>
+                {%  endif %}
+
 
                 {% if is_admin %}
+
                     <div class="tab-pane fade" id="session-advanced" role="tabpanel" aria-labelledby="session-advanced-tab">
-                        {{ macros.session_dialog_row('RAW data folder', 'raw_folder', '', 'Provide RAW data folder') }}
-                        {{ macros.session_dialog_row('OTF folder', 'otf_folder', '', 'If OTF folder is not provided it will be created') }}
+                        <form id="session_extra_admin">
+                            {{ macros.session_dialog_row('RAW data folder', 'raw_folder', '', 'Provide RAW data folder') }}
+                            {{ macros.session_dialog_row('OTF folder', 'otf_folder', '', 'If OTF folder is not provided it will be created') }}
+                        </form>
                     </div>
                 {% endif %}
 
                 </div>
-
             </div>
-        </form>
     </div>
     <!-- end Booking Form -->
 
@@ -154,32 +169,22 @@
                 pixel_size: formValues.acq_pixel_size,
                 dose: formValues.acq_dose,
                 cs: formValues.acq_cs
-            },
+            }
         }
 
         // Raw folder is provided only for special debugging cases
         // then, no transfer task will be schedule and the session name
         // will be taken from the raw path
-        let sessionName = nonEmpty(formValues.raw_folder) ? formValues.raw_folder.split('/').pop() : formValues.session_name;
+        let sessionName = formValues.session_name;
 
         if (nonEmpty(sessionName)) {
             attrs.name = sessionName;
-
-            if (!formValues.raw_folder){
-                attrs.extra = {
-                    raw: {},
-                    project_id: formValues.project_id,
-                }
-                attrs.tasks = []
+            attrs.extra = {
+                raw: {},
+                project_id: formValues.project_id,
+                data: getFormAsJson('session_extra_form', true)
             }
-            else {
-                attrs.extra = {
-                    raw: {path: formValues.raw_folder},
-                    project_id: formValues.project_id
-                }
-                // attrs.tasks = [[otf_host, {action: "monitor"}], otf_task]
-            }
-
+            attrs.tasks = []
         }
 
         // If there is a session

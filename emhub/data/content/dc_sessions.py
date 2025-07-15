@@ -36,37 +36,38 @@ from emtools.utils import Pretty, Path
 from emtools.metadata import Bins, TsBins, EPU
 
 
-
 def register_content(dc):
 
     @dc.content
     def session_form(**kwargs):
         dm = dc.app.dm
-
-        booking_id = int(kwargs['booking_id'])
-        b = dm.get_booking_by(id=booking_id)
-        dateStr = Pretty.date(b.start).replace('-', '')
-        bconfig = dm.get_config('bookings')
-        definition = None
-        use_editor = 1
-        form = None
-
         tdata = {}
-
-        if formName := bconfig.get('session_forms', {}).get(b.resource.name, None):
-            if form := dm.get_form_by(name=formName):
-                definition = form.definition
-                use_editor = 0
 
         if session_id := int(kwargs.get('session_id', 0)):
             session = dm.get_session_by(id=session_id)
-            if form:
-                dc.set_form_values(form, session.extra.get('data', {}))
-                dc.load_form_content(form, tdata)
+            b = session.booking
+            load_form = True
+
         else:
+            load_form = False
+            booking_id = int(kwargs['booking_id'])
+            b = dm.get_booking_by(id=booking_id)
             session = dm.Session(booking_id=booking_id,
                                  status='active',
                                  data_path='')
+
+        definition = None
+        use_editor = 1
+
+        if form := dm.get_session_form(b.resource.name):
+            definition = form.definition
+            use_editor = 0
+            if load_form:
+                dc.set_form_values(form, session.extra.get('data', {}))
+                dc.load_form_content(form, tdata)
+
+        dateStr = Pretty.date(b.start).replace('-', '')
+
         tdata.update({
             'booking': b,
             'session': session.json(),
@@ -115,9 +116,15 @@ def register_content(dc):
         session_id = kwargs['session_id']
         dm = dc.app.dm  # shortcut
         session = dm.get_session_by(id=session_id)
+        session_extra_form = None
 
-        if session.booking:
-            a = session.booking.application
+        if b := session.booking:
+            a = b.application
+            rname = b.resource.name
+            session_extra_form = dm.get_session_form(rname)
+            if session_extra_form:
+                dc.set_form_values(session_extra_form, session.extra.get('data', {}))
+                #dc.load_form_content(session_extra_form, tdata)
             if not (a is None or a.allows_access(dc.app.user)):
                 raise Exception("You do not have access to this session information. ")
 
@@ -133,7 +140,8 @@ def register_content(dc):
         return {
             'session': session,
             'deletion_days': td.days,
-            'errors': errors
+            'errors': errors,
+            'session_extra_form': session_extra_form
         }
 
     @dc.content
@@ -226,6 +234,7 @@ def register_content(dc):
             'booking': b,
             'acquisition': acq,
             'session_name_prefix': f'{dateStr}{b.resource.name}:',
+            'session_extra_form': dm.get_session_form(b.resource.name)
         }
         data.update(dc.get_user_projects(b.owner, status='active'))
         return data

@@ -142,7 +142,7 @@ function onSessionOk() {
     // Add the unique prefix to avoid naming conflicts
     params.name = session_name_prefix + params.name;
     params.extra = nonEmpty(session.extra) ? session.extra : {};
-    params.extra.data = getFormAsJson('dynamic-form');
+    params.extra.data = getFormAsJson('dynamic-form', true);
 
     //alert(JSON.stringify(params, null, 4));
     //return;
