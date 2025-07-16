@@ -620,6 +620,42 @@ function savePdf(contentId) {
     html2pdf(elementHTML, opt);
 }
 
+
+function setLoading(containerId) {
+    var loadingHtml = '<div class="row align-items-start ml-3 mt-3"><div class="row"><h3 class="mt-2 mr-3 text-black-50">Loading...</h3><div class="spinner-border ml-auto" role="status" aria-hidden="true"></div></div></div>';
+      // Set loading message and load summary page
+      $('#' + containerId).html(loadingHtml);
+}
+
+function load_overview(title, ajax_content){
+
+    $('#overview-modal-title').text(title);
+    setLoading('overview-content');
+    $('#overview-modal').modal('show');
+     load_html_from_ajax('overview-content', ajax_content);
+}
+
+function loadTextFileOverview(args){
+    var title = getObjectValue(args, "title", args.file_path)
+    load_overview(title, get_ajax_content('processing_textfile_overview', args));
+}
+
+function loadStarOverview(path, tableName) {
+    var args = {
+        file_path: path
+    };
+    if (nonEmpty(tableName))
+        args.default_table = tableName;
+    load_overview(path, get_ajax_content('processing_star_overview', args));
+}
+
+function loadStarRows(path, tableName) {
+     load_html_from_ajax('star_card_content',
+              get_ajax_content('processing_run_overview',
+                  getArgs({file_path: path, table_name: tableName})));
+}
+
+
 //----------------------------- Table related functions --------------------------
 function table_getTemplateRow(table_id){
     return document.getElementById(table_id + '-ROW-TEMPLATE');

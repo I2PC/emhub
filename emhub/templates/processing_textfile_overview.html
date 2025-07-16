@@ -1,0 +1,30 @@
+
+
+<div class="row col-12 p-0 m-0">
+    <h3 class="col-12">{{ editor_config.mode }}</h3>
+
+    <div id="textfile-editor" class="editor-json-black" style="height: 700px"></div>
+
+</div>
+
+<script>
+    var file_path = {{ file_path|tojson }};
+    var file_content = {{ file_content|tojson }};
+    var editor_config = {{ editor_config|tojson }};
+
+    var editor = null;
+
+    (function(window, document, $, undefined) {
+    "use strict";
+    $(function() {
+
+    editor = ace.edit("textfile-editor");
+    editor.setTheme("ace/theme/monokai");
+    if (nonEmpty(editor_config.mode)) {
+        editor.session.setMode(`ace/mode/${editor_config.mode}`);
+    }
+    editor.setValue(file_content);
+
+});
+})(window, document, window.jQuery);
+</script>

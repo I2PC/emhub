@@ -1,0 +1,51 @@
+{% import "entry_macros.html" as macros %}
+
+{% set is_manager = current_user.is_manager %}
+{% set is_admin = current_user.is_admin %}
+
+
+<div class="container-fluid dashboard-content">
+    <!-- Header -->
+    {% set title = "Tomo Session" %}
+    {% set navigation = [('Tomo', ''), ('Session Overview', '')] %}
+    {% include 'include_header.html' %}
+
+    <div class="card card-body">
+        <div class="row">
+            <div class="col-8">
+                <form id="tomo_session_form">
+                    {{ macros.session_dialog_row('Session Path', 'path', tomo_session['path'], 'Provide session path') }}
+                    {{ macros.session_dialog_row('Tomograms List', 'tomograms', tomo_session['tomograms'], 'Provide tomograms folder') }}
+                    {{ macros.session_dialog_row('Reconstruction', 'reconstruction', tomo_session['reconstruction'], 'Provide reconstruction folder') }}
+                    {{ macros.session_dialog_row('Picking', 'picking', tomo_session['picking'], 'Provide Pytom picking path') }}
+                </form>
+            </div>
+
+            <div class="col-2 text-right" style="margin-top: 7px;">
+                <a href="javascript:loadSession()" class="btn btn-primary"> Load Session</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="card card-body" id="session-content">
+        {% include 'tomo_session_content.html' %}
+    </div>
+</div>
+
+
+<script>
+    $('select').selectpicker();
+
+    function loadSession() {
+        var args = getFormAsJson('tomo_session_form', true);
+
+        //alert(JSON.stringify(args, null, 4));
+        //return
+
+        setLoading('session-content');
+
+        load_html_from_ajax('session-content',
+            get_ajax_content('tomo_session_content', {tomo_session: JSON.stringify(args)}));
+    }
+
+</script>

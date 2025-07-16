@@ -626,11 +626,16 @@ class ImageSliderCard extends Card {
         this.indexes = [];
         this.slices = slices;
         this.slider_prefix = getObjectValue(config, 'slider_prefix', '');
+        this.cooordinates = config.coordinates
 
         const width = getObjectValue(config, 'slice_dim', 128);
         var styleStr = '" style="width: ' + width + 'px"';
 
-        var html = '<div class="row"><div class="col-12"><img id="' + this.id('image') + styleStr + '></div>';
+        //var html = '<div class="row"><div class="col-12"><img id="' + this.id('image') + styleStr + '></div>';
+
+        var html = '<figure className="figure"><canvas id="';
+        html += this.id('vol_canvas');
+        html += '"></canvas></figure>';
 
         for (const [sliceIndex, sliceImg] of Object.entries(slices)) {
             this.indexes.push(sliceIndex);
@@ -656,8 +661,26 @@ class ImageSliderCard extends Card {
         $(this.jid('slider_input')).val(sliceIndex);
         const sliceNumber = this.indexes[sliceIndex];
         const sliceImg = this.slices[sliceNumber];
-        var img = document.getElementById(this.id('image'));
-        img.src = "data:image/png;base64, " + sliceImg;
+        //var img = document.getElementById(this.id('image'));
+        //img.src = "data:image/png;base64, " + sliceImg;
+        var coords = [];
+        let z = this.cooordinates.z;
+        let x = this.cooordinates.x;
+        let y = this.cooordinates.y;
+        console.log('z: ' + this.cooordinates.z.length);
+        for (var i = 0; i < z.length; i++){
+            if (Math.abs(z[i] - sliceNumber) <= 10) { // fixme using near distance
+                coords.push([x[i], y[i]])
+            }
+        }
+        console.log("coords: " + coords.length);
+
+        drawMicrograph(this.id('vol_canvas'), {
+            thumbnail: sliceImg,
+            pixelSize: 1,
+            thumbnailPixelSize: 1,
+            coordinates: coords
+        })
         $(this.jid('slider_text')).text(this.slider_prefix + sliceNumber);
     }
 }
@@ -668,7 +691,7 @@ class VolumeSliderCard extends Card {
         let self = this;
         this.slices = slices;
         const slice_dim = getObjectValue(config, 'slice_dim', 128);
-        const width = Math.floor(slice_dim * 1.2);
+        const width = Math.floor(slice_dim * 2);
 
         const minWidth = 3 * width;
         var html = '<div class="row ml-1 mr-1" style="min-width: ' + minWidth + 'px">';
@@ -679,12 +702,16 @@ class VolumeSliderCard extends Card {
 
         this.container.innerHTML = html;
 
-        this.isz = new ImageSliderCard(this.id('slider-z'), slices.z,
-            {slider_prefix: 'Z slice: ', slice_dim: slice_dim});
-        this.isy = new ImageSliderCard(this.id('slider-y'), slices.y,
-            {slider_prefix: 'Y slice: ', slice_dim: slice_dim});
-        this.isx = new ImageSliderCard(this.id('slider-x'), slices.x,
-            {slider_prefix: 'X slice: ', slice_dim: slice_dim});
+        this.isz = new ImageSliderCard(this.id('slider-z'), slices.z, {
+            slider_prefix: 'Z slice: ',
+            slice_dim: slice_dim,
+            coordinates: config.coordinates
+        });
+
+        // this.isy = new ImageSliderCard(this.id('slider-y'), slices.y,
+        //     {slider_prefix: 'Y slice: ', slice_dim: slice_dim});
+        // this.isx = new ImageSliderCard(this.id('slider-x'), slices.x,
+        //     {slider_prefix: 'X slice: ', slice_dim: slice_dim});
 
     }
 }

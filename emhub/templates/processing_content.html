@@ -95,29 +95,6 @@
 
 </div>
 
-<div class="modal fade" id="overview-modal" tabindex="-1" role="dialog" aria-labelledby="plotModal" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-xl"  role="document" style="max-width: 95%">
-        <div class="modal-content">
-
-            <div class="modal-header">
-                <h3 class="modal-title" id="overview-modal-title"> Testing modal  </h3>
-                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                  <span aria-hidden="true">&times;</span>
-                </button>
-            </div>
-
-              <div class="modal-body" id="overview-content">
-
-              </div>
-
-{#            <!-- Modal footer -->#}
-{#            <div class="modal-footer">#}
-{#                <button type="button" id="booking-btn-cancel"  class="btn btn-outline-secondary" data-dismiss="modal">Close</button>#}
-{#            </div>#}
-            <!-- End of Modal footer -->
-        </div>
-    </div>
-</div>
 
 <script>
     var selected_node = null;
@@ -168,11 +145,6 @@
         });
     })(window, document, window.jQuery);
 
-    function setLoading(containerId) {
-        var loadingHtml = '<div class="row align-items-start ml-3 mt-3"><div class="row"><h3 class="mt-2 mr-3 text-black-50">Loading...</h3><div class="spinner-border ml-auto" role="status" aria-hidden="true"></div></div></div>';
-          // Set loading message and load summary page
-          $('#' + containerId).html(loadingHtml);
-    }
 
     function clickOnCanvas(params){
         var  nodeId = params.nodes[0];
@@ -270,25 +242,11 @@
     }
 
     function loadRunOverview(title){
-        $('#overview-modal-title').text(title);
-        setLoading('overview-content');
-        $('#overview-modal').modal('show');
-         load_html_from_ajax('overview-content',
-                  get_ajax_content('processing_run_overview', getArgs()));
+        load_overview(title, get_ajax_content('processing_run_overview', getArgs()));
     }
 
     function loadRunFileInfo(path) {
-        $('#overview-modal-title').text(path);
-        setLoading('overview-content');
-        $('#overview-modal').modal('show');
-         load_html_from_ajax('overview-content',
-                  get_ajax_content('processing_run_overview', getArgs({file_path: path})));
-    }
-
-    function loadStarRows(path, tableName) {
-         load_html_from_ajax('star_card_content',
-                  get_ajax_content('processing_run_overview',
-                      getArgs({file_path: path, table_name: tableName})));
+        load_overview(path, get_ajax_content('processing_run_overview', getArgs({file_path: path})));
     }
 
     function clickOnExpert() {

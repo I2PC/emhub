@@ -1,0 +1,36 @@
+{% set card_id = card_id or 'vol_card' %}
+
+<div class="row">
+
+    <!-- Slider Column -->
+    <div class="col-12">
+        <div class="card ml-3">
+            <h4 class="card-header" id="{{ card_id }}_header"> {{ title }}</h4>
+            <div class="card-body" id="{{ card_id }}_slider">
+
+            </div>
+        </div>
+    </div>
+
+</div>
+
+
+<script>
+    var file_path = {{ file_path|tojson }};
+    var slices = {{ slices|tojson }};
+    var slice_dim = {{ slice_dim|tojson }};
+    var coordinates = {{ coordinates|tojson }};
+
+    (function(window, document, $, undefined) {
+    "use strict";
+    $(function() {
+        $('#{{ card_id }}_header').text(coordinates.x.length)
+        var vs = new VolumeSliderCard("{{ card_id }}_slider", slices,
+            {
+                slice_dim: slice_dim,
+                coordinates: coordinates
+            });
+
+});
+})(window, document, window.jQuery);
+</script>

@@ -1,0 +1,135 @@
+{% import "entry_macros.html" as macros %}
+
+<div class="row col-12">
+    {% if errors %}
+        <h3 class="col-12">Errors:</h3> <br/>
+        <ul>
+        {% for e in errors %}
+            <li style="color: red">{{ e }}</li>
+        {% endfor %}
+        </ul>
+    {% else %}
+
+    <!-- Plots -->
+     <div class="col-6">
+
+        <div class="card mt-3">
+            <div class="card-body">
+
+                <table id="table-tomograms" class="table table-striped table-bordered" style="width:100%">
+                    <thead>
+                        <tr>
+                            <th>Index</th>
+                            <th>Metadata</th>
+                            <th>Aligned TS</th>
+                            <th>Defocus</th>
+                            <th>Coords</th>
+                            <th>Tomogram</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    {% for t in tomograms %}
+                        <tr>
+                            <td>{{ loop.index }}</td>
+                            <td>
+                                <a href="javascript:loadTomoStar({{ loop.index0 }})">{{ t['md']|basename }}</a>
+                                {% if t['tomo_xml'] %}
+                                    &nbsp;/&nbsp; <a href="javascript:loadTomoXml({{ loop.index0 }})">xml</a>
+                                {% endif %}
+                            </td>
+                            <td><a href="javascript:loadAlignedTs({{ loop.index0 }})"><icon class="fas fa-images mr-2"></icon>{{ t['aligned_ts']|basename }}</a></td>
+                            <td>{{ t['defocus'] }}</td>
+                            <td><a href="javascript:loadCoordinatesStar({{ loop.index0 }})">{{ t['coords_n'] }}</a></td>
+                            <td><a href="javascript:loadTomogram({{ loop.index0 }})"><icon class="fas fa-cube mr-2"></icon>{{ t['tomo_fn']|basename }}</a></td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+
+            </div>
+        </div>
+    </div> <!-- Summary Table -->
+
+     <div class="col-6">
+
+            <div class="card mt-3">
+                <div class="card-body">
+                    <div id="tomogram-div"></div>
+                </div>
+            </div>
+        </div> <!-- Plots -->
+
+    {% endif %}
+
+</div>
+
+<!-- ============================================================== -->
+<!-- Entries Modal -->
+<!-- ============================================================== -->
+<div class="modal" id="tomo-modal" tabindex="-1" role="dialog" aria-labelledby="dynamicModal" aria-hidden="true">
+</div>
+
+
+<script>
+    var tomograms = {{ tomograms|tojson }};
+
+    function loadTomoStar(index){
+        loadStarOverview(tomograms[index].md);
+    }
+
+    function loadCoordinatesStar(index){
+        loadStarOverview(tomograms[index].coords_md)
+    }
+
+    function loadTomoXml(index){
+        var args = {
+            file_path: tomograms[index].tomo_xml
+        };
+        loadTextFileOverview(args);
+    }
+
+    function loadTomogram(index) {
+        var args = {
+            file_path: tomograms[index].tomo_fn,
+            volume_data: 'slices',
+            axis: 'z',
+            slice_dim: 512,
+            coords_md: tomograms[index].coords_md
+        };
+
+        setLoading('tomogram-div');
+
+        load_html_from_ajax('tomogram-div',
+            get_ajax_content('processing_tomogram_card', args))
+    }
+
+    function loadAlignedTs(index) {
+        var args = {
+            file_path: tomograms[index].aligned_ts,
+            volume_data: 'slices',
+            axis: 'z',
+            slice_dim: 512
+        };
+
+        setLoading('tomogram-div');
+
+        load_html_from_ajax('tomogram-div',
+            get_ajax_content('processing_tomogram_card', args))
+    }
+
+(function(window, document, $, undefined) {
+    "use strict";
+    $(function() {
+
+        $('#table-tomograms').DataTable({
+            sDom: 'lrtip',
+            pageLength: 25,
+            info: false,
+            ordering: false
+        });
+
+    });
+
+})(window, document, window.jQuery);
+
+</script>
