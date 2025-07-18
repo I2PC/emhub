@@ -63,10 +63,13 @@ def register_content(dc):
 
         tomo_session = json.loads(kwargs['tomo_session'])
 
-        s = FolderManager(tomo_session['path'])
+        session_path = tomo_session['path']
+        s = FolderManager(session_path)
         picking = tomo_session['picking']
         data = {
-            'errors': []
+            'errors': [],
+            'tomograms': [],
+            'session_path': session_path
         }
         if not s.exists():
             data['errors'].append("Session path does not exist")
@@ -81,7 +84,7 @@ def register_content(dc):
             r = FolderManager(s.join(tomo_session['reconstruction']))
             ts = FolderManager(r.path.replace('reconstruction', 'tiltstack'))
 
-            tomograms = data['tomograms'] = []
+            tomograms = data['tomograms']
 
             def _glob_file(fm, pattern):
                 if files := fm.glob(pattern):
@@ -89,19 +92,35 @@ def register_content(dc):
                 else:
                     return ''
 
+            coordsDict = {}
+            if coords := c.glob('*_default_particles.star'):
+                # Get the splitting token (e.g 9.52Apx)
+                token = coords[0].split('_')[-3]
+                coordsDict = {os.path.basename(c.split(token)[0]): c for c in coords}
+
+            tomoDict = {}
+            if tomos := r.glob('*.mrc'):
+                # Get the splitting token (e.g 9.52Apx)
+                suffix = tomos[0].split('_')[-1]
+                tomoDict = {os.path.basename(t).replace(suffix, ''): t for t in tomos}
+
             for tstar in t.glob("*.tomostar"):
                 tsName = Path.removeBaseExt(tstar)
 
                 # Load coordinates file
-                coordMd = _glob_file(c, tsName + '*default_particles.star')
+                #coordMd = _glob_file(c, tsName + '*default_particles.star')
+                tsKey = f'{tsName}_'
+                coordMd = coordsDict.get(tsKey, '')
+
                 if coordMd:
                     with StarFile(coordMd) as sf:
                         coordN = sf.getTableSize('particles')
                 else:
-                    coordN = ''
+                    coordN = '' 
 
                 # Load xml, tomogram, and aligned TS files
-                tomoFn = _glob_file(r, tsName + '*.mrc')
+                #tomoFn = _glob_file(r, tsName + '*.mrc')
+                tomoFn = tomoDict.get(tsKey, '')
                 alignedTs = _glob_file(ts, f"{tsName}/{tsName}_aligned.mrc")
                 tomoXml = _glob_file(r, f"../{tsName}.xml")
 
@@ -121,6 +140,9 @@ def register_content(dc):
                     'tomo_xml': tomoXml,
                     'defocus': defocus
                 })
+
+                if len(tomograms) == 1000:
+                    break
 
         return data
 

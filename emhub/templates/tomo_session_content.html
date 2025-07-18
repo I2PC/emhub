@@ -1,5 +1,28 @@
 {% import "entry_macros.html" as macros %}
 
+<!-- wrapper  -->
+{% macro status_card(label, icon) -%}
+    <div class="col-4">
+        <div class="card status_card">
+            <div class="card-body">
+                <div class="row">
+                <h5 class="text-muted">{{label}}</h5>
+                    {% if icon %}
+                        <div class="toolbar ml-auto d-flex">
+                            <a class="" id="href-{{ label }}" href="#"><i class="fas fa-search-plus"></i></a>
+                        </div>
+                    {% endif %}
+
+                </div>
+
+                {{ caller() }}
+
+            </div>
+            <div id="sparkline-revenue"></div>
+        </div>
+    </div>
+{%- endmacro %}
+
 <div class="row col-12">
     {% if errors %}
         <h3 class="col-12">Errors:</h3> <br/>
@@ -10,41 +33,100 @@
         </ul>
     {% else %}
 
+                        <!-- Row: Status cards -->
+{#                    <div class="row col-12">#}
+{#                        {% call status_card('Info') %}#}
+{##}
+{#                        {% endcall %}#}
+{##}
+{#                        {% call status_card_counter('Imported', 'counter_imported', True) %}#}
+{#                            <span><i class="fas fa-tachometer-alt"></i></span><span id="imported_tag"></span>#}
+{#                        {% endcall %}#}
+{##}
+{#                        {% call status_card_counter('Motioncor/CTF', 'ctf_count', True) %}#}
+{#                            <span id="ctf_diff" class="mr-2 text-warning"></span>#}
+{#                            <span class="text-success"><i class="fas fa-tachometer-alt"></i></span>#}
+{#                            <span  class="text-success" id="ctf_speed"></span>#}
+{#                        {% endcall %}#}
+
     <!-- Plots -->
      <div class="col-6">
 
         <div class="card mt-3">
             <div class="card-body">
 
-                <table id="table-tomograms" class="table table-striped table-bordered" style="width:100%">
-                    <thead>
-                        <tr>
-                            <th>Index</th>
-                            <th>Metadata</th>
-                            <th>Aligned TS</th>
-                            <th>Defocus</th>
-                            <th>Coords</th>
-                            <th>Tomogram</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                    {% for t in tomograms %}
-                        <tr>
-                            <td>{{ loop.index }}</td>
-                            <td>
-                                <a href="javascript:loadTomoStar({{ loop.index0 }})">{{ t['md']|basename }}</a>
-                                {% if t['tomo_xml'] %}
-                                    &nbsp;/&nbsp; <a href="javascript:loadTomoXml({{ loop.index0 }})">xml</a>
-                                {% endif %}
-                            </td>
-                            <td><a href="javascript:loadAlignedTs({{ loop.index0 }})"><icon class="fas fa-images mr-2"></icon>{{ t['aligned_ts']|basename }}</a></td>
-                            <td>{{ t['defocus'] }}</td>
-                            <td><a href="javascript:loadCoordinatesStar({{ loop.index0 }})">{{ t['coords_n'] }}</a></td>
-                            <td><a href="javascript:loadTomogram({{ loop.index0 }})"><icon class="fas fa-cube mr-2"></icon>{{ t['tomo_fn']|basename }}</a></td>
-                        </tr>
-                    {% endfor %}
-                    </tbody>
-                </table>
+                <div class="pills-outline">
+                    <ul class="nav nav-pills mb-2" id="tabTomoNav" role="tablist">
+
+                        <li class="nav-item">
+                            <a class="nav-link active" id="tomo-table-tab" data-toggle="tab" href="#tomo-table" role="tab" aria-controls="current" aria-selected="true">Table</a>
+                        </li>
+
+                         <li class="nav-item">
+                            <a class="nav-link" id="tomo-plots-tab" data-toggle="tab" href="#tomo-plots" role="tab" aria-controls="current" aria-selected="false">Plots</a>
+                        </li>
+
+                    </ul>
+
+                    <div class="tab-content" id="tabTomoContent">
+
+                        <!-- tab "tomo-table" -->
+                        <div class="tab-pane fade show active" id="tomo-table" role="tabpanel" aria-labelledby="tomo-table-tab">
+
+                            <table id="table-tomograms" class="table" style="width:100%">
+                                <thead>
+                                    <tr>
+                                        <th>Enabled</th>
+                                        <th>Index</th>
+                                        <th>Metadata</th>
+                                        <th>Aligned TS</th>
+                                        <th>Defocus</th>
+                                        <th>Coords</th>
+                                        <th>Tomogram</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                {% for t in tomograms %}
+                                    {% set index = loop.index0 %}
+                                    <tr id="tr_{{ index }}">
+                                        <td><input type="checkbox" checked class="chb_enabled" id="chb_enabled_{{ index }}" data-index="{{ index }}" onchange="changedEnabled(this)"></td>
+                                        <td>{{ index }}</td>
+                                        <td>
+                                            <a href="javascript:loadTomoStar({{ index }})">{{ t['md']|basename }}</a>
+                                            {% if t['tomo_xml'] %}
+                                                &nbsp;/&nbsp; <a href="javascript:loadTomoXml({{ index }})">xml</a>
+                                            {% endif %}
+                                        </td>
+                                        <td><a href="javascript:loadAlignedTs({{ index }})"><icon class="fas fa-images mr-2"></icon>{{ t['aligned_ts']|basename }}</a></td>
+                                        <td>{{ t['defocus'] }}</td>
+                                        <td><a href="javascript:loadCoordinatesStar({{ index }})">{{ t['coords_n'] }}</a></td>
+                                        <td><a href="javascript:loadTomogram({{ index }})"><icon class="fas fa-cube mr-2"></icon>{{ t['tomo_fn']|basename }}</a></td>
+                                    </tr>
+                                {% endfor %}
+                                </tbody>
+                            </table>
+                        </div> <!-- End of Tab tomo-table -->
+
+                         <!-- tab "tomo-plots" -->
+                        <div class="tab-pane fade" id="tomo-plots" role="tabpanel" aria-labelledby="tomo-plots-tab">
+
+                            <div class="row">
+                                <div class="col-8" id="tomo-pts-scatter-div">
+                                </div>
+                                <div class="col-4" id="tomo-pts-hist-div">
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-8" id="tomo-def-scatter-div">
+                                </div>
+                                <div class="col-4" id="tomo-def-hist-div">
+                                </div>
+                            </div>
+                        </div>
+
+                    </div> <!-- End of TabContent -->
+                </div> <!-- End of Tab -->
 
             </div>
         </div>
@@ -117,16 +199,88 @@
             get_ajax_content('processing_tomogram_card', args))
     }
 
+    function changedEnabled(chb){
+        var dataIndex = $(chb).data('index'); // Returns 123 (as a number)
+        var color = chb.checked ? 'transparent' : '#FFCCCB';
+        $(`#tr_${dataIndex}`).css('background-color', color);
+
+    }
+
+    function createPlotCard(){
+        var indexes = [];
+        var particles = [];
+
+        for (var i = 0; i < tomograms.length; i++) {
+            indexes.push(i);
+            var v = tomograms[i].coords_n;
+            var vi = nonEmpty(v) ? parseInt(v) : -1;
+            console.log("value: " + vi);
+            particles.push(vi);
+        }
+        var data_values = {
+            index: {
+                label: "Index",
+                data: indexes
+            },
+
+            numberOfParticles: {
+                label: "Particles",
+                color: "#852999",
+                data: particles
+            },
+            default_x: 'index',
+            default_y: "numberOfParticles"
+        };
+        plot_card = new PlotCard('particles_plot', data_values);
+        {#plot_card.onPointClick = function (index) {#}
+        {#    mic_card_overview.loadMicData(index + 1) };#}
+        plot_card.makePlots();
+    }
+
 (function(window, document, $, undefined) {
     "use strict";
     $(function() {
 
         $('#table-tomograms').DataTable({
-            sDom: 'lrtip',
+            sDom: 'lfrtip',
             pageLength: 25,
-            info: false,
-            ordering: false
+            info: true
         });
+
+        // setTimeout(createPlotCard, 500);
+        var data = [];
+        var data_def = [];
+
+        for (var i = 0; i < tomograms.length; i++) {
+            var v = tomograms[i].coords_n;
+            var d = tomograms[i].defocus;
+            var vi = nonEmpty(v) ? parseInt(v) : -1;
+            var df = nonEmpty(d) ? parseFloat(d) : -10;
+            data.push({x: i, y: vi, defocus: d});
+            data_def.push({x: i, y: df, particles: v});
+        }
+
+        var config = {
+            onclick: function (point) {
+                loadTomogram(point.x);
+            },
+            color: '#00ff00',  // '#005b96',
+            label: 'Particles',
+            maxX: 3000,
+            binsNumber: 10,
+            suffix: ''
+        }
+        create_hc_scatter('tomo-pts-scatter-div', data, config);
+        create_hc_histogram('tomo-pts-hist-div', data, config);
+
+        // Create the plots for Defocus
+        config.color = '#852999';
+        config.label = 'Defocus';
+        config.suffix = 'µm';
+        config.binsNumber = 10;
+        config.maxX = 10;
+        create_hc_scatter('tomo-def-scatter-div', data_def, config);
+        create_hc_histogram('tomo-def-hist-div', data_def, config);
 
     });
 

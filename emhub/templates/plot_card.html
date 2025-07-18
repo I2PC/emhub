@@ -1,7 +1,9 @@
 {% macro row_plot_label(sel_id, title, selectedValue) -%}
     <div class="row" style="min-width: 325px;">
         <h4 class="col-form-label text-right mr-2">{{ title }}</h4>
-        <select id="{{ card_id }}_{{ sel_id }}" class="selectpicker mr-3" style="width: 100%">
+
+        {% if allow_select %}
+
             {% for k, v in data_values.items() %}
                 {% if v.data %}
                     {% set selected = 'selected' if k == selectedValue else '' %}
@@ -9,6 +11,7 @@
                 {% endif %}
             {% endfor %}
         </select>
+        {% endif %}
     </div>
 {%- endmacro %}
 

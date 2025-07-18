@@ -400,6 +400,79 @@ function create_hc_hourly(containerId, data, title, subtitle){
 });
 }  // function create_hc_hourly
 
+function create_hc_scatter(containerId, data, config) {
+    var series = [{
+        name: 'series',
+        id: 'series',
+        marker: {
+            symbol: 'circle'
+        },
+        data: data
+
+    }];
+
+    Highcharts.chart(containerId, {
+        chart: {
+            type: 'scatter',
+            zooming: {
+                type: 'xy'
+            }
+        },
+        title: {
+            text: getObjectValue(config, 'title', '')
+        },
+        xAxis: {
+            title: {text: ''},
+            startOnTick: true,
+            endOnTick: true,
+            showLastLabel: true
+        },
+        yAxis: {
+            title: {text: getObjectValue(config, 'label', '')}
+        },
+        legend: {
+            enabled: false
+        },
+        plotOptions: {
+            scatter: {
+                marker: {
+                    radius: 3.5,
+                    symbol: 'circle',
+                    states: {
+                        hover: {
+                            enabled: true,
+                            lineColor: 'rgb(100,100,100)'
+                        }
+                    }
+                },
+                states: {
+                    hover: {
+                        marker: {
+                            enabled: false
+                        }
+                    }
+                }
+            },
+            series: {
+                cursor: 'pointer',
+                color: getObjectValue(config, 'color', ''),
+                point: {
+                    events: {
+                        click: function () {
+                            if (nonEmpty(config.onclick)) {
+                                config.onclick(this);
+                            }
+                        }
+                    }
+                }
+        }
+        },
+        tooltip: {
+            pointFormat: 'Index: {point.x} <br/> Particles: {point.y} <br/> Defocus: {point.defocus}'
+        },
+        series
+    });
+}
 
 /* Draw the micrograph images with coordinates(optional) */
 function drawMicrograph(containerId, micrograph, drawValue) {
