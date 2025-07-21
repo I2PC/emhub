@@ -746,8 +746,6 @@ class ImageSliderCard extends Card {
                 coords.push([x[i], y[i]])
             }
         }
-        console.log("coords: " + coords.length);
-
         drawMicrograph(this.id('vol_canvas'), {
             thumbnail: sliceImg,
             pixelSize: 1,

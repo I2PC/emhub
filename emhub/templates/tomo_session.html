@@ -7,7 +7,8 @@
 <div class="container-fluid dashboard-content">
     <!-- Header -->
     {% set title = "Tomo Session" %}
-    {% set navigation = [('Tomo', ''), ('Session Overview', '')] %}
+    {% set navigation = [('Tomo Sessions', url_for_content('tomo_sessions_list')),
+                         ('Session Overview', '')] %}
     {% include 'include_header.html' %}
 
     <div class="card card-body">

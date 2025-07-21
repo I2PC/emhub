@@ -28,6 +28,7 @@ Content function to visualize tomography results
 """
 import os
 import json
+from uuid import uuid4
 
 from emtools.utils import Path, FolderManager
 from emtools.image import Thumbnail
@@ -46,24 +47,36 @@ def register_content(dc):
 
     @dc.content
     def tomo_session(**kwargs):
-        return {
+        data = {
             'tomo_session': DEFAULT_SESSION,
             'tomograms': []  # To be loaded
         }
+
+        if tsId := kwargs.get('tomo_session_id', ''):
+            for tsession in dc.app.dm.get_config('tomo_sessions')['sessions'].values():
+                if tsession['id'] == tsId:
+                    data['tomo_session'] = tsession
+                    data.update(tomo_session_content(tomo_session=json.dumps(tsession)))
+                    break
+
+        return data
 
     @dc.content
     def tomo_picking(**kwargs):
         return projects_list(**kwargs)
 
     @dc.content
+    def tomo_sessions_list(**kwargs):
+        return {
+            'tomo_sessions': dc.app.dm.get_config('tomo_sessions')['sessions']
+        }
+
+    @dc.content
     def tomo_session_content(**kwargs):
         dm = dc.app.dm
-
-        print(kwargs, flush=True)
-
         tomo_session = json.loads(kwargs['tomo_session'])
-
         session_path = tomo_session['path']
+
         s = FolderManager(session_path)
         picking = tomo_session['picking']
         data = {
@@ -79,6 +92,18 @@ def register_content(dc):
                     data['errors'].append(f"*{k}* folder does not exist.")
 
         if not data['errors']:
+            # Temporarly store all sessions in a config form
+            # just a quick and dirty way to save the sessions used
+            tomo_sessions = dm.get_config('tomo_sessions')
+            sessions = tomo_sessions['sessions']
+            if session_path not in sessions:
+                tomo_session['id'] = str(uuid4())
+            else:
+                tomo_session['id'] = sessions[session_path]['id']
+
+            sessions[session_path] = tomo_session
+            dm.update_config('tomo_sessions', tomo_sessions)
+
             t = FolderManager(s.join(tomo_session['tomograms']))
             c = FolderManager(s.join(picking, 'Coordinates'))
             r = FolderManager(s.join(tomo_session['reconstruction']))
@@ -116,7 +141,7 @@ def register_content(dc):
                     with StarFile(coordMd) as sf:
                         coordN = sf.getTableSize('particles')
                 else:
-                    coordN = '' 
+                    coordN = ''
 
                 # Load xml, tomogram, and aligned TS files
                 #tomoFn = _glob_file(r, tsName + '*.mrc')
@@ -141,7 +166,7 @@ def register_content(dc):
                     'defocus': defocus
                 })
 
-                if len(tomograms) == 1000:
+                if len(tomograms) == 10:
                     break
 
         return data
