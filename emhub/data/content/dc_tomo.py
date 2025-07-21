@@ -29,8 +29,9 @@ Content function to visualize tomography results
 import os
 import json
 from uuid import uuid4
+import shutil
 
-from emtools.utils import Path, FolderManager
+from emtools.utils import Path, FolderManager, Process
 from emtools.image import Thumbnail
 from emtools.metadata import StarFile, WarpXml
 
@@ -69,6 +70,25 @@ def register_content(dc):
     def tomo_sessions_list(**kwargs):
         return {
             'tomo_sessions': dc.app.dm.get_config('tomo_sessions')['sessions']
+        }
+
+    @dc.content
+    def tomo_export(**kwargs):
+        tomo_session = json.loads(kwargs['tomo_session'])
+        tomograms = json.loads(kwargs.get('tomograms'))
+        session_path = tomo_session['path']
+        s = FolderManager(session_path)
+        newTomoFolder = s.join(tomo_session['tomograms'] + '_selection')
+
+        if os.path.exists(newTomoFolder):
+            raise Exception(f"Selection folder '{newTomoFolder}' already exists.")
+
+        os.mkdir(newTomoFolder)
+        for t in tomograms:
+            shutil.copy(t, newTomoFolder)
+
+        return {
+            'message': f'Exported {len(tomograms)} tomograms to folder {newTomoFolder}'
         }
 
     @dc.content
@@ -157,7 +177,7 @@ def register_content(dc):
                     defocus = ''
 
                 tomograms.append({
-                    'md': tstar, #os.path.basename(tstar),
+                    'md': tstar,  #os.path.basename(tstar),
                     'coords_md': coordMd,
                     'coords_n': coordN,
                     'tomo_fn': tomoFn,
@@ -166,7 +186,7 @@ def register_content(dc):
                     'defocus': defocus
                 })
 
-                if len(tomograms) == 10:
+                if len(tomograms) == 10000:
                     break
 
         return data

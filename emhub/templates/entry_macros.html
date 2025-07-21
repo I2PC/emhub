@@ -372,3 +372,64 @@
         </div>
     {% endif %}
 {%- endmacro %}
+
+
+{% macro status_card(label, icon) -%}
+    <div class="col-2">
+        <div class="card status_card">
+            <div class="card-body">
+                <div class="row">
+                <h5 class="text-muted">{{label}}</h5>
+                    {% if icon %}
+                        <div class="toolbar ml-auto d-flex">
+                            <a class="" id="href-{{ label }}" href="#"><i class="fas fa-search-plus"></i></a>
+                        </div>
+                    {% endif %}
+
+                </div>
+
+                {{ caller() }}
+
+            </div>
+            <div id="sparkline-revenue"></div>
+        </div>
+    </div>
+{%- endmacro %}
+
+
+{% macro status_card_counter(label, counter_id, icon) -%}
+    <div class="col-2">
+        <div class="card status_card">
+            <div class="card-body">
+
+                <div class="row">
+                <h5 class="text-muted">{{label}}</h5>
+                    {% if icon %}
+                        <div class="toolbar ml-auto d-flex">
+                            <a class="" id="href-{{ counter_id }}" href="#"><i class="fas fa-search-plus"></i></a>
+                        </div>
+                    {% endif %}
+                </div>
+
+               <div class="metric-value d-inline-block">
+                    <h1 class="mb-1" id="{{ counter_id }}"></h1>
+
+                </div>
+
+                <div class="metric-label d-inline-block float-right text-success font-weight-bold">
+                    {{ caller() }}
+                </div>
+
+            </div>
+            <div id="sparkline-revenue"></div>
+        </div>
+    </div>
+{%- endmacro %}
+
+
+{% macro status_row(label, value, id) -%}
+    <div class="row col-12 p-0 m-0">
+        <label class="text-muted col-4 p-0 m-0 text-right">{{ label }}</label>
+        <label class="col-8" id="{{ id }}">{{ value }}</label>
+    </div>
+{%- endmacro  %}

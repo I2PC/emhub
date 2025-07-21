@@ -28,7 +28,7 @@
         </div>
     </div>
 
-    <div class="card card-body" id="session-content">
+    <div class="row col-12" id="session-content">
         {% include 'tomo_session_content.html' %}
     </div>
 </div>
@@ -37,16 +37,14 @@
 <script>
     $('select').selectpicker();
 
+    function getTomoSession(){
+        return JSON.stringify(getFormAsJson('tomo_session_form', true));
+    }
+
     function loadSession() {
-        var args = getFormAsJson('tomo_session_form', true);
-
-        //alert(JSON.stringify(args, null, 4));
-        //return
-
         setLoading('session-content');
-
         load_html_from_ajax('session-content',
-            get_ajax_content('tomo_session_content', {tomo_session: JSON.stringify(args)}));
+            get_ajax_content('tomo_session_content', {tomo_session: getTomoSession()}));
     }
 
 </script>

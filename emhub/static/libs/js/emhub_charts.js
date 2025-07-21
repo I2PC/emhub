@@ -210,9 +210,13 @@ function create_hc_resolution_histogram(containerId, data, percent) {
 
 
 function create_hc_histogram(containerId, data, config) {
+    var h = getObjectValue(config, 'height', null);
+    var s = getObjectValue(config, 'suffix', null);
+    s = nonEmpty(s) ? `(${s})` : '';
+
     var chart = Highcharts.chart(containerId, {
         chart: {
-            height: config.percent + '%'
+            height: nonEmpty(h) ? h : config.percent + '%'
         },
         margin: [0, 0, 0, 0],
         spacing: [0, 0, 0, 0],
@@ -232,11 +236,11 @@ function create_hc_histogram(containerId, data, config) {
           max: 4
       }, {
         title: {
-          text: config.label + ' (' + config.suffix + ')'
+          text: config.label + s
         },
         alignTicks: true,
         opposite: false,
-          max: config.maxX
+        max: config.maxX
       }],
       yAxis: [
         {
@@ -244,7 +248,7 @@ function create_hc_histogram(containerId, data, config) {
         },
         {
         title: {
-          text: 'Micrographs'
+          text: getObjectValue(config, 'labelY', 'Micrographs')
         },
         opposite: false,
         }],
@@ -413,11 +417,13 @@ function create_hc_scatter(containerId, data, config) {
 
     Highcharts.chart(containerId, {
         chart: {
+            height: getObjectValue(config, 'height', null),
             type: 'scatter',
             zooming: {
                 type: 'xy'
             }
         },
+        credits: {enabled: false},
         title: {
             text: getObjectValue(config, 'title', '')
         },
@@ -428,7 +434,7 @@ function create_hc_scatter(containerId, data, config) {
             showLastLabel: true
         },
         yAxis: {
-            title: {text: getObjectValue(config, 'label', '')}
+            title: {text: getObjectValue(config, 'labelY', '')}
         },
         legend: {
             enabled: false
@@ -643,13 +649,7 @@ function drawVolData(containerId, volSlices){
     var imgStr, infoStr = null;
     var html = '<div class="col-12 row">';
 
-    // for(let slice in volSlices) {
-    //     imgStr = '<img src="data:image/png;base64,' + volSlices[slice] + '" style="border: solid 3px;">';
-    //     infoStr = '<p class="text-muted mb-0"><small>' + slice + '</small></p>';
-    //     html += '<div style="padding: 3px; min-width: 90px;">' + imgStr + infoStr + '</div>';
-    // }
     for (const [sliceIndex, sliceImg] of Object.entries(volSlices)) {
-      //console.log(`${key}: ${value}`);
         imgStr = '<img src="data:image/png;base64,' + sliceImg + '" style="border: solid 3px; width: 128px">';
         infoStr = '<p class="text-muted mb-0"><small>' + sliceIndex + '</small></p>';
         html += '<div style="padding: 1px; min-width: 128px;">' + imgStr + infoStr + '</div>';
@@ -712,7 +712,6 @@ class ImageSliderCard extends Card {
 
         for (const [sliceIndex, sliceImg] of Object.entries(slices)) {
             this.indexes.push(sliceIndex);
-            //console.log(`${sliceIndex}: ${sliceImg.length}`);
         }
 
         const N = this.indexes.length;
@@ -740,7 +739,6 @@ class ImageSliderCard extends Card {
         let z = this.cooordinates.z;
         let x = this.cooordinates.x;
         let y = this.cooordinates.y;
-        console.log('z: ' + this.cooordinates.z.length);
         for (var i = 0; i < z.length; i++){
             if (Math.abs(z[i] - sliceNumber) <= 10) { // fixme using near distance
                 coords.push([x[i], y[i]])
@@ -1080,7 +1078,6 @@ class PlotCard extends Card {
                 return;
             }
             self.points = eventData.points;
-            console.log("self.points: " + self.points.length);
             $(self.jid('selection-label')).html("Selected <label style='color: firebrick; font-size: medium;'>" + self.points.length + "</label> points")
             $(self.jid('export-btn')).show();
         });
