@@ -1012,11 +1012,6 @@ class DataManager(DbManager):
 
         return False
 
-    # def __check_entry(self, **attrs):
-    #     if 'title' in attrs:
-    #         if not attrs['title'].strip():
-    #             raise Exception("Entry title can not be empty")
-
     def _validate_access_microscopes(self, entry):
         data = entry.extra['data']
         micId = data.get('microscope_id', None)
