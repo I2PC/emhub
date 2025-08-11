@@ -30,8 +30,9 @@ import os
 import json
 from uuid import uuid4
 import shutil
+import random
 
-from emtools.utils import Path, FolderManager, Process
+from emtools.utils import Path, FolderManager, Process, Pretty
 from emtools.image import Thumbnail
 from emtools.metadata import StarFile, WarpXml
 
@@ -190,6 +191,57 @@ def register_content(dc):
                     break
 
         return data
+
+    # FIXME: More benchmark_ functions to a separate place
+    def get_benchmarks():
+        return dc.app.dm.get_config('benchmarks')['benchmarks']
+
+    @dc.content
+    def benchmark_sessions_list(**kwargs):
+        return {
+            'benchmarks': get_benchmarks()
+        }
+
+    @dc.content
+    def benchmark_session(**kwargs):
+        data = {}
+        if bid := kwargs.get('benchmark_session_id', ''):
+            for bname, benchmark in get_benchmarks().items():
+                if bid == benchmark['id']:
+                    data = benchmark_session_content(benchmark_session=json.dumps(benchmark))
+                    data['title'] = bname
+                    break
+
+        return data
+
+    @dc.content
+    def benchmark_session_content(**kwargs):
+        benchmark = json.loads(kwargs['benchmark_session'])
+        series = []
+        categories = None
+
+        def _elapsed(s):
+            if s['START'] and s['END']:
+                start = Pretty.parse_datetime(s['START'])
+                end = Pretty.parse_datetime(s['END'])
+                return (end - start).seconds / 60
+            else:
+                return 0
+
+        for r in benchmark['runs']:
+            series.append({
+                'name': r['label'],
+                'data': [_elapsed(s) for s in r['steps']]})
+            categories = [s['JOBNAME'] for s in r['steps']]
+
+        return {
+            'benchmark': benchmark,
+            'plot': {
+                'series': series,
+                'categories': categories
+            }
+        }
+
 
 
 

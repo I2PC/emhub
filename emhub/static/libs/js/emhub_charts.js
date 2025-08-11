@@ -480,6 +480,38 @@ function create_hc_scatter(containerId, data, config) {
     });
 }
 
+function create_hc_columns(containerId, config){
+    return Highcharts.chart(containerId, {
+        chart: {
+            type: 'column'
+        },
+        title: {
+            text: config.title
+        },
+        xAxis: {
+            categories: config.categories,
+            crosshair: true
+        },
+        yAxis: {
+            min: 0,
+            title: {
+                text: config.labelY
+            }
+        },
+        tooltip: {
+            valueSuffix: ' (minutes)'
+        },
+        plotOptions: {
+            column: {
+                pointPadding: 0.2,
+                borderWidth: 0
+            }
+        },
+        series: config.series
+    });
+} // function create_hc_columns
+
+
 /* Draw the micrograph images with coordinates(optional) */
 function drawMicrograph(containerId, micrograph, drawValue) {
     var canvas = document.getElementById(containerId);

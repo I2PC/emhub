@@ -1,0 +1,122 @@
+{% import "entry_macros.html" as macros %}
+
+<div class="row col-12">
+    {% if errors %}
+        <h3 class="col-12">Errors:</h3> <br/>
+        <ul>
+        {% for e in errors %}
+            <li style="color: red">{{ e }}</li>
+        {% endfor %}
+        </ul>
+    {% else %}
+        <!-- Row: Main Plot -->
+        <div class="row col-12 card">
+            <div class="card-body">
+                <div id="columns-plot-div"></div>
+            </div>
+        </div>
+
+        <!-- Row: Table/Pies -->
+        <div class="row col-12 card">
+            <div class="card-body">
+
+                <div class="pills-outline">
+                    <ul class="nav nav-pills mb-2" id="tabTomoNav" role="tablist">
+
+                        {% for run in benchmark['runs'] %}
+                            {% set runid = "run%d"|format(loop.index0) %}
+                            {% set active = "active" if loop.index0 == 0 else "" %}
+                            {% set selected = "true" if loop.index0 == 0 else "false" %}
+                            <li class="nav-item">
+                                <a class="nav-link {{ active }}" id="   {{ runid }}-tab" data-toggle="tab" href="#{{ runid }}-content" role="tab" aria-controls="current" aria-selected="{{ selected }}">{{ run['label'] }}</a>
+                            </li>
+                        {% endfor %}
+
+                    </ul>
+
+                    <div class="tab-content" id="tabTomoContent">
+
+                        {% for run in benchmark['runs'] %}
+                            {% set runid = "run%d"|format(loop.index0) %}
+                            {% set active = "show active" if loop.index0 == 0 else "" %}
+                            <!-- tab "tomo-table" -->
+
+                            <div class="tab-pane fade {{ active }}" id="{{ runid }}-content" role="tabpanel" aria-labelledby="{{ runid }}-tab">
+
+                                <table id="table-tomograms" class="table" style="width:100%">
+                                    <thead>
+                                        <tr>
+                                            <th>JOBID</th>
+                                            <th>JOBNAME</th>
+                                            <th>START</th>
+                                            <th>END</th>
+                                            <th>ELAPSED</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                    {% for step in run['steps'] %}
+                                        {% set index = loop.index0 %}
+                                        <tr id="tr_{{ index }}">
+                                            <td>{{ step['JOBID'] }}</td>
+                                            <td>{{ step['JOBNAME'] }}</td>
+                                            <td>{{ step['START'] }}</td>
+                                            <td>{{ step['END'] }}</td>
+                                            <td>{{ step['ELAPSED'] }}</td>
+                                        </tr>
+                                    {% endfor %}
+                                    </tbody>
+                                </table>
+
+                            </div> <!-- End of Tab tomo-table -->
+
+
+                        {% endfor %}
+
+                    </div> <!-- End of TabContent -->
+
+                </div> <!-- End of Tab -->
+
+            </div>
+        </div>
+
+    {% endif %}
+
+</div>
+
+<!-- ============================================================== -->
+<!-- Entries Modal -->
+<!-- ============================================================== -->
+<div class="modal" id="tomo-modal" tabindex="-1" role="dialog" aria-labelledby="dynamicModal" aria-hidden="true">
+</div>
+
+
+<script>
+    var benchmark = {{ benchmark|tojson }};
+    var plot = {{ plot|tojson }};
+    var table = null;
+
+
+(function(window, document, $, undefined) {
+    "use strict";
+    $(function() {
+
+        table = $('#table-tomograms').DataTable({
+            sDom: 'lfrtip',
+            searching: false,
+            paging: false,  // no paging
+            info: false,
+            scrollY: '700px'
+        });
+
+        // Prepare the data for the plot
+        create_hc_columns('columns-plot-div', {
+            title: "Execution times for each run and steps",
+            labelY: "Execution time (minutes)",
+            categories: plot.categories,
+            series: plot.series});
+
+    });
+
+})(window, document, window.jQuery);
+
+</script>
