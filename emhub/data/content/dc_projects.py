@@ -85,6 +85,7 @@ def register_content(dc):
             raise Exception("You do not have permissions to see this project")
 
         config = dm.get_config('projects')
+        project_perms = dm.get_config('permissions')['projects']
 
         def ekey(e):
             if isinstance(e, dm.Booking):  # e.type == 'booking':
@@ -130,6 +131,7 @@ def register_content(dc):
             'project': project,
             'entries': entries,
             'config': config,
+            'user_can_edit_entry': project_perms.get('user_can_edit_entry', False)
         }
 
     @dc.content
