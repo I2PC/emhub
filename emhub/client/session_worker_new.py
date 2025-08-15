@@ -265,13 +265,11 @@ class SessionTaskHandler(TaskHandler):
                     # Create a named temporary file
                     with tempfile.NamedTemporaryFile() as tmpfile:
                         logPrefix = self.getLogPrefix()
-                        prefix = logPrefix + ('move' if move else 'copy')
-                        debugDstFile = f"/home/appdpcryoEM/{prefix}-{os.path.basename(tmpfile.name)}"
+                        #prefix = logPrefix + ('move' if move else 'copy')
                         if existing := [f for f in file_list if os.path.exists(f)]:
                             with open(tmpfile.name, 'w') as f:
                                 for fn in existing:
                                     f.write(f"{fn.replace(framesPath, '')}\n")
-                            #self.pl.cp(tmpfile.name, debugDstFile)
                             args = [
                                 "-c",
                                 "--temp-dir=/gscem/testgrp/TRANSFER_TMP/",
@@ -286,11 +284,7 @@ class SessionTaskHandler(TaskHandler):
                                 tries -= 1
 
                         if missing := [f for f in file_list if not os.path.exists(f)]:
-                            missingFn = debugDstFile + '_missing.txt'
-                            self.info("Missing files: ")
-                            with open(missingFn, 'w') as f:
-                                for fn in missing:
-                                    f.write(f"{fn.replace(framesPath, '')}\n")
+                            self.info(f"Missing files: {len(missing)}")
 
                 except Exception as e:
                     tries -= 1
@@ -310,6 +304,10 @@ class SessionTaskHandler(TaskHandler):
                 if self._to_copy:
                     self.info(f"Rsyncing (copy) {len(self._to_copy)} files.")
                     copied, copiedSize = _rsync(self._to_copy)
+                else:
+                    copied = 0
+                    copiedSize = 0
+
                 if self.n_movies:
                     self.info(f"Rsyncing (move) {len(self._to_move)} files.")
                     moved, movedSize = _rsync(self._to_move, move=True)
@@ -570,6 +568,7 @@ class SessionTaskHandler(TaskHandler):
         clear = 'clear' in self.task['args'] and self.count == 1
 
         try:
+            now = datetime.now()
             n = raw.get('movies', 0)
             raw_path = raw.get('path', '')
             raw_exists = os.path.exists(raw_path)
@@ -582,18 +581,40 @@ class SessionTaskHandler(TaskHandler):
             otfStr = otf_path if len(otf_path) > 4 else 'NOT READY'
             self.info(f"OTF path: {otfStr}, do clear: {clear}, movies: {n}")
 
+            def __stop_otf(status):
+                otf['status'] = status
+                self.update_log({'status': status})
+                self.update_session_extra({'otf': otf})
+                self.stop()
+
             if not otf_exists or clear:
                 # OTF is not running, let's check if we need to launch it
-                if raw_exists and n > 8:
-                    self.info(f"Launching OTF after {n} images found.")
-                    #self.worker.notify_launch_otf(self.task)
-                    self.create_otf_folder(otf_path)
-                    otf_exists = True
-                    self.launch_otf()
-                    self.update_log({'otf_path': otf['path'],
-                                     'otf_status': otf['status'],
-                                     'count': self.count})
-                    self.update_session = False  # after launching no need to update
+                if raw_exists:
+                    if n > 8:
+                        self.info(f"Launching OTF after {n} images found.")
+                        #self.worker.notify_launch_otf(self.task)
+                        self.create_otf_folder(otf_path)
+                        otf_exists = True
+                        self.launch_otf()
+                        self.update_log({'otf_path': otf['path'],
+                                         'otf_status': otf['status'],
+                                         'count': self.count})
+                        self.update_session = False  # after launching no need to update
+                    # check if there is a screening sessions that does not need OTF
+                    else:
+                        to_stop = False
+                        last_file_creation = raw.get('last_file_creation', '')
+                        has_movies = raw.get('last_movie_creation', None) is not None
+                        if last_file_creation:
+                            diff = now - datetime.fromtimestamp(last_file_creation)
+                            max_days = 3 if has_movies else 1
+                            to_stop = diff.days >= max_days
+                        else:
+                            pass  # TODO: check condition if there is no raw to stop OTF
+                        if to_stop:
+                            __stop_otf('cancelled')
+                else:
+                    pass
             else:
                 # TODO: Check related process and if not, then relaunch otf in resume mode
                 procs = self._otf_check_processes(otf_path)
@@ -607,7 +628,7 @@ class SessionTaskHandler(TaskHandler):
 
                     starKeys = ['movies', 'micrographs', 'coordinates']
                     now = datetime.now()
-                    old_td = timedelta(hours=8)
+                    old_td = timedelta(hours=24)
 
                     def _old(k):
                         starFile = session_json[k]
@@ -617,10 +638,17 @@ class SessionTaskHandler(TaskHandler):
                         ts = datetime.fromtimestamp(s.st_mtime)
                         return ts - now > old_td
 
-                    otf_status = 'finished' if all(_old(k) for k in starKeys) else 'stopped'
-
+                    if all(_old(k) for k in starKeys):
+                        otf_status = 'finished'
+                        to_stop = True
+                    else:
+                        otf_status = 'stopped'
+                        last_file_creation = datetime.fromtimestamp(raw['last_file_creation'])
+                        to_stop = (now - last_file_creation) > old_td
+                        self.info(f"Status: {otf_status}, delta: {(now - last_file_creation)}")
                 else:
                     otf_status = 'running'
+                    to_stop = False
                     # TODO: Check if stalled, even with processes, no processing is ongoing
 
                 otf = extra['otf']
@@ -630,7 +658,8 @@ class SessionTaskHandler(TaskHandler):
                                  'processes_count': len(procs),
                                  'processes_list': json.dumps(procs)})
                 self.update_session_extra({'otf': otf})
-                if otf_status == 'finished':
+
+                if to_stop:
                     self.stop()
 
             if otf_exists and raw_exists:
