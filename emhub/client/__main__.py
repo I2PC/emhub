@@ -170,8 +170,6 @@ def process_sessions(args):
 
                     self.worker.request('update_session_extra',
                                         {'id': self.session['id'], 'extra': extra})
-
-
                 print(json.dumps(s, indent=4))
             return
 
@@ -387,6 +385,12 @@ def main():
     g = entry_p.add_mutually_exclusive_group()
     g.add_argument('--list', '-l')
 
+    # ------------------------- Mail subparser -------------------------------
+    mail_p = subparsers.add_parser("mail")
+    mail_p.add_argument('dst', help="Destination email. ", nargs='+')
+    mail_p.add_argument('subject', help="Mail subject. ")
+    mail_p.add_argument('body', help="Mail body text. ")
+
     # ------------------------- Method subparser -------------------------------
     method_p = subparsers.add_parser("method")
     method_p.add_argument('method', metavar='METHOD_NAME')
@@ -422,6 +426,16 @@ def main():
     elif args.entity == 'puck':
         process_pucks(args)
 
+    elif args.entity == 'mail':
+        with open_client() as dc:
+            mailData = {
+                'dst': args.dst,
+                'subject': args.subject,
+                'body': args.body
+            }
+            r = dc.request('send_email', jsonData={'attrs': mailData})
+            pprint(r.json())
+
     elif args.entity == 'entry':
         process_entries(args)
 
@@ -455,6 +469,41 @@ def main():
         for k, v in os.environ.items():
             if k.startswith('EMHUB_'):
                 print(f"export {k}={v}")
+
+        return
+
+        headers = ["SESSION_ID", "IMAGES", "OTF"]
+        format_str = u'{:<20}{:<40}{:<30}'
+        print(format_str.format(*headers))
+
+        with open_client() as dc:
+            sessions = {s['id']: s for s in dc.request('get_sessions', jsonData=None).json()}
+
+        for sid, s in sessions.items():
+            extra = s['extra']
+            otf = extra.get('otf', {})
+            raw = extra.get('raw', {})
+
+            movies = raw.get('movies', 0)
+
+            if not otf:
+                otfStr = 'BAD:NO-OTF:'
+            elif isinstance(otf, dict):
+                path = otf.get('path', 'BAD:NONE:')
+                macPath = path.replace('/jude/facility/', '/Volumes/cryo_facility/')
+                otfStr = path if os.path.exists(macPath) else f'BAD: MISSING {path}'
+            else:
+                otfStr = f'OTF: {str(otf)}, type: {type(otf)}'
+
+            if not movies:
+                continue  # ignore sessions with 0 movies
+
+            lineStr = format_str.format(sid, movies, otfStr)
+
+            if otfStr.startswith('BAD:'):
+                lineStr = Color.red(lineStr)
+
+            print(lineStr)
 
 
 if __name__ == '__main__':

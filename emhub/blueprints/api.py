@@ -1001,7 +1001,7 @@ def send_email():
         if app.mm is None:
             raise Exception("ERROR: You need to configure a Mail server within EMhub "
                             "to send emails.")
-        app.mm.send_mail([attrs['dst']], attrs['subject'], attrs['body'])
+        app.mm.send_mail(attrs['dst'], attrs['subject'], attrs['body'])
         print(attrs)
         return True
 
