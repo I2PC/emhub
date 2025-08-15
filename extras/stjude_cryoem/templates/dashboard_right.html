@@ -101,8 +101,6 @@
             operators.push($('#booking-operator-select_' + i).selectpicker('val'));
         }
 
-        alert(operators);
-
         var ajaxContent = createslots_content(1, operators);
         ajaxContent.done(function(html) {
             $('#booking-modal').modal('hide');
