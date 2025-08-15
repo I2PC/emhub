@@ -29,10 +29,12 @@
 Register content functions related to Sessions
 """
 import os
+import json
+import base64
 from glob import glob
 import datetime as dt
 import numpy as np
-import base64
+
 
 import mrcfile
 
@@ -299,7 +301,10 @@ def register_content(dc):
         }
 
         with open(textfile) as f:
-            content = f.read()
+            if ext == 'json':
+                content = json.dumps(json.load(f), indent=4)  # pretty display of json content
+            else:
+                content = f.read()
 
         return {
             'title': config['mode'],

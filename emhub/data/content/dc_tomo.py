@@ -196,6 +196,11 @@ def register_content(dc):
     def get_benchmarks():
         return dc.app.dm.get_config('benchmarks')['benchmarks']
 
+    def get_benchmark_by_id(benchmark_id):
+        for bname, benchmark in get_benchmarks().items():
+            if benchmark_id == benchmark['id']:
+                return bname, benchmark
+
     @dc.content
     def benchmark_sessions_list(**kwargs):
         return {
@@ -206,13 +211,42 @@ def register_content(dc):
     def benchmark_session(**kwargs):
         data = {}
         if bid := kwargs.get('benchmark_session_id', ''):
-            for bname, benchmark in get_benchmarks().items():
-                if bid == benchmark['id']:
-                    data = benchmark_session_content(benchmark_session=json.dumps(benchmark))
-                    data['title'] = bname
-                    break
+            bname, benchmark = get_benchmark_by_id(bid)
+            data = benchmark_session_content(benchmark_session=json.dumps(benchmark))
+            data['title'] = bname
 
         return data
+
+    @dc.content
+    def benchmark_usage_plot(**kwargs):
+        series = None
+        tseries = {'name': 'total', 'id': 'total', 'data': []}
+
+        gpu_monitor_file = kwargs['file_path']
+        with open(gpu_monitor_file) as f:
+            gpu_usage = json.load(f)
+            for row in gpu_usage['rows']:
+                tsStr, rowData = row
+                ts = Pretty.parse_datetime(tsStr.split('.')[0]).timestamp() * 1000
+                if not series:
+                    series = [{
+                        'name': f"gpu-{g}",
+                        'id': f"gpu-{g}",
+                        'data': []
+                    } for g in rowData]
+                t = 0
+                for g, values in rowData.items():
+                    try:
+                        u = float(values[0])
+                    except:
+                        u = 0
+                    t += u
+                    series[int(g)]['data'].append([ts, u])
+                tseries['data'].append([ts, t])
+
+        series.insert(0, tseries)
+
+        return {'plot': {'series': series}}
 
     @dc.content
     def benchmark_session_content(**kwargs):
@@ -233,6 +267,10 @@ def register_content(dc):
                 'name': r['label'],
                 'data': [_elapsed(s) for s in r['steps']]})
             categories = [s['JOBNAME'] for s in r['steps']]
+            for s in r['steps']:
+                gpu_monitor = s['JOBID'].replace('job', 'gpu_monitor_') + '.json'
+                if os.path.exists(os.path.join(r.get('path', ''), gpu_monitor)):
+                    s['gpu_monitor'] = gpu_monitor
 
         return {
             'benchmark': benchmark,

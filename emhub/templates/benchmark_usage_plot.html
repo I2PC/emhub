@@ -1,0 +1,28 @@
+{% import "entry_macros.html" as macros %}
+
+
+<!-- Row: Main Plot -->
+<div class="row col-12 card">
+    <div class="card-body">
+        <div id="usage-plot-div"></div>
+    </div>
+</div>
+
+
+<script>
+    var plot = {{ plot|tojson }};
+
+(function(window, document, $, undefined) {
+    "use strict";
+    $(function() {
+        // Prepare the data for the plot
+        create_hc_usage_series('usage-plot-div', {
+            title: "Execution times for each run and steps",
+            labelY: "Execution time (minutes)",
+            series: plot.series});
+
+    });
+
+})(window, document, window.jQuery);
+
+</script>

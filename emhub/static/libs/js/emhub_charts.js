@@ -209,6 +209,67 @@ function create_hc_resolution_histogram(containerId, data, percent) {
 }
 
 
+function create_hc_usage_series(container, config) {
+    // Create the chart
+    return Highcharts.stockChart(container, {
+        plotOptions: {
+                // series: {
+                //     turboThreshold: 0,
+                // }
+            },
+        tooltip: {
+
+            },
+        //colors: [config.color],
+        chart: {
+            zoomType: 'x',
+        },
+        rangeSelector: {
+            buttons: [{
+                type: 'hour',
+                count: 1,
+                text: '1h'
+            }, {
+                type: 'hour',
+                count: 3,
+                text: '3h'
+            }, {
+                type: 'hour',
+                count: 6,
+                text: '6h'
+            }, {
+                type: 'all',
+                text: 'All'
+            }],
+            selected: 1,
+            inputEnabled: false
+        },
+        xAxis: {
+        },
+        yAxis: {
+            title: {
+                text: config.labelY,
+            },
+            opposite: false,
+           // min: config.minY,
+           // max: config.maxY,
+            startOnTick: false,
+            endOnTick: false
+        },
+
+        exporting: {enabled: true},
+        legend: {enabled: true},
+        title: "Some title",
+        series: config.series
+        // series: [{
+        //     name: config.label,
+        //     id: "datapoints",
+        //     data: data
+        // }]
+    });
+} // function create_hc_series
+
+
 function create_hc_histogram(containerId, data, config) {
     var h = getObjectValue(config, 'height', null);
     var s = getObjectValue(config, 'suffix', null);

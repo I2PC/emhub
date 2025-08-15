@@ -969,8 +969,9 @@ class DataManager(DbManager):
         create_session = self.get_config('sessions').get('create_session', {})
         resource_config = create_session.get(resource_name, {})
 
-        if formName := resource_config.get('extra_form', None):
-            return self.get_form_by_name(f'entry_form:{formName}')
+        if isinstance(resource_config, dict):
+            if formName := resource_config.get('extra_form', None):
+                return self.get_form_by_name(f'entry_form:{formName}')
 
         return None
 
