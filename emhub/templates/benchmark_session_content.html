@@ -1,0 +1,142 @@
+{% import "entry_macros.html" as macros %}
+
+<div class="row col-12">
+
+    {% if errors %}
+        <h3 class="col-12">Errors:</h3> <br/>
+        <ul>
+        {% for e in errors %}
+            <li style="color: red">{{ e }}</li>
+        {% endfor %}
+        </ul>
+    {% else %}
+        <!-- Row: Main Plot -->
+        <div class="row col-12 card">
+            <div class="card-body">
+                <div id="columns-plot-div"></div>
+            </div>
+        </div>
+
+        <!-- Row: Table/Pies -->
+        <div class="row col-12 card">
+            <div class="card-body">
+
+                <div class="pills-outline">
+                    <ul class="nav nav-pills mb-2" id="tabTomoNav" role="tablist">
+
+                        {% for run in benchmark['runs'] %}
+                            {% set runid = "run%d"|format(loop.index0) %}
+                            {% set active = "active" if loop.index0 == 0 else "" %}
+                            {% set selected = "true" if loop.index0 == 0 else "false" %}
+                            <li class="nav-item">
+                                <a class="nav-link {{ active }}" id="   {{ runid }}-tab" data-toggle="tab" href="#{{ runid }}-content" role="tab" aria-controls="current" aria-selected="{{ selected }}">{{ run['label'] }}</a>
+                            </li>
+                        {% endfor %}
+
+                    </ul>
+
+                    <div class="tab-content" id="tabTomoContent">
+
+                        {% for run in benchmark['runs'] %}
+                            {% set run_index = loop.index0 %}
+                            {% set runid = "run%d"|format(run_index) %}
+                            {% set active = "show active" if run_index == 0 else "" %}
+                            <!-- tab "tomo-table" -->
+
+
+                            <div class="tab-pane fade {{ active }}" id="{{ runid }}-content" role="tabpanel" aria-labelledby="{{ runid }}-tab">
+
+                                <div class="col-12"><label>{{ run['path'] }}</label></div>
+                                <table id="table-tomograms" class="table" style="width:100%">
+                                    <thead>
+                                        <tr>
+                                            <th>JOBID</th>
+                                            <th>JOBNAME</th>
+                                            <th>START</th>
+                                            <th>END</th>
+                                            <th>ELAPSED</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                    {% for step in run['steps'] %}
+                                        {% set step_index = loop.index0 %}
+                                        <tr id="tr_{{ step_index }}">
+                                            <td>{{ step['JOBID'] }}</td>
+                                            <td>{{ step['JOBNAME'] }}</td>
+                                            <td>{{ step['START'] }}</td>
+                                            <td>{{ step['END'] }}</td>
+                                            <td>
+                                                {{ step['ELAPSED'] }}
+                                                {% if step['gpu_monitor'] %}
+                                                    <a href="javascript:plotUsage({{ run_index }}, {{ step_index }})" class="ml-2"><i class="fas fa-external-link-alt"></i> </a>
+
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                    </tbody>
+                                </table>
+
+                            </div> <!-- End of Tab tomo-table -->
+
+
+                        {% endfor %}
+
+                    </div> <!-- End of tab-content -->
+
+                </div> <!-- End of pill-outline -->
+
+            </div>
+        </div>
+
+    {% endif %}
+
+</div>
+
+<!-- ============================================================== -->
+<!-- Entries Modal -->
+<!-- ============================================================== -->
+<div class="modal" id="tomo-modal" tabindex="-1" role="dialog" aria-labelledby="dynamicModal" aria-hidden="true">
+</div>
+
+
+<script>
+    var benchmark = {{ benchmark|tojson }};
+    var plot = {{ plot|tojson }};
+    var table = null;
+
+    function plotUsage(run_index, step_index){
+        var run = benchmark.runs[run_index];
+        var step = run.steps[step_index];
+        //alert(JSON.stringify(step))
+        var gpu_monitor_file = `${run['path']}/${step['gpu_monitor']}`;
+        var args = {file_path: gpu_monitor_file};
+        //loadTextFileOverview(args);
+        load_overview("GPU utilization",
+            get_ajax_content('benchmark_usage_plot', args));
+    }
+
+(function(window, document, $, undefined) {
+    "use strict";
+    $(function() {
+
+        table = $('#table-tomograms').DataTable({
+            sDom: 'lfrtip',
+            searching: false,
+            paging: false,  // no paging
+            info: false,
+            scrollY: '700px'
+        });
+
+        // Prepare the data for the plot
+        create_hc_columns('columns-plot-div', {
+            title: "Execution times for each run and steps",
+            labelY: "Execution time (minutes)",
+            categories: plot.categories,
+            series: plot.series});
+
+    });
+
+})(window, document, window.jQuery);
+
+</script>

@@ -29,11 +29,18 @@
 Register content functions related to Sessions
 """
 import os
+import json
+import base64
 from glob import glob
 import datetime as dt
+import numpy as np
+
+
+import mrcfile
 
 from emtools.utils import Pretty, Path
-from emtools.metadata import Bins, TsBins, EPU
+from emtools.metadata import Bins, TsBins, EPU, StarFile
+from emtools.image import Thumbnail
 
 
 def register_content(dc):
@@ -283,6 +290,157 @@ def register_content(dc):
     @dc.content
     def processing_run_overview(**kwargs):
         return get_processing_run_func('getOverview', kwargs)
+
+    @dc.content
+    def processing_textfile_overview(**kwargs):
+        textfile = kwargs['file_path']
+        known_modes = ['xml', 'json']
+        ext = Path.getExt(textfile)[1:]
+        config = {
+            'mode': ext if ext in known_modes else ''
+        }
+
+        with open(textfile) as f:
+            if ext == 'json':
+                content = json.dumps(json.load(f), indent=4)  # pretty display of json content
+            else:
+                content = f.read()
+
+        return {
+            'title': config['mode'],
+            'file_path': textfile,
+            'file_content': content,
+            'editor_config': config
+        }
+
+    @dc.content
+    def processing_star_overview(**kwargs):
+        starFile = kwargs['file_path']
+        data = {'file_path': starFile}
+
+        with StarFile(starFile) as sf:
+            # load all tables info and default table rows
+            tables = {}
+            tableNames = sf.getTableNames()
+            defaultTable = kwargs.get('default_table', tableNames[0])
+            for tn in tableNames:
+                ti = sf.getTableInfo(tn)
+                tsize = sf.getTableSize(tn)
+                tables[tn] = {
+                    'columns': ti.getColumnNames(),
+                    'rows': tsize
+                }
+                if tn == defaultTable:
+                    data['default_table'] = defaultTable
+                    limit = min(50, tsize)
+                    rows_subset = f'(subset of {limit} rows)' if tsize > limit else ''
+                    data['rows'] = [r._asdict() for r in sf.iterTable(tn, limit=limit, guessType=False)]
+                    data['rows_subset'] = rows_subset
+
+                data['tables'] = tables
+
+        return data
+
+    @dc.content
+    def processing_star_card(**kwargs):
+        starFile = kwargs['file_path']
+        tn = kwargs['table_name']
+        data = {}
+        with StarFile(starFile) as sf:
+            # only load rows for this table, not the all tables info
+            ti = sf.getTableInfo(tn)
+            tsize = sf.getTableSize(tn)
+            limit = min(50, tsize)
+            rows_subset = f'(subset of {limit} rows)' if tsize > limit else ''
+            data.update({
+                'default_table': tn,
+                'columns': ti.getColumnNames(),
+                'rows_subset': rows_subset,
+                'rows': [r._asdict() for r in sf.iterTable(tn, limit=limit, guessType=False)]
+            })
+        return data
+
+    @dc.content
+    def processing_volume_card(**kwargs):
+        volPath = kwargs['file_path']
+
+        if not os.path.exists(volPath):
+            raise Exception("Volume path %s does not exists." % volPath)
+
+        volume_data = kwargs.get('volume_data', 'info')
+
+        mrc = mrcfile.open(volPath, permissive=True)
+        zdim, ydim, xdim = mrc.data.shape
+        slice_dim = int(kwargs.get('slice_dim', 128))
+        data = {
+            'file_path': volPath,
+            'dimensions': [xdim, ydim, zdim],
+            'slice_dim': slice_dim
+        }
+
+        if volume_data == "info":
+            return data
+
+        if "slices" in volume_data:
+            axis = kwargs.get('axis', 'z')
+
+
+            volThumb = Thumbnail(max_size=(slice_dim, slice_dim),
+                                 output_format='base64',
+                                 contrast_factor=0.1)  #,
+                                 #min_max=(mrc.data.min(), mrc.data.max()))
+            # if slice_number := int(kwargs.get('slice_number', 0)):
+            #     # Do not take slices from star/end since they are usually empty
+            #     n4 = np.round(xdim / 4)
+            #     idx = np.round(np.linspace(n4, xdim - n4, slice_number)).astype(int)
+            #     pass
+            # else:
+            #     slice_number = min(xdim, slice_dim)
+            #     idx = np.round(np.linspace(0, xdim - 1, slice_number)).astype(int)
+
+            slices = {}
+
+            if 'x' in axis:
+                slices['x'] = {int(i): volThumb.from_array(mrc.data[:, :, i])
+                               for i in range(xdim)}
+            if 'y' in axis:
+                slices['y'] = {int(i): volThumb.from_array(mrc.data[:, i, :])
+                               for i in range(ydim)}
+
+            if 'z' in axis:
+                slices['z'] = {int(i): volThumb.from_array(mrc.data[i, :, :])
+                               for i in range(zdim)}
+
+            data.update({
+                'slices': slices,
+                'axis': axis
+            })
+
+        if 'array' in volume_data:
+            iMax = mrc.data.max()  # min(imean + 10 * isd, imageArray.max())
+            iMin = mrc.data.min()  # max(imean - 10 * isd, imageArray.min())
+            im255 = ((mrc.data - iMin) / (iMax - iMin) * 255).astype(np.uint8)
+            data['array'] = base64.b64encode(im255).decode("utf-8")
+
+        return data
+
+    @dc.content
+    def processing_tomogram_card(**kwargs):
+        data = processing_volume_card(**kwargs)
+        x = []
+        y = []
+        z = []
+        data['coordinates'] = {'x': x, 'y': y, 'z': z}
+
+        if coords_md := kwargs.get('coords_md', ''):
+            if os.path.exists(coords_md):
+                with StarFile(coords_md) as sf:
+                    for row in sf.iterTable('particles'):
+                        x.append(round(row.rlnCoordinateX))
+                        y.append(round(row.rlnCoordinateY))
+                        z.append(round(row.rlnCoordinateZ))
+
+        return data
 
     @dc.content
     def processing_dashboard(**kwargs):

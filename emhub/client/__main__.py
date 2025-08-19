@@ -26,7 +26,7 @@
 # *
 # **************************************************************************
 """
-This module define a the `DataClient` class to communicate with an existing
+This module define the `DataClient` class to communicate with an existing
 EMHub server via its REST API.
 
 By default, the `DataClient` class will use the configuration read from
@@ -39,13 +39,13 @@ import os
 import sys
 import json
 import argparse
-from datetime import datetime
+from datetime import datetime, timedelta
 from pprint import pprint
 
 from .data_client import open_client, config
 
-from emtools.utils import Pretty, Color
-from emtools.metadata import MovieFiles
+from emtools.utils import Pretty, Color, Path, FolderManager
+from emtools.metadata import MovieFiles, StarFile
 
 
 def date_str(datetimeStr):
@@ -170,8 +170,6 @@ def process_sessions(args):
 
                     self.worker.request('update_session_extra',
                                         {'id': self.session['id'], 'extra': extra})
-
-
                 print(json.dumps(s, indent=4))
             return
 
@@ -387,6 +385,12 @@ def main():
     g = entry_p.add_mutually_exclusive_group()
     g.add_argument('--list', '-l')
 
+    # ------------------------- Mail subparser -------------------------------
+    mail_p = subparsers.add_parser("email")
+    mail_p.add_argument('dst', help="Destination email. ", nargs='+')
+    mail_p.add_argument('subject', help="Mail subject. ")
+    mail_p.add_argument('body', help="Mail body text. ")
+
     # ------------------------- Method subparser -------------------------------
     method_p = subparsers.add_parser("method")
     method_p.add_argument('method', metavar='METHOD_NAME')
@@ -421,6 +425,11 @@ def main():
 
     elif args.entity == 'puck':
         process_pucks(args)
+
+    elif args.entity == 'email':
+        with open_client() as dc:
+            result = dc.send_email(args.dst, args.subject, args.body)
+            pprint(result)
 
     elif args.entity == 'entry':
         process_entries(args)

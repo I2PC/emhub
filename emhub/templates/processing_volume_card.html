@@ -3,10 +3,11 @@
 <div class="row">
 
     <!-- Slider Column -->
-    <div class="col-2">
+    <div class="col-12">
         <div class="card ml-3">
             <h4 class="card-header">Axis Slider</h4>
             <div class="card-body" id="{{ card_id }}_vol_slider">
+
             </div>
         </div>
     </div>
@@ -37,6 +38,7 @@
         </div>
     </div>
 
+    {% if array %}
     <!-- 3D viewer column -->
     <div class="col-5">
         <div class="card ml-3">
@@ -49,6 +51,7 @@
             </div>
         </div>
     </div>
+    {% endif %}
 
 
 </div>
@@ -59,20 +62,28 @@
     var slices = {{ slices|tojson }};
     var isx, isy, isz = null;
     var dimensions = {{ dimensions|tojson }};
-    var array = {{ array|tojson }};
+    var slice_dim = {{ slice_dim|tojson }};
+
 
     (function(window, document, $, undefined) {
     "use strict";
     $(function() {
         drawVolData("{{ card_id }}_volume-slices", slices.z);
 
-        var vs = new VolumeSliderCard("{{ card_id }}_vol_slider", slices);
+        var vs = new VolumeSliderCard("{{ card_id }}_vol_slider", slices,
+            {slice_dim: slice_dim});
 
-        $('input[name="{{ card_id }}_axis_switch"]').change(function () {
+
+
+        {% if array %}
+            $('input[name="{{ card_id }}_axis_switch"]').change(function () {
                 drawVolData("{{ card_id }}_volume-slices", slices[$(this).val()]);
             })
 
-        renderVolume3D("{{ card_id }}_vol_viewport", array, dimensions);
+
+            var array = {{ array|tojson }};
+            renderVolume3D("{{ card_id }}_vol_viewport", array, dimensions);
+        {% endif %}
 
 });
 })(window, document, window.jQuery);

@@ -1,0 +1,381 @@
+{% import "entry_macros.html" as macros %}
+
+<div class="row col-12">
+    {% if errors %}
+        <h3 class="col-12">Errors:</h3> <br/>
+        <ul>
+        {% for e in errors %}
+            <li style="color: red">{{ e }}</li>
+        {% endfor %}
+        </ul>
+    {% else %}
+        <!-- Row: Status cards -->
+        <div class="row col-12">
+            {% call macros.status_card_counter('Tomograms', 'counter_tomograms', False) %}
+            {% endcall %}
+
+            {% call macros.status_card_counter('Particles', 'counter_particles', True) %}
+                <span id="tag_particles"></span>
+            {% endcall %}
+
+            {% call macros.status_card_counter('Selection', 'selection', True) %}
+                <div class="row col-12 p-0 m-0">
+                    {{ macros.status_row('Enabled', 0, 'label_enabled') }}
+                    {{ macros.status_row('Disabled', 0, 'label_disabled') }}
+                    <div class="col-12 text-sm-right mt-3">
+                        <a href="javascript:exportSelection()" class="btn btn-outline-dark">  Export Selection </a>
+                    </div>
+                </div>
+            {% endcall %}
+        </div>
+
+    <!-- Plots -->
+     <div class="col-6">
+
+        <div class="card mt-3">
+            <div class="card-body">
+
+                <div class="pills-outline">
+                    <ul class="nav nav-pills mb-2" id="tabTomoNav" role="tablist">
+
+                        <li class="nav-item">
+                            <a class="nav-link active" id="tomo-table-tab" data-toggle="tab" href="#tomo-table" role="tab" aria-controls="current" aria-selected="true">Table</a>
+                        </li>
+
+                         <li class="nav-item">
+                            <a class="nav-link" id="tomo-plots-tab" data-toggle="tab" href="#tomo-plots" role="tab" aria-controls="current" aria-selected="false">Plots</a>
+                        </li>
+
+                    </ul>
+
+                    <div class="tab-content" id="tabTomoContent">
+
+                        <!-- tab "tomo-table" -->
+                        <div class="tab-pane fade show active" id="tomo-table" role="tabpanel" aria-labelledby="tomo-table-tab">
+
+                            <table id="table-tomograms" class="table" style="width:100%">
+                                <thead>
+                                    <tr>
+                                        <th>Enabled</th>
+                                        <th>Index</th>
+                                        <th>Metadata</th>
+                                        <th>Aligned TS</th>
+                                        <th>Defocus</th>
+                                        <th>Coords</th>
+                                        <th>Tomogram</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                {% for t in tomograms %}
+                                    {% set index = loop.index0 %}
+                                    <tr id="tr_{{ index }}">
+                                        <td>
+                                            <input type="checkbox" checked class="chb_enabled" id="chb_enabled_{{ index }}" data-index="{{ index }}" onchange="onChangeEnabled(this)">
+                                            <a class="toolbar" href="#" role="button" id="ddMenuSelLink" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false"> <i class="fas fa-caret-down"></i>  </a>
+                                            <div class="dropdown-menu dropdown-menu-right" aria-labelledby="ddMenuSelLink">
+                                                <a class="dropdown-item" href="javascript:toHere({{ index }}, true)">Enable to Here</a>
+                                                <a class="dropdown-item" href="javascript:fromHere({{ index }}, true)">Enable from Here</a>
+                                                <a class="dropdown-item" href="javascript:all(true)">Enable All</a>
+                                                <div class="dropdown-divider"></div>
+                                                <a class="dropdown-item" href="javascript:toHere({{ index }}, false)">Disable to Here</a>
+                                                <a class="dropdown-item" href="javascript:fromHere({{ index }}, false)">Disable from Here</a>
+                                                <a class="dropdown-item" href="javascript:all(false)">Disable All</a>
+                                                <div class="dropdown-divider"></div>
+                                                <a class="dropdown-item" href="javascript:invertSelection()">Invert Selection</a>
+                                            </div>
+                                        </td>
+                                        <td>{{ index }}</td>
+                                        <td>
+                                            <a href="javascript:loadTomoStar({{ index }})">{{ t['md']|basename }}</a>
+                                            {% if t['tomo_xml'] %}
+                                                &nbsp;/&nbsp; <a href="javascript:loadTomoXml({{ index }})">xml</a>
+                                            {% endif %}
+                                        </td>
+                                        <td><a href="javascript:loadAlignedTs({{ index }})"><icon class="fas fa-images mr-2"></icon>{{ t['aligned_ts']|basename }}</a></td>
+                                        <td>{{ t['defocus'] }}</td>
+                                        <td><a href="javascript:loadCoordinatesStar({{ index }})">{{ t['coords_n'] }}</a></td>
+                                        <td><a href="javascript:loadTomogram({{ index }})"><icon class="fas fa-cube mr-2"></icon>{{ t['tomo_fn']|basename }}</a></td>
+                                    </tr>
+                                {% endfor %}
+                                </tbody>
+                            </table>
+                        </div> <!-- End of Tab tomo-table -->
+
+                         <!-- tab "tomo-plots" -->
+                        <div class="tab-pane fade" id="tomo-plots" role="tabpanel" aria-labelledby="tomo-plots-tab">
+
+                            <div class="row">
+                                <div class="col-8" id="tomo-pts-scatter-div">
+                                </div>
+                                <div class="col-4" id="tomo-pts-hist-div">
+                                </div>
+                            </div>
+
+                            <div class="row mt-5">
+                                <div class="col-8" id="tomo-def-scatter-div">
+                                </div>
+                                <div class="col-4" id="tomo-def-hist-div">
+                                </div>
+                            </div>
+                        </div>
+
+                    </div> <!-- End of TabContent -->
+                </div> <!-- End of Tab -->
+
+            </div>
+        </div>
+    </div> <!-- Summary Table -->
+
+     <div class="col-6">
+
+            <div class="card mt-3">
+                <div class="card-body">
+                    <div id="tomogram-div"></div>
+                </div>
+            </div>
+        </div> <!-- Plots -->
+
+    {% endif %}
+
+</div>
+
+<!-- ============================================================== -->
+<!-- Entries Modal -->
+<!-- ============================================================== -->
+<div class="modal" id="tomo-modal" tabindex="-1" role="dialog" aria-labelledby="dynamicModal" aria-hidden="true">
+</div>
+
+
+<script>
+    var tomograms = {{ tomograms|tojson }};
+    var table = null;
+
+    function loadTomoStar(index){
+        loadStarOverview(tomograms[index].md);
+    }
+
+    function loadCoordinatesStar(index){
+        loadStarOverview(tomograms[index].coords_md)
+    }
+
+    function loadTomoXml(index){
+        var args = {
+            file_path: tomograms[index].tomo_xml
+        };
+        loadTextFileOverview(args);
+    }
+
+    function loadTomogram(index) {
+        var args = {
+            file_path: tomograms[index].tomo_fn,
+            volume_data: 'slices',
+            axis: 'z',
+            slice_dim: 512,
+            coords_md: tomograms[index].coords_md
+        };
+
+        setLoading('tomogram-div');
+
+        load_html_from_ajax('tomogram-div',
+            get_ajax_content('processing_tomogram_card', args))
+    }
+
+    function loadAlignedTs(index) {
+        var args = {
+            file_path: tomograms[index].aligned_ts,
+            volume_data: 'slices',
+            axis: 'z',
+            slice_dim: 512
+        };
+
+        setLoading('tomogram-div');
+
+        load_html_from_ajax('tomogram-div',
+            get_ajax_content('processing_tomogram_card', args))
+    }
+
+    function onChangeEnabled(chb) {
+        changedEnabled(chb);
+        updateSelectionStatus();
+    }
+
+    function changedEnabled(chb){
+        var dataIndex = $(chb).data('index'); // Returns 123 (as a number)
+        var color = chb.checked ? 'transparent' : '#FFCCCB';
+        $(`#tr_${dataIndex}`).css('background-color', color);
+    }
+
+    function setChbValue(rowIdx, value) {
+        var chb = document.getElementById(`chb_enabled_${rowIdx}`)
+        chb.checked = value;
+        changedEnabled(chb);
+    }
+
+    function toHere(toRowIdx, value) {
+        var doit = true;
+        table.rows().every( function ( rowIdx, tableLoop, rowLoop ) {
+            if (doit)
+                setChbValue(rowIdx, value);
+            if (rowIdx === toRowIdx)
+                doit = false;
+        });
+        updateSelectionStatus();
+    }
+
+    function fromHere(fromRowIdx, value) {
+        var doit = false;
+        table.rows().every( function ( rowIdx, tableLoop, rowLoop ) {
+            if (rowIdx === fromRowIdx)
+                doit = true;
+            if (doit)
+                setChbValue(rowIdx, value);
+
+        });
+        updateSelectionStatus();
+    }
+
+    function all(value){
+        table.rows().every( function ( rowIdx, tableLoop, rowLoop ) {
+            setChbValue(rowIdx, value);
+        });
+        updateSelectionStatus();
+    }
+
+    function invertSelection(){
+        table.rows().every( function ( rowIdx, tableLoop, rowLoop ) {
+            setChbValue(rowIdx, !document.getElementById(`chb_enabled_${rowIdx}`).checked)
+        });
+        updateSelectionStatus();
+    }
+
+    function exportSelection(){
+        var tomo_selection = [];
+        table.rows().every( function ( rowIdx, tableLoop, rowLoop ) {
+            if (document.getElementById(`chb_enabled_${rowIdx}`).checked)
+                tomo_selection.push(tomograms[rowIdx].md);
+        });
+        show_modal_from_ajax('entry-modal',
+            get_ajax_content("tomo_export", {
+                tomograms: JSON.stringify(tomo_selection),
+                tomo_session: getTomoSession()
+            }));
+    }
+
+    function updateSelectionStatus(){
+        var selected = 0;
+        var selected_particles = 0;
+        table.rows().every( function ( rowIdx, tableLoop, rowLoop ) {
+            var chb = document.getElementById(`chb_enabled_${rowIdx}`);
+            if (chb.checked) {
+                selected += 1;
+                var v = tomograms[rowIdx].coords_n;
+                if (nonEmpty(v))
+                    selected_particles += parseInt(v);
+            }
+        });
+        //session_setCounter('tag_particles', Math.round(total_particles/tomograms.length) + " / tomogram");
+        var percent = Math.round(selected * 100 / tomograms.length);
+        session_setCounter('label_enabled', `${selected}  (${percent}%)  ${selected_particles} particles`);
+        session_setCounter('label_disabled', `${tomograms.length - selected}  (${100 - percent}%)`);
+    }
+
+    function createPlotCard(){
+        var indexes = [];
+        var particles = [];
+
+        for (var i = 0; i < tomograms.length; i++) {
+            indexes.push(i);
+            var v = tomograms[i].coords_n;
+            var vi = nonEmpty(v) ? parseInt(v) : -1;
+            particles.push(vi);
+        }
+        var data_values = {
+            index: {
+                label: "Index",
+                data: indexes
+            },
+
+            numberOfParticles: {
+                label: "Particles",
+                color: "#852999",
+                data: particles
+            },
+            default_x: 'index',
+            default_y: "numberOfParticles"
+        };
+        plot_card = new PlotCard('particles_plot', data_values);
+        {#plot_card.onPointClick = function (index) {#}
+        {#    mic_card_overview.loadMicData(index + 1) };#}
+        plot_card.makePlots();
+    }
+
+(function(window, document, $, undefined) {
+    "use strict";
+    $(function() {
+
+        table = $('#table-tomograms').DataTable({
+            sDom: 'lfrtip',
+            paging: false,  // no paging
+            info: false,
+            scrollY: '700px'
+        });
+
+        // setTimeout(createPlotCard, 500);
+        var data = [];
+        var data_def = [];
+        var total_particles = 0;
+        var min_def = Infinity;
+        var max_def = -Infinity;
+        var max_pts = -Infinity;
+
+        for (var i = 0; i < tomograms.length; i++) {
+            var v = tomograms[i].coords_n;
+            var d = tomograms[i].defocus;
+            var vi = nonEmpty(v) ? parseInt(v) : -1;
+            var df = nonEmpty(d) ? parseFloat(d) : -10;
+            data.push({x: i, y: vi, defocus: d});
+            data_def.push({x: i, y: df, particles: v});
+            if (vi > 0)
+                total_particles += vi;
+            min_def = Math.min(min_def, df);
+            max_def = Math.min(max_def, df);
+            max_pts = Math.max(max_pts, vi);
+        }
+
+        session_setCounter('counter_tomograms', tomograms.length);
+        session_setCounter('counter_particles', total_particles);
+        session_setCounter('tag_particles', Math.round(total_particles/tomograms.length) + " / tomogram");
+        session_setCounter('label_enabled', tomograms.length);
+
+        var config = {
+            onclick: function (point) {
+                loadTomogram(point.x);
+            },
+            color: '#00ff00',  // '#005b96',
+            label: 'Tomograms',
+            labelY: 'Particles',
+            maxX: max_pts + 50,
+            binsNumber: 10,
+            suffix: '',
+            height: 250
+        }
+        create_hc_scatter('tomo-pts-scatter-div', data, config);
+        config.maxX = null;
+        create_hc_histogram('tomo-pts-hist-div', data, config);
+
+        // Create the plots for Defocus
+        config.color = '#852999';
+        config.labelY = 'Defocus (µm)';
+        config.binsNumber = 10;
+        config.maxX = max_def + 1;
+        create_hc_scatter('tomo-def-scatter-div', data_def, config);
+        config.maxX = null;
+        create_hc_histogram('tomo-def-hist-div', data_def, config);
+
+        makeSameHeight('status_card');
+
+    });
+
+})(window, document, window.jQuery);
+
+</script>

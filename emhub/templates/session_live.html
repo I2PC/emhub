@@ -1,64 +1,5 @@
 <!-- wrapper  -->
-{% macro status_card(label, icon) -%}
-    <div class="col-2">
-        <div class="card status_card">
-            <div class="card-body">
-                <div class="row">
-                <h5 class="text-muted">{{label}}</h5>
-                    {% if icon %}
-                        <div class="toolbar ml-auto d-flex">
-                            <a class="" id="href-{{ label }}" href="#"><i class="fas fa-search-plus"></i></a>
-                        </div>
-                    {% endif %}
-
-                </div>
-
-                {{ caller() }}
-
-            </div>
-            <div id="sparkline-revenue"></div>
-        </div>
-    </div>
-{%- endmacro %}
-
-
-{% macro status_card_counter(label, counter_id, icon) -%}
-    <div class="col-2">
-        <div class="card status_card">
-            <div class="card-body">
-
-                <div class="row">
-                <h5 class="text-muted">{{label}}</h5>
-                    {% if icon %}
-                        <div class="toolbar ml-auto d-flex">
-                            <a class="" id="href-{{ counter_id }}" href="#"><i class="fas fa-search-plus"></i></a>
-                        </div>
-                    {% endif %}
-                </div>
-
-               <div class="metric-value d-inline-block">
-                    <h1 class="mb-1" id="{{ counter_id }}"></h1>
-
-                </div>
-
-                <div class="metric-label d-inline-block float-right text-success font-weight-bold">
-                    {{ caller() }}
-                </div>
-
-            </div>
-            <div id="sparkline-revenue"></div>
-        </div>
-    </div>
-{%- endmacro %}
-
-
-{% macro status_row(label, value, id) -%}
-    <div class="row col-12 p-0 m-0">
-        <label class="text-muted col-4 p-0 m-0 text-right">{{ label }}</label>
-        <label class="col-8" id="{{ id }}">{{ value }}</label>
-    </div>
-{%- endmacro  %}
-
+{% import "entry_macros.html" as macros %}
 
 {% set booking = s.booking %}
 {% set owner = booking.owner %}
@@ -82,7 +23,7 @@
 
                     <!-- Row: Status cards -->
                     <div class="row">
-                        {% call status_card('Info') %}
+                        {% call macros.status_card('Info') %}
                             <div class="row col-12 p-0 m-0">
                                 <div class="col-4 p-0 m-0" >
                                     <label class="text-muted col-12 p-0 m-0">{{ booking.start|pretty_date }}</label>
@@ -93,50 +34,50 @@
 
                                 </div>
                                 <div class="col-8 p-0 m-0">
-                                    {{ status_row('Staff', booking.operator|shortname) }}
-                                    {{ status_row('Owner', owner|pairname) }}
-                                    {{ status_row('Project', macros.project(s.project)) }}
+                                    {{ macros.status_row('Staff', booking.operator|shortname) }}
+                                    {{ macros.status_row('Owner', owner|pairname) }}
+                                    {{ macros.status_row('Project', macros.project(s.project)) }}
                                 </div>
                             </div>
 
                         {% endcall %}
 
-                        {% call status_card_counter('Imported', 'counter_imported', True) %}
+                        {% call macros.status_card_counter('Imported', 'counter_imported', True) %}
                             <span><i class="fas fa-tachometer-alt"></i></span><span id="imported_tag"></span>
                         {% endcall %}
 
-                        {% call status_card_counter('Motioncor/CTF', 'ctf_count', True) %}
+                        {% call macros.status_card_counter('Motioncor/CTF', 'ctf_count', True) %}
                             <span id="ctf_diff" class="mr-2 text-warning"></span>
                             <span class="text-success"><i class="fas fa-tachometer-alt"></i></span>
                             <span  class="text-success" id="ctf_speed"></span>
                         {% endcall %}
 
-                        {% call status_card_counter('Particle Picking', 'counter_picked') %}
+                        {% call macros.status_card_counter('Particle Picking', 'counter_picked') %}
                             <span id="diff_picked">0</span>
                         {% endcall %}
 
-                        {% call status_card('Data', True) %}
+                        {% call macros.status_card('Data', True) %}
                             <div class="row col-12 p-0 m-0">
                                 <div class="col-4 p-0 m-0" >
                                     <label class="text-muted col-12 p-0 m-0">Size: </label>
                                     <h3 class="text-muted col-12 p-0 m-0" style="font-weight: bold"><span style="color: #3d405c">{{ s.size|pretty_size }}</span></h3>
                                 </div>
                                 <div class="col-8 p-0 m-0">
-                                    {{ status_row('Files', s.total_files) }}
-                                    {{ status_row('Images', s.images) }}
+                                    {{ macros.status_row('Files', s.total_files) }}
+                                    {{ macros.status_row('Images', s.images) }}
                                 </div>
                             </div>
                         {% endcall %}
 
-                        {% call status_card('Status', True) %}
+                        {% call macros.status_card('Status', True) %}
                             <div class="row col-12 p-0 m-0">
                                 <div class="col-4 p-0 m-0" >
                                     <label class="text-muted col-12 p-0 m-0">OTF: </label>
                                     <h3 class="text-muted col-12 p-0 m-0 font-bold"><span style="color: #3d405c">{{ s.otf_status }}</span></h3>
                                 </div>
                                 <div class="col-8 p-0 m-0">
-                                    {{ status_row('Processes', s.total_files, 'label_processes') }}
-                                    {{ status_row('Updated', s.extra['updated'], 'label_updated') }}
+                                    {{ macros.status_row('Processes', s.total_files, 'label_processes') }}
+                                    {{ macros.status_row('Updated', s.extra['updated'], 'label_updated') }}
                                     {% if current_user.is_admin %}
                                     <div class="col-12 text-sm-right mt-3">
                                         <a href="{{ url_for_content('session_flowchart', session_id=session.id) }}" class="btn btn-outline-dark"><i class="fas fa-external-link-alt"></i>  Show Workflow </a>

@@ -209,10 +209,75 @@ function create_hc_resolution_histogram(containerId, data, percent) {
 }
 
 
+function create_hc_usage_series(container, config) {
+    // Create the chart
+    return Highcharts.stockChart(container, {
+        plotOptions: {
+                // series: {
+                //     turboThreshold: 0,
+                // }
+            },
+        tooltip: {
+
+            },
+        //colors: [config.color],
+        chart: {
+            zoomType: 'x',
+        },
+        rangeSelector: {
+            buttons: [{
+                type: 'hour',
+                count: 1,
+                text: '1h'
+            }, {
+                type: 'hour',
+                count: 3,
+                text: '3h'
+            }, {
+                type: 'hour',
+                count: 6,
+                text: '6h'
+            }, {
+                type: 'all',
+                text: 'All'
+            }],
+            selected: 1,
+            inputEnabled: false
+        },
+        xAxis: {
+        },
+        yAxis: {
+            title: {
+                text: config.labelY,
+            },
+            opposite: false,
+           // min: config.minY,
+           // max: config.maxY,
+            startOnTick: false,
+            endOnTick: false
+        },
+
+        exporting: {enabled: true},
+        legend: {enabled: true},
+        title: "Some title",
+        series: config.series
+        // series: [{
+        //     name: config.label,
+        //     id: "datapoints",
+        //     data: data
+        // }]
+    });
+} // function create_hc_series
+
+
 function create_hc_histogram(containerId, data, config) {
+    var h = getObjectValue(config, 'height', null);
+    var s = getObjectValue(config, 'suffix', null);
+    s = nonEmpty(s) ? `(${s})` : '';
+
     var chart = Highcharts.chart(containerId, {
         chart: {
-            height: config.percent + '%'
+            height: nonEmpty(h) ? h : config.percent + '%'
         },
         margin: [0, 0, 0, 0],
         spacing: [0, 0, 0, 0],
@@ -232,11 +297,11 @@ function create_hc_histogram(containerId, data, config) {
           max: 4
       }, {
         title: {
-          text: config.label + ' (' + config.suffix + ')'
+          text: config.label + s
         },
         alignTicks: true,
         opposite: false,
-          max: config.maxX
+        max: config.maxX
       }],
       yAxis: [
         {
@@ -244,7 +309,7 @@ function create_hc_histogram(containerId, data, config) {
         },
         {
         title: {
-          text: 'Micrographs'
+          text: getObjectValue(config, 'labelY', 'Micrographs')
         },
         opposite: false,
         }],
@@ -399,6 +464,113 @@ function create_hc_hourly(containerId, data, title, subtitle){
     }]
 });
 }  // function create_hc_hourly
+
+function create_hc_scatter(containerId, data, config) {
+    var series = [{
+        name: 'series',
+        id: 'series',
+        marker: {
+            symbol: 'circle'
+        },
+        data: data
+
+    }];
+
+    Highcharts.chart(containerId, {
+        chart: {
+            height: getObjectValue(config, 'height', null),
+            type: 'scatter',
+            zooming: {
+                type: 'xy'
+            }
+        },
+        credits: {enabled: false},
+        title: {
+            text: getObjectValue(config, 'title', '')
+        },
+        xAxis: {
+            title: {text: ''},
+            startOnTick: true,
+            endOnTick: true,
+            showLastLabel: true
+        },
+        yAxis: {
+            title: {text: getObjectValue(config, 'labelY', '')}
+        },
+        legend: {
+            enabled: false
+        },
+        plotOptions: {
+            scatter: {
+                marker: {
+                    radius: 3.5,
+                    symbol: 'circle',
+                    states: {
+                        hover: {
+                            enabled: true,
+                            lineColor: 'rgb(100,100,100)'
+                        }
+                    }
+                },
+                states: {
+                    hover: {
+                        marker: {
+                            enabled: false
+                        }
+                    }
+                }
+            },
+            series: {
+                cursor: 'pointer',
+                color: getObjectValue(config, 'color', ''),
+                point: {
+                    events: {
+                        click: function () {
+                            if (nonEmpty(config.onclick)) {
+                                config.onclick(this);
+                            }
+                        }
+                    }
+                }
+        }
+        },
+        tooltip: {
+            pointFormat: 'Index: {point.x} <br/> Particles: {point.y} <br/> Defocus: {point.defocus}'
+        },
+        series
+    });
+}
+
+function create_hc_columns(containerId, config){
+    return Highcharts.chart(containerId, {
+        chart: {
+            type: 'column'
+        },
+        title: {
+            text: config.title
+        },
+        xAxis: {
+            categories: config.categories,
+            crosshair: true
+        },
+        yAxis: {
+            min: 0,
+            title: {
+                text: config.labelY
+            }
+        },
+        tooltip: {
+            valueSuffix: ' (minutes)'
+        },
+        plotOptions: {
+            column: {
+                pointPadding: 0.2,
+                borderWidth: 0
+            }
+        },
+        series: config.series
+    });
+} // function create_hc_columns
 
 
 /* Draw the micrograph images with coordinates(optional) */
@@ -570,13 +742,7 @@ function drawVolData(containerId, volSlices){
     var imgStr, infoStr = null;
     var html = '<div class="col-12 row">';
 
-    // for(let slice in volSlices) {
-    //     imgStr = '<img src="data:image/png;base64,' + volSlices[slice] + '" style="border: solid 3px;">';
-    //     infoStr = '<p class="text-muted mb-0"><small>' + slice + '</small></p>';
-    //     html += '<div style="padding: 3px; min-width: 90px;">' + imgStr + infoStr + '</div>';
-    // }
     for (const [sliceIndex, sliceImg] of Object.entries(volSlices)) {
-      //console.log(`${key}: ${value}`);
         imgStr = '<img src="data:image/png;base64,' + sliceImg + '" style="border: solid 3px; width: 128px">';
         infoStr = '<p class="text-muted mb-0"><small>' + sliceIndex + '</small></p>';
         html += '<div style="padding: 1px; min-width: 128px;">' + imgStr + infoStr + '</div>';
@@ -626,15 +792,19 @@ class ImageSliderCard extends Card {
         this.indexes = [];
         this.slices = slices;
         this.slider_prefix = getObjectValue(config, 'slider_prefix', '');
+        this.cooordinates = config.coordinates
 
         const width = getObjectValue(config, 'slice_dim', 128);
         var styleStr = '" style="width: ' + width + 'px"';
 
-        var html = '<div class="row"><div class="col-12"><img id="' + this.id('image') + styleStr + '></div>';
+        //var html = '<div class="row"><div class="col-12"><img id="' + this.id('image') + styleStr + '></div>';
+
+        var html = '<figure className="figure"><canvas id="';
+        html += this.id('vol_canvas');
+        html += '"></canvas></figure>';
 
         for (const [sliceIndex, sliceImg] of Object.entries(slices)) {
             this.indexes.push(sliceIndex);
-            //console.log(`${sliceIndex}: ${sliceImg.length}`);
         }
 
         const N = this.indexes.length;
@@ -656,8 +826,23 @@ class ImageSliderCard extends Card {
         $(this.jid('slider_input')).val(sliceIndex);
         const sliceNumber = this.indexes[sliceIndex];
         const sliceImg = this.slices[sliceNumber];
-        var img = document.getElementById(this.id('image'));
-        img.src = "data:image/png;base64, " + sliceImg;
+        //var img = document.getElementById(this.id('image'));
+        //img.src = "data:image/png;base64, " + sliceImg;
+        var coords = [];
+        let z = this.cooordinates.z;
+        let x = this.cooordinates.x;
+        let y = this.cooordinates.y;
+        for (var i = 0; i < z.length; i++){
+            if (Math.abs(z[i] - sliceNumber) <= 10) { // fixme using near distance
+                coords.push([x[i], y[i]])
+            }
+        }
+        drawMicrograph(this.id('vol_canvas'), {
+            thumbnail: sliceImg,
+            pixelSize: 1,
+            thumbnailPixelSize: 1,
+            coordinates: coords
+        })
         $(this.jid('slider_text')).text(this.slider_prefix + sliceNumber);
     }
 }
@@ -668,7 +853,7 @@ class VolumeSliderCard extends Card {
         let self = this;
         this.slices = slices;
         const slice_dim = getObjectValue(config, 'slice_dim', 128);
-        const width = Math.floor(slice_dim * 1.2);
+        const width = Math.floor(slice_dim * 2);
 
         const minWidth = 3 * width;
         var html = '<div class="row ml-1 mr-1" style="min-width: ' + minWidth + 'px">';
@@ -679,12 +864,16 @@ class VolumeSliderCard extends Card {
 
         this.container.innerHTML = html;
 
-        this.isz = new ImageSliderCard(this.id('slider-z'), slices.z,
-            {slider_prefix: 'Z slice: ', slice_dim: slice_dim});
-        this.isy = new ImageSliderCard(this.id('slider-y'), slices.y,
-            {slider_prefix: 'Y slice: ', slice_dim: slice_dim});
-        this.isx = new ImageSliderCard(this.id('slider-x'), slices.x,
-            {slider_prefix: 'X slice: ', slice_dim: slice_dim});
+        this.isz = new ImageSliderCard(this.id('slider-z'), slices.z, {
+            slider_prefix: 'Z slice: ',
+            slice_dim: slice_dim,
+            coordinates: config.coordinates
+        });
+
+        // this.isy = new ImageSliderCard(this.id('slider-y'), slices.y,
+        //     {slider_prefix: 'Y slice: ', slice_dim: slice_dim});
+        // this.isx = new ImageSliderCard(this.id('slider-x'), slices.x,
+        //     {slider_prefix: 'X slice: ', slice_dim: slice_dim});
 
     }
 }
@@ -982,7 +1171,6 @@ class PlotCard extends Card {
                 return;
             }
             self.points = eventData.points;
-            console.log("self.points: " + self.points.length);
             $(self.jid('selection-label')).html("Selected <label style='color: firebrick; font-size: medium;'>" + self.points.length + "</label> points")
             $(self.jid('export-btn')).show();
         });

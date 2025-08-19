@@ -479,8 +479,15 @@ class DataManager(DbManager):
                                        orderBy=orderBy,
                                        asJson=asJson)
 
-    def get_bookings_range(self, start, end, resource=None):
-        """ Shortcut function to retrieve a range of bookings. """
+    def _get_range(self, funcName, start, end, resource=None):
+        """ Utility function to get a range of either bookings or sessions.
+
+        Args:
+            funcName: Function name to get items (get_bookings or get_sessions)
+            start: Starting date.
+            end: Ending date.
+            resource: Only useful for bookings.
+        """
         # JMRT: We need to convert the start and end to UTC before getting the range
         newStart = self.date(start.date()).astimezone(dt.timezone.utc)
         newEnd = self.date(end.date()).astimezone(dt.timezone.utc) + dt.timedelta(days=1)
@@ -488,10 +495,10 @@ class DataManager(DbManager):
         startBetween = "(start>='%s' AND start<='%s')" % rangeStr
         endBetween = "(end>='%s' AND end<='%s')" % rangeStr
         rangeOver = "(start<='%s' AND end>='%s')" % rangeStr
-        conditionStr = "(%s OR %s OR %s)" % (startBetween, endBetween, rangeOver)
+        condStr = "(%s OR %s OR %s)" % (startBetween, endBetween, rangeOver)
 
         if resource is not None:
-            conditionStr += " AND resource_id=%s" % resource.id
+            condStr += " AND resource_id=%s" % resource.id
 
         def in_range(b):
             s, e = b.start, b.end
@@ -499,10 +506,14 @@ class DataManager(DbManager):
                     (e >= newStart and e <= newEnd) or
                     (s <= newStart and e >= newEnd))
 
-        bookings = [b for b in self.get_bookings(condition=conditionStr, orderBy='start')
-                    if in_range(b)]
+        func = getattr(self, funcName)
+        items = [b for b in func(condition=condStr, orderBy='start') if in_range(b)]
 
-        return bookings
+        return items
+
+    def get_bookings_range(self, start, end, resource=None):
+        """ Shortcut function to retrieve a range of bookings. """
+        return self._get_range('get_bookings', start, end, resource=resource)
 
     def get_user_bookings(self, uid):
         """ Return bookings related to this user.
@@ -650,6 +661,10 @@ class DataManager(DbManager):
                                        condition=condition,
                                        orderBy=orderBy,
                                        asJson=asJson)
+
+    def get_sessions_range(self, start, end):
+        """ Shortcut function to retrieve a range of bookings. """
+        return self._get_range('get_sessions', start, end)
 
     def get_session_by(self, **kwargs):
         """ This should return a single Session or None. """
@@ -969,8 +984,9 @@ class DataManager(DbManager):
         create_session = self.get_config('sessions').get('create_session', {})
         resource_config = create_session.get(resource_name, {})
 
-        if formName := resource_config.get('extra_form', None):
-            return self.get_form_by_name(f'entry_form:{formName}')
+        if isinstance(resource_config, dict):
+            if formName := resource_config.get('extra_form', None):
+                return self.get_form_by_name(f'entry_form:{formName}')
 
         return None
 

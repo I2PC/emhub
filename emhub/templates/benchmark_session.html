@@ -1,0 +1,35 @@
+{% import "entry_macros.html" as macros %}
+
+{% set is_manager = current_user.is_manager %}
+{% set is_admin = current_user.is_admin %}
+
+
+<div class="container-fluid dashboard-content">
+    <!-- Header -->
+{#    {% set title = "Benchmark Session" %}#}
+    {% set navigation = [('Benchmarks', url_for_content('benchmark_sessions_list')),
+                         ('Benchmark Overview', '')] %}
+    {% include 'include_header.html' %}
+
+    <div class="row col-12" id="session-content">
+        {% include 'benchmark_session_content.html' %}
+    </div>
+</div>
+
+
+<script>
+    var benchmark = {{ benchmark|tojson }};
+
+    $('select').selectpicker();
+
+    function getTomoSession(){
+        return JSON.stringify(benchmark);
+    }
+
+    function loadBenchmark() {
+        setLoading('session-content');
+        load_html_from_ajax('session-content',
+            get_ajax_content('benchmark_session_content', {benchmark_session: getTomoSession()}));
+    }
+
+</script>

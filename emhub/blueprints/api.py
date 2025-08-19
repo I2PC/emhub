@@ -451,6 +451,23 @@ def get_sessions():
     return filter_request(app.dm.get_sessions)
 
 
+@api_bp.route('/get_sessions_range', methods=['POST'])
+@flask_login.login_required
+def get_sessions_range():
+    """ Retrieve sessions within a given time range.
+
+    Args:
+        start (str): Starting date (format "YYYY-MM-DD").
+        end (str): Ending date (format "YYYY-MM-DD").
+    """
+    d = dict(request.get_json(silent=True) or request.form)
+    sessions = app.dm.get_sessions_range(
+        datetime_from_isoformat(d['start']),
+        datetime_from_isoformat(d['end'])
+    )
+    return send_json_data([s.json() for s in sessions])
+
+
 @api_bp.route('/poll_sessions', methods=['POST'])
 @flask_login.login_required
 def poll_sessions():
@@ -1001,7 +1018,7 @@ def send_email():
         if app.mm is None:
             raise Exception("ERROR: You need to configure a Mail server within EMhub "
                             "to send emails.")
-        app.mm.send_mail([attrs['dst']], attrs['subject'], attrs['body'])
+        app.mm.send_mail(attrs['dst'], attrs['subject'], attrs['body'])
         print(attrs)
         return True
 
