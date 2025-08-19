@@ -284,7 +284,7 @@ class SessionTaskHandler(TaskHandler):
                                 tries -= 1
 
                         if missing := [f for f in file_list if not os.path.exists(f)]:
-                            self.info(f"Missing files: {len(missing)}")
+                            raise Exception(f"Missing files: {len(missing)}")
 
                 except Exception as e:
                     tries -= 1
