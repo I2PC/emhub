@@ -195,6 +195,24 @@ class DataClient:
     def get_config(self, configName):
         return self._method('get_config', None, {'config': configName})['config']
 
+    def send_email(self, dst, subject, body):
+        """ Send an email using the EMhub 'send_email' endpoint.
+
+        Args:
+            dst: A list with email addresses to send the email.
+            subject: The subject of the email
+            body: The body of the email
+
+        Returns:
+            The resulting JSON after the 'send_email' API call.
+        """
+        mailData = {
+            'dst': dst,
+            'subject': subject,
+            'body': body
+        }
+        return self._method('send_email', None, mailData)
+
     # --------------------- Internal functions ------------------------------
     def _method(self, method, resultKey, attrs, condition=None):
         r = self.request(method,

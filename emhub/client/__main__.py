@@ -26,7 +26,7 @@
 # *
 # **************************************************************************
 """
-This module define a the `DataClient` class to communicate with an existing
+This module define the `DataClient` class to communicate with an existing
 EMHub server via its REST API.
 
 By default, the `DataClient` class will use the configuration read from
@@ -39,13 +39,13 @@ import os
 import sys
 import json
 import argparse
-from datetime import datetime
+from datetime import datetime, timedelta
 from pprint import pprint
 
 from .data_client import open_client, config
 
-from emtools.utils import Pretty, Color
-from emtools.metadata import MovieFiles
+from emtools.utils import Pretty, Color, Path, FolderManager
+from emtools.metadata import MovieFiles, StarFile
 
 
 def date_str(datetimeStr):
@@ -386,7 +386,7 @@ def main():
     g.add_argument('--list', '-l')
 
     # ------------------------- Mail subparser -------------------------------
-    mail_p = subparsers.add_parser("mail")
+    mail_p = subparsers.add_parser("email")
     mail_p.add_argument('dst', help="Destination email. ", nargs='+')
     mail_p.add_argument('subject', help="Mail subject. ")
     mail_p.add_argument('body', help="Mail body text. ")
@@ -426,15 +426,10 @@ def main():
     elif args.entity == 'puck':
         process_pucks(args)
 
-    elif args.entity == 'mail':
+    elif args.entity == 'email':
         with open_client() as dc:
-            mailData = {
-                'dst': args.dst,
-                'subject': args.subject,
-                'body': args.body
-            }
-            r = dc.request('send_email', jsonData={'attrs': mailData})
-            pprint(r.json())
+            result = dc.send_email(args.dst, args.subject, args.body)
+            pprint(result)
 
     elif args.entity == 'entry':
         process_entries(args)
@@ -469,41 +464,6 @@ def main():
         for k, v in os.environ.items():
             if k.startswith('EMHUB_'):
                 print(f"export {k}={v}")
-
-        return
-
-        headers = ["SESSION_ID", "IMAGES", "OTF"]
-        format_str = u'{:<20}{:<40}{:<30}'
-        print(format_str.format(*headers))
-
-        with open_client() as dc:
-            sessions = {s['id']: s for s in dc.request('get_sessions', jsonData=None).json()}
-
-        for sid, s in sessions.items():
-            extra = s['extra']
-            otf = extra.get('otf', {})
-            raw = extra.get('raw', {})
-
-            movies = raw.get('movies', 0)
-
-            if not otf:
-                otfStr = 'BAD:NO-OTF:'
-            elif isinstance(otf, dict):
-                path = otf.get('path', 'BAD:NONE:')
-                macPath = path.replace('/jude/facility/', '/Volumes/cryo_facility/')
-                otfStr = path if os.path.exists(macPath) else f'BAD: MISSING {path}'
-            else:
-                otfStr = f'OTF: {str(otf)}, type: {type(otf)}'
-
-            if not movies:
-                continue  # ignore sessions with 0 movies
-
-            lineStr = format_str.format(sid, movies, otfStr)
-
-            if otfStr.startswith('BAD:'):
-                lineStr = Color.red(lineStr)
-
-            print(lineStr)
 
 
 if __name__ == '__main__':
