@@ -194,7 +194,7 @@ def register_content(dc):
         d30 = dt.timedelta(days=30)
 
         for s in all_sessions:
-            if now - s.start > d30:
+            if s.start is not None and now - s.start > d30:
                 continue
 
             if s.booking:

@@ -892,7 +892,7 @@ def create_data_models(dm):
             if strict:
                 return s <= b.start <= e or s <= b.end <= e
             else:
-                return s < b.start < e or s < b.end < e
+                return s <= b.start < e or s < b.end <= e
 
         def inside_slot(self, b):
             """ Check if the current booking is contained inside another
