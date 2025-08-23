@@ -1,0 +1,368 @@
+<!-- wrapper  -->
+{% import "entry_macros.html" as macros %}
+
+{% set booking = s.booking %}
+{% set owner = booking.owner %}
+{% set pi = owner.get_pi() %}
+{% set is_manager = current_user.is_manager %}
+
+
+    <div class="container-fluid dashboard-content ">
+        <!-- Header -->
+        {% set title = "Session Live Pre-processing " %}
+        {% set navigation = [('Sessions', url_for_content('sessions_list')),
+                             (s.shortname, url_for_content('session_details', session_id=s.id)),
+                             ('OTF', '')] %}
+        {% include 'include_header.html' %}
+        {% import "entry_macros.html" as macros %}
+
+        {% if is_manager or current_user.same_pi(owner) %}
+
+            <div class="row">
+                <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12 mb-5">
+
+                    <!-- Row: Status cards -->
+                    <div class="row">
+                        {% call macros.status_card('Info') %}
+                            <div class="row col-12 p-0 m-0">
+                                <div class="col-4 p-0 m-0" >
+                                    <label class="text-muted col-12 p-0 m-0">{{ booking.start|pretty_date }}</label>
+                                    <div class="col-12 p-0 m-0">
+                                        <img class="col-4 m-0 p-0" src="{{ url_for('images.static', filename=booking.resource.image) }}" alt="{{ booking.resource.name }}" width="48">
+                                        <label class="text-muted col-8 p-0 m-0" style="font-weight: bold">{{ booking.resource.name }}</label>
+                                    </div>
+
+                                </div>
+                                <div class="col-8 p-0 m-0">
+                                    {{ macros.status_row('Staff', booking.operator|shortname) }}
+                                    {{ macros.status_row('Owner', owner|pairname) }}
+                                    {{ macros.status_row('Project', macros.project(s.project)) }}
+                                </div>
+                            </div>
+
+                        {% endcall %}
+
+                        {% call macros.status_card_counter('Imported', 'counter_imported', True) %}
+                            <span><i class="fas fa-tachometer-alt"></i></span><span id="imported_tag"></span>
+                        {% endcall %}
+
+                        {% call macros.status_card_counter('Motioncor/CTF', 'ctf_count', True) %}
+                            <span id="ctf_diff" class="mr-2 text-warning"></span>
+                            <span class="text-success"><i class="fas fa-tachometer-alt"></i></span>
+                            <span  class="text-success" id="ctf_speed"></span>
+                        {% endcall %}
+
+                        {% call macros.status_card_counter('Particle Picking', 'counter_picked') %}
+                            <span id="diff_picked">0</span>
+                        {% endcall %}
+
+                        {% call macros.status_card('Data', True) %}
+                            <div class="row col-12 p-0 m-0">
+                                <div class="col-4 p-0 m-0" >
+                                    <label class="text-muted col-12 p-0 m-0">Size: </label>
+                                    <h3 class="text-muted col-12 p-0 m-0" style="font-weight: bold"><span style="color: #3d405c">{{ s.size|pretty_size }}</span></h3>
+                                </div>
+                                <div class="col-8 p-0 m-0">
+                                    {{ macros.status_row('Files', s.total_files) }}
+                                    {{ macros.status_row('Images', s.images) }}
+                                </div>
+                            </div>
+                        {% endcall %}
+
+                        {% call macros.status_card('Status', True) %}
+                            <div class="row col-12 p-0 m-0">
+                                <div class="col-4 p-0 m-0" >
+                                    <label class="text-muted col-12 p-0 m-0">OTF: </label>
+                                    <h3 class="text-muted col-12 p-0 m-0 font-bold"><span style="color: #3d405c">{{ s.otf_status }}</span></h3>
+                                </div>
+                                <div class="col-8 p-0 m-0">
+                                    {{ macros.status_row('Processes', s.total_files, 'label_processes') }}
+                                    {{ macros.status_row('Updated', s.extra['updated'], 'label_updated') }}
+                                    {% if current_user.is_admin %}
+                                    <div class="col-12 text-sm-right mt-3">
+                                        <a href="{{ url_for_content('session_flowchart', session_id=session.id) }}" class="btn btn-outline-dark"><i class="fas fa-external-link-alt"></i>  Show Workflow </a>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        {% endcall %}
+
+                    </div>
+
+                    {% if stats['movies']['count'] > 0 and stats['ctfs']['count'] > 0 %}
+
+                    <!-- Row: Plots and Micrograph thumbnails -->
+                    <div class="row">
+
+                        <div class="col-5" id="ctf_plots">
+                            <div class="plots">
+                                <div class="card">
+                                    <h5 class="card-header">CTF Defocus</h5>
+                                    <div class="card-body">
+                                        <div class="row">
+                                            <div id="defocus_plot" class="col-9" style="height: 300px"></div>
+                                            <div class="row col-3 p-0 m-0  no-gutters">
+                                                <div class="col-12 p-0 m-0" id="defocus_hist1"></div>
+                                                {{ macros.bins_table('Defocus (µm)', defocus_bins) }}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="card">
+                                    <h5 class="card-header">CTF Resolution</h5>
+                                    <div class="card-body">
+                                        <div class="row">
+                                            <div id="resolution_plot" class="col-9" style="height: 300px"></div>
+                                            <div class="row col-3 p-0 m-0  no-gutters">
+                                                <div class="col-12 p-0 m-0" id="resolution_hist1"></div>
+                                                {{ macros.bins_table('Resolution (Å)', resolution_bins) }}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                            </div>
+                        </div>
+
+                        <div class="col-2" id="polar_plots">
+                                <div class="card plots">
+                                    <h5 class="card-header">Polar Charts</h5>
+                                    <div class="card-body p-0 m-0">
+                                        <div id="polar1" class="mt-3"></div>
+                                        <div id="polar4" class="mt-3"></div>
+
+                                    </div>
+                                </div>
+                        </div>
+
+                        <div class="col-5" id="image_plots">
+
+                            <div class="row col-12">
+
+
+                                {% if gs_info %}
+                                    <!-- GridSquare and FoilHole card -->
+                                    <div class="col-5">
+                                        <!-- Div for GridSquare -->
+                                        {% set card_id = 'gs_card' %}
+                                        {% include 'gridsquare_card.html' %}
+
+                                        <div class="col-12 text-sm-right mb-3">
+                                            <a href="javascript:showGridSquares()" class="btn btn-outline-dark"><i class="fas fa-external-link-alt"></i>  Show GridSquares </a>
+                                        </div>
+                                    </div>
+                                    {% set micCol = 7 %}
+                                {% else %}
+                                    {% set micCol = 12 %}
+                                {% endif %}
+
+                                <!-- Div for PSD and Micrograph info -->
+                                <div class="col-{{ micCol }}">
+
+                                     <!-- Div for Micrograph -->
+                                    {% set card_id = 'mic_card' %}
+                                    {% set show_ctf_plot = False %}
+                                    {% include 'micrograph_card.html' %}
+
+                                    <div class="col-12 text-sm-right mb-3">
+                                        <a href="javascript:showMicrographs()" class="btn btn-outline-dark"><i class="fas fa-external-link-alt"></i>  Show Micrographs </a>
+                                    </div>
+                                </div>
+
+                            </div>
+
+                        </div>
+
+                </div>
+
+                    <!-- Row: 2D and 3D -->
+                    <div class="row">
+                        <!-- 2D classes Card -->
+                        <div class="col-12" id="classes2d_plot">
+                            <div class="card">
+                                <div class="card-header">
+                                    <div class="row">
+                                        <h5 class="card-header-title ml-3">Classes 2D</h5>
+                                        <label class="mt-2 mr-2 ml-5">Run: </label>
+                                        <select id="selectpicker-classes2d" class="selectpicker" data-width="25%" onchange="onSelectClasses2D()"></select>
+                                    </div>
+                                </div>
+                                <div class="card-body row">
+                                    {{ macros.overlay('overlay_classes2d') }}
+                                    <div class="row col-12" id="classes2d_container">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {% else %}
+                        <div class="row col-6">
+                            <div class="row col-12"><h3 style="color: red">Files for this session have not been processed yet</h3></div>
+                            <div class="row col-12"><h5 id="reload_label">Reloading in seconds</h5></div>
+                        </div>
+                    {% endif %}
+
+            </div>
+        </div>
+
+        {% else %}
+            <div>
+            <h2>You do not have access to this information.</h2>
+            <p>A session is only visible by people on the same lab </p>
+            </div>
+        {% endif %}
+
+    </div>
+
+<!-- end wrapper  -->
+
+<!-- ============================================================== -->
+<!-- Plots Modal -->
+<!-- ============================================================== -->
+<div class="modal fade" id="plot-modal" tabindex="-1" role="dialog" aria-labelledby="plotModal" aria-hidden="true">
+
+      <div class="modal-dialog modal-dialog-centered modal-xl" role="document" style="max-width: 60%" id="plot-modal-document">
+        <div class="modal-content">
+
+            <!-- Modal Header -->
+            <div class="modal-header">
+                <h3 class="modal-title" id="plot-title"> Plot </h3>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            </div> <!-- End of Modal header -->
+
+            <!-- Modal Body -->
+
+             <div class="modal-body row" id="plot-body">
+                {{ macros.overlay('plot-overlay') }}
+                 <div class="col-12" id="plot-content">
+
+                 </div>
+             </div> <!-- End of Modal body -->
+
+        </div>
+      </div>
+
+</div>
+
+<!-- javascript  -->
+
+<script>
+    // Global variables
+    var canvas_ratio = null;
+    var micrograph = null;
+    var lastFoilHole = null;
+    var coordsDisplay = null;
+    var overlay_2d, plot_overlay = null;
+    var gs_card, mic_card = null;
+    var gs_info = {{ gs_info|tojson }};
+
+    var session_plots = null;
+    var session_data = null;
+    var session_timespan = {};
+    var session_id = "{{ session['id']}}";
+
+    function showPlotImported() {
+        var ajaxContent = get_ajax_content('session_hourly_plots', {session_id: session_id, plot: 'imported'});
+        showPlot('Imported', ajaxContent);
+    }
+
+    function showPlotAligned() {
+        var ajaxContent = get_ajax_content('session_hourly_plots', {session_id: session_id, plot: 'aligned'});
+        showPlot('Motioncor/CTF', ajaxContent);
+    }
+
+    function showDataCard(){
+        var ajaxContent = get_ajax_content('session_data_card', {session_id: session_id});
+        showPlot('Session Data', ajaxContent);
+    }
+
+    function showOtfPlots(){
+        var ajaxContent = get_ajax_content('session_otf_plots', {session_id: session_id});
+        showPlot('Session OTF', ajaxContent, 95);
+    }
+
+    function showMicrographs(){
+        var ajaxContent = get_ajax_content('session_micrographs', {session_id: session_id});
+        showPlot('Micrographs', ajaxContent, 95);
+    }
+
+    function showGridSquares(){
+        var ajaxContent = get_ajax_content('session_gridsquares', {session_id: session_id});
+        showPlot('GridSquares', ajaxContent, 95);
+    }
+
+    function showPlot(title, ajaxContent, width) {
+        if (!nonEmpty(width))
+            width=60;
+
+        $('#plot-title').text(title);
+        $('#plot-content').html('');
+        $('#plot-modal-document').css('max-width', width + '%');
+        $('#plot-modal').modal('show');
+
+        plot_overlay.show("Loading Plot Data");
+        ajaxContent.done(function(html) {
+            plot_overlay.hide();
+            $('#plot-content').html(html);
+        });
+        ajaxContent.fail(ajax_request_failed);
+    }
+
+    var reload_counter = 60;  // 60 seconds to reload
+    function check_reload(){
+        if (reload_counter > 0) {
+            $('#reload_label').text('Reloading in ' + reload_counter + ' seconds.');
+            reload_counter -= 1;
+            setTimeout(check_reload, 1000);  // every second
+        }
+        else
+            window.location.reload();
+    }
+
+(function(window, document, $, undefined) {
+    "use strict";
+    $(function() {
+        var stats = {{ stats|tojson }};
+
+        $('select').selectpicker();
+
+        if (stats.movies.count > 0 && stats.ctfs.count > 0) {
+            if (gs_info)
+                gs_card = new GridSquareCard('gs_card');
+            let params = {
+                session_id: session_id,
+                run_id: {{ ctfs_run_id|tojson }} // FIXME: This should be CTF job
+            };
+            mic_card = new MicrographCard('mic_card', params, gs_card);
+            overlay_2d = new Overlay('overlay_classes2d');
+            plot_overlay = new Overlay('plot-overlay');
+
+            session_reload();
+
+            if (stats.classes2d > 0)
+                session_getData2D(stats.classes2d - 1);
+
+            $(window).resize(session_resize);
+
+            makeSameHeight('plots');
+
+            $("#href-counter_imported").attr("href", "javascript:showPlotImported();");
+            $("#href-ctf_count").attr("href", "javascript:showPlotAligned();");
+            $("#href-Data").attr("href", "javascript:showDataCard();");
+            $("#href-Status").attr("href", "javascript:showOtfPlots();")
+        }
+        else {
+            check_reload();
+        }
+        makeSameHeight('status_card');
+
+        session_resize();
+});
+})(window, document, window.jQuery);
+
+    function onSelectClasses2D() {
+        session_getData2D($('#selectpicker-classes2d').selectpicker('val'));
+    }
+</script>

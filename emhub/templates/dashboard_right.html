@@ -45,7 +45,8 @@
                     {% if not compact %}
                     <tr style="{{ row_style }}">
                         <td colspan="3">
-                            {% set create_session_func = resource_create_session.get(b.resource.name, None) %}
+                            {% set create_session = resource_create_session.get(b.resource.name, {}) %}
+                            {% set create_session_func = create_session.get('template', None) %}
                             {% if create_session_func %}
                                 {% if active %}
                                         <a href="javascript:createSession({{ b.id }}, {{ sessions|length }}, '{{ create_session_func }}')" class="btn btn-primary mr-0">

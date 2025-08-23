@@ -23,13 +23,17 @@
             </div>
 
             <div class="col-2 text-right" style="margin-top: 7px;">
-                <a href="javascript:loadSession()" class="btn btn-primary"> Load Session</a>
+                <a href="javascript:loadSession(true)" class="btn btn-primary"> Load Session</a>
             </div>
         </div>
     </div>
 
     <div class="row col-12" id="session-content">
         {% include 'tomo_session_content.html' %}
+    </div>
+
+    <div class="row col-12">
+        <h5 id="reload_label"></h5>
     </div>
 </div>
 
@@ -41,10 +45,27 @@
         return JSON.stringify(getFormAsJson('tomo_session_form', true));
     }
 
-    function loadSession() {
-        setLoading('session-content');
+    function loadSession(setLoading) {
+        if (setLoading) {
+            setLoading('session-content');
+        }
         load_html_from_ajax('session-content',
             get_ajax_content('tomo_session_content', {tomo_session: getTomoSession()}));
     }
+
+    var reload_counter = 60;  // 60 seconds to reload
+    function check_reload(){
+        if (reload_counter > 0) {
+            $('#reload_label').text('Reloading in ' + reload_counter + ' seconds.');
+            reload_counter -= 1;
+        }
+        else {
+            loadSession(false);
+            reload_counter = 60;
+        }
+        setTimeout(check_reload, 1000);  // every second
+    }
+
+    //check_reload();
 
 </script>
