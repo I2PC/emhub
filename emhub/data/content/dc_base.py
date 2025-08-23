@@ -66,16 +66,16 @@ class DataContent:
     def get_content_func(self, name):
         return self._contentDict.get(name, getattr(self, name, None))
 
+    def get_data(self, name, **kwargs):
+        if get_func := self.get_content_func(name):
+            return get_func(**kwargs)
+        else:
+            raise Exception(f"Missing content function for '{content_id}'")
+
     def get(self, **kwargs):
         content_id = kwargs['content_id']
         get_func_name = content_id.replace('-', '_')
-        dataDict = {}
-        get_func = self.get_content_func(get_func_name)
-        if get_func is None:
-            raise Exception(f"Missing content function for '{content_id}'")
-
-        dataDict.update(get_func(**kwargs))
-        return dataDict
+        return self.get_data(get_func_name, **kwargs)
 
     def content(self, func):
         self._contentDict[func.__name__] = func

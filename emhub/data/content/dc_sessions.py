@@ -110,8 +110,22 @@ def register_content(dc):
     @dc.content
     def session_live(**kwargs):
         session = dc.app.dm.get_session_by(id=kwargs['session_id'])
-        data = dc.get_session_data(session)
-        data.update({'s': session})
+        otf = session.extra['otf']
+        data = {'s': session}
+
+        if 'tomo' in otf:
+            data['tomo'] = True
+            data['tomo_session'] = {
+                'path': otf['path'],
+                'tomograms': "External/job001/warp_tomostar",
+                'reconstruction': "External/job001/warp_tiltseries/reconstruction",
+                'picking': "External/job002"
+            }
+            data.update(dc.get_data('tomo_session_content',
+                                    tomo_session=json.dumps(data['tomo_session'])))
+        else:
+            data.update(dc.get_session_data(session))
+
         return data
 
     @dc.content

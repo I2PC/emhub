@@ -113,6 +113,7 @@ def register_content(dc):
                     data['errors'].append(f"*{k}* folder does not exist.")
 
         if not data['errors']:
+            # FIXME
             # Temporarly store all sessions in a config form
             # just a quick and dirty way to save the sessions used
             tomo_sessions = dm.get_config('tomo_sessions')
