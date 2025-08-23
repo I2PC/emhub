@@ -60,12 +60,21 @@ def date(datetimeStr):
 
 def process_users(args):
     with open_client() as dc:
-        r = dc.request('get_users', jsonData={})
-        usersDict = {u['id']: u for u in r.json()}
+        if jsonFile := args.update:
+            with open(jsonFile) as f:
+                userJson = json.load(f)
+
+            action = 'update' if 'id' in userJson else 'create'
+            r = dc.request(f'{action}_user', jsonData={'attrs': userJson})
+            print(r.json())
+            return
+        else:
+            r = dc.request('get_users', jsonData={})
+            usersDict = {u['id']: u for u in r.json()}
 
     if args.list:  # Print detailed info about specific users
         for uid in args.list:
-            pprint(usersDict[int(uid)])
+            print(json.dumps(usersDict[int(uid)], indent=4))
 
     elif args.list is not None:  # Print all in a table
         headers = ["USERID", "USERNAME", "EMAIL", "PI", "ROLES"]
@@ -327,7 +336,7 @@ def main():
     user_p = subparsers.add_parser("user")
 
     g = user_p.add_mutually_exclusive_group()
-    g.add_argument('--update', metavar='USER_JSON_STR',
+    g.add_argument('--update', '-u', metavar='USER_JSON_STR',
                    help="Update user with the given JSON")
     g.add_argument('--list', '-l', nargs='*', metavar='USER_ID')
     user_p.add_argument('--filters', '-f', nargs='*', metavar='FILTER',
