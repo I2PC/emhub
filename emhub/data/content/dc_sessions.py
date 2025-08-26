@@ -386,6 +386,8 @@ def register_content(dc):
         mrc = mrcfile.open(volPath, permissive=True)
         zdim, ydim, xdim = mrc.data.shape
         slice_dim = int(kwargs.get('slice_dim', 128))
+        slice_step = kwargs.get('slice_step', 1)
+
         data = {
             'file_path': volPath,
             'dimensions': [xdim, ydim, zdim],
@@ -398,10 +400,15 @@ def register_content(dc):
         if "slices" in volume_data:
             axis = kwargs.get('axis', 'z')
 
+            # volThumb = Thumbnail(max_size=(slice_dim, slice_dim),
+            #                      output_format='base64',
+            #                      contrast_factor=0.1)
 
-            volThumb = Thumbnail(max_size=(slice_dim, slice_dim),
-                                 output_format='base64',
-                                 contrast_factor=0.1)  #,
+            volThumb = Thumbnail(output_format='base64',
+                                 contrast_factor=0.1)
+
+            # volThumb = Thumbnail(output_format='base64',
+            #                      contrast_factor=0.1)
                                  #min_max=(mrc.data.min(), mrc.data.max()))
             # if slice_number := int(kwargs.get('slice_number', 0)):
             #     # Do not take slices from star/end since they are usually empty
@@ -413,17 +420,18 @@ def register_content(dc):
             #     idx = np.round(np.linspace(0, xdim - 1, slice_number)).astype(int)
 
             slices = {}
-
             if 'x' in axis:
-                slices['x'] = {int(i): volThumb.from_array(mrc.data[:, :, i])
-                               for i in range(xdim)}
+                slices['x'] = {int(i): volThumb.from_array(mrc.data[:, :, i].transpose())
+                               for i in range(0, xdim, slice_step)}
             if 'y' in axis:
                 slices['y'] = {int(i): volThumb.from_array(mrc.data[:, i, :])
-                               for i in range(ydim)}
+                               for i in range(0, ydim, slice_step)}
 
             if 'z' in axis:
                 slices['z'] = {int(i): volThumb.from_array(mrc.data[i, :, :])
-                               for i in range(zdim)}
+                               for i in range(0, zdim, slice_step)}
+
+            print(slices.keys())
 
             data.update({
                 'slices': slices,
@@ -440,6 +448,7 @@ def register_content(dc):
 
     @dc.content
     def processing_tomogram_card(**kwargs):
+        kwargs['slice_step'] = 10
         data = processing_volume_card(**kwargs)
         x = []
         y = []

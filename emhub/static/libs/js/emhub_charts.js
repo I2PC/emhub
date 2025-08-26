@@ -795,22 +795,27 @@ class ImageSliderCard extends Card {
         this.cooordinates = config.coordinates
 
         const width = getObjectValue(config, 'slice_dim', 128);
-        var styleStr = '" style="width: ' + width + 'px"';
+        var styleStr = '" style="width: 100%"';
 
         //var html = '<div class="row"><div class="col-12"><img id="' + this.id('image') + styleStr + '></div>';
 
-        var html = '<figure className="figure"><canvas id="';
-        html += this.id('vol_canvas');
-        html += '"></canvas></figure>';
+
+        var figureHtml = '<figure className="figure">';
+        figureHtml += `<canvas id="${this.id('canvas')}"></canvas>`;
+        figureHtml += '</figure>';
 
         for (const [sliceIndex, sliceImg] of Object.entries(slices)) {
             this.indexes.push(sliceIndex);
         }
-
         const N = this.indexes.length;
-        html += '<div class="col-12"><input id="' + this.id('slider_input') + styleStr + '" type="range" min="0" value="0" max="' + (N - 1) + '" step="1"></div>';
-        html += '<div class="col-12"><div id="' + this.id('slider_text') + '"></div></div>';
+        var sliderHtml = `<div class="row col-12 id="${this.id('slider_row')}">`;
+        sliderHtml += '<div class="col-12 align-content-start align-items-start text-left"><input id="' + this.id('slider_input') + styleStr + '" type="range" min="0" value="0" max="' + (N - 1) + '" step="1"></div>';
+        sliderHtml += '<div class="col-12" id="' + this.id('slider_text') + '"></div></div>';
 
+        var bodyHtml = getObjectValue(config, "slider_ontop", false) ? `${sliderHtml}${figureHtml}` : `${figureHtml}${sliderHtml}`;
+        var html = `<div>${bodyHtml}</div>`;
+
+        console.log(`Container ID: ${this.containerId}, is null: ${!nonEmpty(this.container)}`);
         this.container.innerHTML = html;
 
         $(this.jid('slider_input')).on("input", function() {
@@ -819,7 +824,6 @@ class ImageSliderCard extends Card {
 
         let initialSlice = getObjectValue(config, 'initial_slice', Math.floor(N / 2));
         this.setSlice(initialSlice);
-
     }
 
     setSlice(sliceIndex) {
@@ -829,15 +833,17 @@ class ImageSliderCard extends Card {
         //var img = document.getElementById(this.id('image'));
         //img.src = "data:image/png;base64, " + sliceImg;
         var coords = [];
-        let z = this.cooordinates.z;
-        let x = this.cooordinates.x;
-        let y = this.cooordinates.y;
-        for (var i = 0; i < z.length; i++){
-            if (Math.abs(z[i] - sliceNumber) <= 10) { // fixme using near distance
-                coords.push([x[i], y[i]])
+        if (nonEmpty(this.cooordinates)) {
+            let z = this.cooordinates.z;
+            let x = this.cooordinates.x;
+            let y = this.cooordinates.y;
+            for (var i = 0; i < z.length; i++) {
+                if (Math.abs(z[i] - sliceNumber) <= 10) {
+                    coords.push([x[i], y[i]])
+                }
             }
         }
-        drawMicrograph(this.id('vol_canvas'), {
+        drawMicrograph(this.id('canvas'), {
             thumbnail: sliceImg,
             pixelSize: 1,
             thumbnailPixelSize: 1,
@@ -856,18 +862,35 @@ class VolumeSliderCard extends Card {
         const width = Math.floor(slice_dim * 2);
 
         const minWidth = 3 * width;
-        var html = '<div class="row ml-1 mr-1" style="min-width: ' + minWidth + 'px">';
-        const styleStr = '" style="width: ' + width + 'px">';
-        html += '<div id="' + this.id('slider-z') + styleStr + '</div>';
-        html += '<div id="' + this.id('slider-y') + styleStr + '</div>';
-        html += '<div id="' + this.id('slider-x') + styleStr + '</div></div>';
+        console.log("VolumeSliderCard: minWidth: " + minWidth);
+        var html = '<div class="row m-0 p-0">';
+        const styleStr = '';  //'" style="width: ' + width + 'px">';
+        html = '<div class="row col-12">'
+        html += `<div id="${this.id('slider_y')}" ${styleStr}></div>`;
+        html += '</div>';
+        html += '<div class="row col-12">'
+        html += `<div class="mr-4" id="${this.id('slider_z')}" ${styleStr}></div>`;
+        html += `<div id="${this.id('slider_x')}" ${styleStr}></div>`;
+        html += '</div>';
+        console.log("HTML: " + html);
 
         this.container.innerHTML = html;
 
-        this.isz = new ImageSliderCard(this.id('slider-z'), slices.z, {
+        this.isy = new ImageSliderCard(this.id('slider_y'), slices.y, {
+            slider_prefix: 'Y slice: ',
+            slice_dim: slice_dim,
+            coordinates: [],
+            slider_ontop: true
+        });
+        this.isz = new ImageSliderCard(this.id('slider_z'), slices.z, {
             slider_prefix: 'Z slice: ',
             slice_dim: slice_dim,
             coordinates: config.coordinates
+        });
+        this.isx = new ImageSliderCard(this.id('slider_x'), slices.x, {
+            slider_prefix: 'X slice: ',
+            slice_dim: slice_dim,
+            coordinates: [] //config.coordinates
         });
 
         // this.isy = new ImageSliderCard(this.id('slider-y'), slices.y,

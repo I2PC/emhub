@@ -5,9 +5,9 @@
     <!-- Slider Column -->
     <div class="col-12">
         <div class="card ml-3">
-            <h4 class="card-header" id="{{ card_id }}_header"> {{ title }}</h4>
-            <div class="card-body" id="{{ card_id }}_slider">
-
+            <h4 class="card-header" id="{{ card_id }}_header"> {{ file_path|basename }}</h4>
+            <div class="card-body" id="" style="background-color: white">
+                <div class="col-12 m-0 p-0" id="{{ card_id }}_volSlider" style="background-color: white"></div>
             </div>
         </div>
     </div>
@@ -17,6 +17,7 @@
 
 <script>
     var file_path = {{ file_path|tojson }};
+    var basename = "{{ file_path|basename }}";
     var slices = {{ slices|tojson }};
     var slice_dim = {{ slice_dim|tojson }};
     var coordinates = {{ coordinates|tojson }};
@@ -24,12 +25,24 @@
     (function(window, document, $, undefined) {
     "use strict";
     $(function() {
-        $('#{{ card_id }}_header').text(coordinates.x.length)
-        var vs = new VolumeSliderCard("{{ card_id }}_slider", slices,
+        //$('#{{ card_id }}_header').text(coordinates.x.length)
+        var volSlider = "{{ card_id }}_volSlider";
+
+        var vs = new VolumeSliderCard(volSlider, slices,
             {
                 slice_dim: 1024,
                 coordinates: coordinates
             });
+        {##}
+        {#console.log("card: " + $(`#${slider_z}`).width())#}
+        {#console.log("canvas: " + $(`#${slider_z}_vol_canvas`).width())#}
+        {#console.log("slider: " + $(`#${slider_z}_slider_row`).width())#}
+
+        // From SPA Live session_resize
+        //var canvas = document.getElementById("canvas_micrograph");
+        {#var w = $("#canvas_micrograph").width();#}
+        {#var h = Math.round(w / canvas_ratio);#}
+        {#$("#canvas_micrograph").height(h);#}
 
 });
 })(window, document, window.jQuery);
