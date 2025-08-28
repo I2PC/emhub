@@ -876,22 +876,28 @@ class VolumeSliderCard extends Card {
 
         this.container.innerHTML = html;
 
-        this.isy = new ImageSliderCard(this.id('slider_y'), slices.y, {
-            slider_prefix: 'Y slice: ',
-            slice_dim: slice_dim,
-            coordinates: [],
-            slider_ontop: true
-        });
-        this.isz = new ImageSliderCard(this.id('slider_z'), slices.z, {
-            slider_prefix: 'Z slice: ',
-            slice_dim: slice_dim,
-            coordinates: config.coordinates
-        });
-        this.isx = new ImageSliderCard(this.id('slider_x'), slices.x, {
-            slider_prefix: 'X slice: ',
-            slice_dim: slice_dim,
-            coordinates: [] //config.coordinates
-        });
+        if (nonEmpty(slices.y)) {
+            this.isy = new ImageSliderCard(this.id('slider_y'), slices.y, {
+                slider_prefix: 'Y slice: ',
+                slice_dim: slice_dim,
+                coordinates: [],
+                slider_ontop: true
+            });
+        }
+        if (nonEmpty(slices.z)) {
+            this.isz = new ImageSliderCard(this.id('slider_z'), slices.z, {
+                slider_prefix: 'Z slice: ',
+                slice_dim: slice_dim,
+                coordinates: config.coordinates
+            });
+        }
+        if (nonEmpty(slices.x)) {
+            this.isx = new ImageSliderCard(this.id('slider_x'), slices.x, {
+                slider_prefix: 'X slice: ',
+                slice_dim: slice_dim,
+                coordinates: [] //config.coordinates
+            });
+        }
 
         // this.isy = new ImageSliderCard(this.id('slider-y'), slices.y,
         //     {slider_prefix: 'Y slice: ', slice_dim: slice_dim});
