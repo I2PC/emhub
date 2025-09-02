@@ -58,11 +58,12 @@
                                     <tr>
                                         <th>Enabled</th>
                                         <th>Index</th>
-                                        <th>Metadata</th>
-                                        <th>Aligned TS</th>
+                                        <th>TomoName</th>
                                         <th>Defocus</th>
                                         <th>Coords</th>
-                                        <th>Tomogram</th>
+                                        <th>Thickness</th>
+                                        <th>Metadata</th>
+                                        <th>TS / Tomogram</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -85,16 +86,20 @@
                                             </div>
                                         </td>
                                         <td>{{ index }}</td>
+                                        <td>{{ t['tomoName'] }}</td>
+                                        <td>{{ t['defocus'] }}</td>
+                                        <td><a href="javascript:loadCoordinatesStar({{ index }})">{{ t['coords_n'] }}</a></td>
+                                        <td>{{ t['thickness'] }}</td>
                                         <td>
-                                            <a href="javascript:loadTomoStar({{ index }})">{{ t['md']|basename }}</a>
+                                            <a href="javascript:loadTomoStar({{ index }})">tomostar</a>
                                             {% if t['tomo_xml'] %}
                                                 &nbsp;/&nbsp; <a href="javascript:loadTomoXml({{ index }})">xml</a>
                                             {% endif %}
                                         </td>
-                                        <td><a href="javascript:loadAlignedTs({{ index }})"><icon class="fas fa-images mr-2"></icon>{{ t['aligned_ts']|basename }}</a></td>
-                                        <td>{{ t['defocus'] }}</td>
-                                        <td><a href="javascript:loadCoordinatesStar({{ index }})">{{ t['coords_n'] }}</a></td>
-                                        <td><a href="javascript:loadTomogram({{ index }})"><icon class="fas fa-cube mr-2"></icon>{{ t['tomo_fn']|basename }}</a></td>
+                                        <td>
+                                            <a href="javascript:loadAlignedTs({{ index }})"><icon class="fas fa-images mr-2"></icon></a>
+                                            <a href="javascript:loadTomogram({{ index }})"><icon class="fas fa-cube mr-2"></icon></a>
+                                        </td>
                                     </tr>
                                 {% endfor %}
                                 </tbody>
@@ -117,6 +122,14 @@
                                 <div class="col-4" id="tomo-def-hist-div">
                                 </div>
                             </div>
+
+                            <div class="row mt-5">
+                                <div class="col-8" id="tomo-thickness-scatter-div">
+                                </div>
+                                <div class="col-4" id="tomo-thickness-hist-div">
+                                </div>
+                            </div>
+
                         </div>
 
                     </div> <!-- End of TabContent -->
@@ -329,10 +342,14 @@
         var min_def = Infinity;
         var max_def = -Infinity;
         var max_pts = -Infinity;
+        var min_thick = Infinity;
+        var max_thick = -Infinity;
+        var data_thick = [];
 
         for (var i = 0; i < tomograms.length; i++) {
-            var v = tomograms[i].coords_n;
-            var d = tomograms[i].defocus;
+            var tomo = tomograms[i];
+            var v = tomo.coords_n;
+            var d = tomo.defocus;
             var vi = nonEmpty(v) ? parseInt(v) : -1;
             var df = nonEmpty(d) ? parseFloat(d) : -10;
             data.push({x: i, y: vi, defocus: d});
@@ -342,6 +359,13 @@
             min_def = Math.min(min_def, df);
             max_def = Math.min(max_def, df);
             max_pts = Math.max(max_pts, vi);
+
+            // Thickness
+            var t = tomo.thickness;
+            var thick = nonEmpty(t) ? parseFloat(t) : 0;
+            data_thick.push({x: i, y: thick});
+            min_thick = Math.min(min_thick, df);
+            max_thick = Math.min(max_thick, df);
         }
 
         session_setCounter('counter_tomograms', tomograms.length);
@@ -373,6 +397,15 @@
         create_hc_scatter('tomo-def-scatter-div', data_def, config);
         config.maxX = null;
         create_hc_histogram('tomo-def-hist-div', data_def, config);
+
+        // Create the plots for Thickness
+        config.color = 'black';
+        config.labelY = 'Thickness (nm)';
+        config.binsNumber = 10;
+        config.maxX = max_thick + 1;
+        create_hc_scatter('tomo-thickness-scatter-div', data_thick, config);
+        config.maxX = null;
+        create_hc_histogram('tomo-thickness-hist-div', data_thick, config);
 
         makeSameHeight('status_card');
 

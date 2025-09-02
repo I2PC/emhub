@@ -99,6 +99,14 @@ def register_content(dc):
         session_path = tomo_session['path']
 
         s = FolderManager(session_path)
+
+        # Read first if there is a session.json in the session path
+        if s.exists('session.json'):
+            with open(s.join('session.json')) as f:
+                tomo_session = json.load(f)
+                # Restore session_path
+                tomo_session['path'] = session_path
+
         picking = tomo_session['picking']
         data = {
             'errors': [],
@@ -151,6 +159,15 @@ def register_content(dc):
                 suffix = tomos[0].split('_')[-1]
                 tomoDict = {os.path.basename(t).replace(suffix, ''): t for t in tomos}
 
+            thickDict = {}
+            if tomoStar := tomo_session.get('thickness', None):
+                with StarFile(s.join(tomoStar)) as sf:
+                    for row in sf.iterTable('tomograms'):
+                        suffix = "_" + row.rlnTomoName.split('_')[-1]
+                        thickDict[row.rlnTomoName.replace(suffix, '')] = row.slabThickness
+                from pprint import pprint
+                pprint(thickDict)
+
             for tstar in t.glob("*.tomostar"):
                 tsName = Path.removeBaseExt(tstar)
 
@@ -179,13 +196,15 @@ def register_content(dc):
                     defocus = ''
 
                 tomograms.append({
+                    'tomoName': tsName,
                     'md': tstar,  #os.path.basename(tstar),
                     'coords_md': coordMd,
                     'coords_n': coordN,
                     'tomo_fn': tomoFn,
                     'aligned_ts': alignedTs,
                     'tomo_xml': tomoXml,
-                    'defocus': defocus
+                    'defocus': defocus,
+                    'thickness': thickDict.get(tsName, 0)
                 })
 
                 if len(tomograms) == 10000:

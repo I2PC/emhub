@@ -815,7 +815,6 @@ class ImageSliderCard extends Card {
         var bodyHtml = getObjectValue(config, "slider_ontop", false) ? `${sliderHtml}${figureHtml}` : `${figureHtml}${sliderHtml}`;
         var html = `<div>${bodyHtml}</div>`;
 
-        console.log(`Container ID: ${this.containerId}, is null: ${!nonEmpty(this.container)}`);
         this.container.innerHTML = html;
 
         $(this.jid('slider_input')).on("input", function() {
@@ -862,7 +861,6 @@ class VolumeSliderCard extends Card {
         const width = Math.floor(slice_dim * 2);
 
         const minWidth = 3 * width;
-        console.log("VolumeSliderCard: minWidth: " + minWidth);
         var html = '<div class="row m-0 p-0">';
         const styleStr = '';  //'" style="width: ' + width + 'px">';
         html = '<div class="row col-12">'
@@ -872,7 +870,6 @@ class VolumeSliderCard extends Card {
         html += `<div class="mr-4" id="${this.id('slider_z')}" ${styleStr}></div>`;
         html += `<div id="${this.id('slider_x')}" ${styleStr}></div>`;
         html += '</div>';
-        console.log("HTML: " + html);
 
         this.container.innerHTML = html;
 
