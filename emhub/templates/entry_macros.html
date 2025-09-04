@@ -191,8 +191,21 @@
     {% endif %}
 {%- endmacro %}
 
+{% macro session_type(b) -%}
+    {% set session_type = b.extra.get('session_type', '') %}
+    {% if session_type == 'Tomo' %}
+        <label class="bg-dark text-light pl-1 pr-1" >T</label>
+    {% endif %}
+{#    <a href="{{ url_for_content('session_default', session_id=s.id) }}" class="btn btn-info btn-sm mr-0 mb-1">#}
+{#        <span size="font-weight: bold">{{ s.shortname }}</span>  </br>#}
+{#        Img <span class="badge badge-light mt-2 mr-2">{{ s.images }}</span>#}
+{#        Size <span class="badge badge-light mt-1">{{ s.total_size|pretty_size }}</span>#}
+{#    </a>#}
+{%- endmacro %}
+
 
 {% macro session(s) -%}
+    {{ session_type(s) }}
     <a href="{{ url_for_content('session_default', session_id=s.id) }}" class="badge badge-info mr-1 mt-1" >{{ s.shortname }}</a>
 {#    <a href="{{ url_for_content('session_default', session_id=s.id) }}" class="btn btn-info btn-sm mr-0 mb-1">#}
 {#        <span size="font-weight: bold">{{ s.shortname }}</span>  </br>#}

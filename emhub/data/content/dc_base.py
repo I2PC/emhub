@@ -235,12 +235,15 @@ class DataContent:
         if booking.type == 'special':
             color = 'rgba(98,50,45,1.0)'
             title = "%s (SPECIAL): %s" % (resource.name, b_title)
-        if booking.type == 'downtime':
+        elif booking.type == 'downtime':
             color = 'rgba(181,4,0,1.0)'
             title = "%s (DOWNTIME): %s" % (resource.name, b_title)
-        if booking.type == 'maintenance' or any(k in b_title for k in ['cycle', 'installation', 'maintenance', 'afis']):
+        elif booking.type == 'maintenance' or any(k in b_title for k in ['cycle', 'installation', 'maintenance', 'afis']):
             color = 'rgba(255,107,53,1.0)'
             title = "%s (MAINTENANCE): %s" % (resource.name, b_title)
+        elif booking.type == 'repair':
+            color = 'rgba(255,75,51,1.0)'
+            title = "%s (REPAIR): %s" % (resource.name, b_title)
         elif booking.type == 'slot':
             color = color.replace('1.0', '0.5')  # transparency for slots
             title = "%s (SLOT): %s" % (resource.name,
@@ -331,7 +334,8 @@ class DataContent:
                     resource=r,
                     resource_id=rid,
                     project_id=p.id,
-                    project=p
+                    project=p,
+                    extra={'session_type': data.get('session_type', '')}
                 )
 
     def booking_active_today(self, b):

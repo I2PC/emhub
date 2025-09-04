@@ -369,7 +369,10 @@ def register_content(dc):
         groups_colors = dm.get_config('reports').get('groups_colors', None)
 
         types_colors = {
-            'downtime': '#B22222', 'maintenance': '#FF7F50', 'special': '#20B2AA'
+            'downtime': '#B22222',
+            'maintenance': '#FF7F50',
+            'repair': '#FF4B33',
+            'special': '#20B2AA'
         }
 
         def _pi_color(pi_email):
@@ -432,7 +435,8 @@ def register_content(dc):
                 'total_days': total_days,
                 'total_data': {'size': 0, 'files': 0},
                 'users': set(),
-                'color': color
+                'color': color,
+                'projects': []
             }
 
         def _values(b):
@@ -452,8 +456,9 @@ def register_content(dc):
             rid = b.resource.id
             b_values = _values(b)
             entry_app = ''
+            entry_project = None
 
-            if b.type in ['downtime', 'maintenance', 'special']:
+            if b.type in ['downtime', 'maintenance', 'special', 'repair']:
                 entry_key = b.type
                 entry_label = entry_key.capitalize()
                 entry_email = ''
@@ -463,6 +468,7 @@ def register_content(dc):
             else:
                 if b.project:
                     pi = b.project.user.get_pi()
+                    entry_project = b.project.id
                 else:
                     pi = b.owner.get_pi()
                 if not pi or pi.id not in pi_list:
@@ -495,6 +501,12 @@ def register_content(dc):
             entry['bookings'].append(b)
             _add_values(entry, b_values)
             entry['users'].add(b.owner.email)
+
+            if entry_project:
+                if entry_project not in entry['projects']:
+                    entry['projects'].append(entry_project)
+                if entry_project not in total_entry['projects']:
+                    total_entry['projects'].append(entry_project)
 
             total_days += b_values['days']
             if key == entry_key:

@@ -662,9 +662,9 @@ class Booking(Base):
     """
     __tablename__ = 'bookings'
 
-    TYPES = ['booking', 'slot', 'downtime', 'maintenance', 'special']
+    TYPES = ['booking', 'slot', 'downtime', 'maintenance', 'repair', 'special']
 
-    MAINTENANCE_LIST = ['cycle', 'installation', 'maintenance', 'afis']
+    MAINTENANCE_LIST = ['cycle', 'installation', 'maintenance', 'afis', 'repair']
     DEVELOPMENT_LIST = ['method', 'research', 'test', 'mikroed', 'microed', 'devel']
 
     id = Column(Integer, primary_key=True)
