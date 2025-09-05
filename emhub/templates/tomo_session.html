@@ -45,8 +45,8 @@
         return JSON.stringify(getFormAsJson('tomo_session_form', true));
     }
 
-    function loadSession(setLoading) {
-        if (setLoading) {
+    function loadSession(doLoad) {
+        if (doLoad) {
             setLoading('session-content');
         }
         load_html_from_ajax('session-content',

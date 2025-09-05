@@ -386,7 +386,7 @@ def register_content(dc):
         mrc = mrcfile.open(volPath, permissive=True)
         zdim, ydim, xdim = mrc.data.shape
         slice_dim = int(kwargs.get('slice_dim', 128))
-        slice_step = kwargs.get('slice_step', 1)
+        slice_step = int(kwargs.get('slice_step', 1))
 
         data = {
             'file_path': volPath,
@@ -448,7 +448,7 @@ def register_content(dc):
 
     @dc.content
     def processing_tomogram_card(**kwargs):
-        kwargs['slice_step'] = 10
+        # kwargs['slice_step'] = 10
         data = processing_volume_card(**kwargs)
         x = []
         y = []
