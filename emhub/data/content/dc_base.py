@@ -719,6 +719,7 @@ class DataContent:
         gridsquares = []
         tsRange = {}
         beamshifts = []
+        tsList = []
 
         sdata = self.app.dm.get_processing_project(session_id=session.id)['project']
 
@@ -746,7 +747,7 @@ class DataContent:
             epuData = None
 
             if data['stats']['ctfs']['count'] > 0:
-                for mic in sdata.get_micrographs():
+                for i, mic in enumerate(sdata.get_micrographs()):
                     micFn = mic['micrograph']
                     micName = mic.get('micName', micFn)
                     gridsquares.append(mic.get('gs', None))
@@ -761,6 +762,7 @@ class DataContent:
                     r = round(mic['ctfResolution'], 3)
                     resolution.append(r)
                     rbins.addValue(r)
+                    tsList.append(mic['ts'] * 1000)  # Timestamp in milliseconds
 
                 if firstMic and lastMic:
                     tsFirst, tsLast = _ts(firstMic), _ts(lastMic)
@@ -785,6 +787,7 @@ class DataContent:
                 'astigmatism': astigmatism,
                 'resolution': resolution,
                 'tsRange': tsRange,
+                'timestamps': tsList,
                 'beamshifts': beamshifts,
                 'defocus_bins': dbins.toList(),
                 'resolution_bins': rbins.toList(),

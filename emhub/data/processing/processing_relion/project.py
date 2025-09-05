@@ -113,6 +113,7 @@ class RelionSessionData(SessionData):
             yield row.TimeStamp
 
     def row_to_mic(self, row):
+        movRow = self.movDataDict[row.rlnImageId]
         return {
             'micrograph': row.rlnMicrographName,
             'ctfImage': row.rlnCtfImage,
@@ -120,7 +121,8 @@ class RelionSessionData(SessionData):
             'ctfResolution': min(row.rlnCtfMaxResolution, 10),
             'ctfDefocusAngle': row.rlnDefocusAngle,
             'ctfAstigmatism': row.rlnCtfAstigmatism,
-            'gs': self.movDataDict[row.rlnImageId].GridSquare
+            'gs': movRow.GridSquare,
+            'ts': movRow.TimeStamp
         }
 
     def get_micrographs(self):
