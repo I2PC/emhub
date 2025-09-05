@@ -193,8 +193,8 @@
 
 {% macro session_type(b) -%}
     {% set session_type = b.extra.get('session_type', '') %}
-    {% if session_type == 'Tomo' %}
-        <label class="bg-dark text-light pl-1 pr-1" >T</label>
+    {% if session_type == 'Tomography' %}
+        <label class="bg-dark text-light pl-1 pr-1" style="border-radius: 5px;">T</label>
     {% endif %}
 {#    <a href="{{ url_for_content('session_default', session_id=s.id) }}" class="btn btn-info btn-sm mr-0 mb-1">#}
 {#        <span size="font-weight: bold">{{ s.shortname }}</span>  </br>#}

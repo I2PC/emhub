@@ -73,6 +73,9 @@ function create_hc_series(container, data, config) {
 
     // Create the chart
     return Highcharts.stockChart(container, {
+        time: {
+            useUTC: false
+        },
         plotOptions: {
                 // series: {
                 //     turboThreshold: 0,
@@ -212,6 +215,9 @@ function create_hc_resolution_histogram(containerId, data, percent) {
 function create_hc_usage_series(container, config) {
     // Create the chart
     return Highcharts.stockChart(container, {
+        time: {
+            useUTC: false
+        },
         plotOptions: {
                 // series: {
                 //     turboThreshold: 0,
@@ -1396,6 +1402,7 @@ function session_updatePlots() {
         gsLines = [];
 
         var lastGs = null;
+
         for (var i = 0; i < session_data.defocusAngle.length; ++i) {
 
             var angle = session_data.defocusAngle[i];
@@ -1405,6 +1412,7 @@ function session_updatePlots() {
             if (a > config.maxY)
                 config.maxY = a;
             data.push([angle, a])
+            ts = session_data.timestamps[i];
             date = new Date(ts)
             gs = session_data.gridsquares[i];
             if (gs !== lastGs) {
@@ -1414,7 +1422,7 @@ function session_updatePlots() {
 
             data_defocus.push([ts, session_data.defocus[i]]);
             data_resolution.push([ts, session_data.resolution[i]])
-            ts += config.stepX;
+            // ts += config.stepX;
         }
         config.maxY = config.maxY + (config.maxY * 0.1)
         session_plots.defocus = create_hc_defocus_series('defocus_plot', {
