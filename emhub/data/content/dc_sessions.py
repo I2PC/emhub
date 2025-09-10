@@ -208,11 +208,12 @@ def register_content(dc):
     @dc.content
     def sessions_list(**kwargs):
         show_extra = 'extra' in kwargs and dc.app.user.is_admin
+        days = int(kwargs.get('days', 30))
         dm = dc.app.dm  # shortcut
         all_sessions = dm.get_sessions()
         sessions = []
         now = dm.now()
-        d30 = dt.timedelta(days=30)
+        d30 = dt.timedelta(days=days)
 
         for s in all_sessions:
             if s.start is not None and now - s.start > d30:

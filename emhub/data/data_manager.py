@@ -1044,9 +1044,9 @@ class DataManager(DbManager):
             end = start + dt.timedelta(days=4)
 
             if sdate < start or sdate > end:
-                raise Exception(f"Now requests are allowed for the following "
+                raise Exception(f"Currently, requests are allowed for the following "
                                 f"period: </br>{self.local_weekday(start)} - "
-                                f"{self.local_weekday(end)}")
+                                f"{self.local_weekday(end)}.")
 
         except ValueError:
             raise Exception("Provide a valid suggested date")

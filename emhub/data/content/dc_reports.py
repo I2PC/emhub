@@ -32,6 +32,7 @@ import os
 import datetime as dt
 from collections import defaultdict
 from random import shuffle
+import json
 
 from emtools.utils import Pretty
 from emhub.utils import (shortname, get_quarter, pretty_quarter, pretty_date,
@@ -417,10 +418,10 @@ def register_content(dc):
                      if r['name'] in report_resources]
         resources_dict = {r['id']: r for r in resources}
 
-        selected_resources = kwargs.get('selected', [r['id'] for r in resources])
-        # selected resource
-        rid = int(kwargs.get('resource', 0))
-        resource = resources_dict.get(rid, None)
+        if 'selected_resources' in kwargs:
+            selected_resources = [int(v) for v in json.loads(kwargs['selected_resources'])]
+        else:
+            selected_resources = [r['id'] for r in resources]
 
         def _entry(key, label, app='', email='', total_days=0, color=''):
             return {
@@ -450,10 +451,10 @@ def register_content(dc):
         total_entry = _entry('Total', 'Total', )
 
         for b in bookings:
-            if b.resource_id != rid:
+            rid = b.resource.id
+            if rid not in selected_resources:
                 continue
 
-            rid = b.resource.id
             b_values = _values(b)
             entry_app = ''
             entry_project = None
@@ -484,13 +485,14 @@ def register_content(dc):
                 resources_data_usage[rid].append((ts * 1000, b_values['data']))
 
                 # Store entries by operator
-                op = b.operator
-                opKey = op.name if op else 'Unknown'
-                if opKey not in entries_operators:
-                    entries_operators[opKey] = _entry(opKey, opKey)
-                entry_op = entries_operators[opKey]
-                entry_op['days'][rid] += 1
-                entry_op['total_days'] += 1
+                if op := b.operator:
+                    if op.is_staff:
+                        opKey = op.name if op else 'Unknown'
+                        if opKey not in entries_operators:
+                            entries_operators[opKey] = _entry(opKey, opKey)
+                        entry_op = entries_operators[opKey]
+                        entry_op['days'][rid] += 1
+                        entry_op['total_days'] += 1
 
             if entry_key not in entries:
                 entries[entry_key] = _entry(entry_key, entry_label,
@@ -582,22 +584,19 @@ def register_content(dc):
         if period_days > 31:
             periodStr += ' - ' + end.strftime('%b %y')
 
-
         overall_values = defaultdict(lambda: 0)
         overall_values.update({k: v['total_days'] / 2
                                for k, v in entries_down.items()})
-        print(overall_values)
+
         data = {
             'entries': entries_sorted,
             'entries_down': overall_values,
             # 'entries_overall': entries_overall,
-            'entries_operators': [e for e in sorted(entries_operators.values(),
-                                                    key=lambda e: e['total_days'],
-                                                    reverse=True)],
+            'entries_operators': list(_sorted_entries(entries_operators.values())),
             'total_days': total_days,
             'total_usage': total_usage,
             'resources_dict': resources_dict,
-            'resource': resource,
+            #'resource': resource,
             'selected_resources': selected_resources,
             'selected_entry': selected_entry,
             'applications': applications,
@@ -625,19 +624,11 @@ def register_content(dc):
         return report_microscopes_usage(**kwargs)
 
     @dc.content
-    def report_microscopes_usage_general_content(**kwargs):
-        return report_microscopes_usage(**kwargs)
-
-    @dc.content
-    def report_microscopes_usage_general(**kwargs):
-        return report_microscopes_usage(**kwargs)
-
-    @dc.content
     def report_sessions_distribution(**kwargs):
         data = report_microscopes_usage(**kwargs)
         dm = dc.app.dm  # shortcut
         sessions = dm.get_sessions()
-        selected = data['selected_resources']
+        selected_resources = data['selected_resources']
         start_date = data['start_date']
         end_date = data['end_date']
         sessions_images = []
@@ -646,17 +637,18 @@ def register_content(dc):
         biggest = [0, 0]
 
         all_users = {u.email: u for u in dm.get_users()}
+        active_emails = set()
 
         for e in data['entries']:
             for u in e.get('users', []):
-                active_users[u] = all_users[u]
+                active_emails.add(u)
 
         # Create monthly histogram for plotting (Highcharts)
-        sessions_monthly = defaultdict(lambda : [0, 0, 0])
+        sessions_monthly = defaultdict(lambda: [0, 0, 0])
         for s in sessions:
             movies = s.total_movies
             b = s.booking
-            if (s.resource_id not in selected or movies <= 0 or
+            if (s.resource_id not in selected_resources or movies <= 100 or
                 b is None or b.start < start_date or b.end > end_date):
                 continue
             dkey = s.start.strftime('%Y-%m-01')
@@ -669,13 +661,39 @@ def register_content(dc):
                 biggest = [movies, size]
             sessions_images.append(movies)
             sessions_size.append(size)
-            active_users[b.owner.email] = b.owner
+            active_emails.add(b.owner.email)
 
         n = len(sessions_images)
+
+        active_pi = defaultdict(lambda: [])
+        for userEmail in active_emails:
+            user = all_users[userEmail]
+            pi = user.get_pi()
+            active_pi[pi.email].append(user)
+
+        users_monthly = defaultdict(lambda: 0)
+
+        def _add_user(user):
+            if user.email not in active_users:
+                dkey = user.created.strftime('%Y-%m-01')
+                users_monthly[dkey] += 1
+                active_users[user.email] = user
+
+        for piEmail, users in active_pi.items():
+            _add_user(all_users[piEmail])
+            for user in users:
+                _add_user(user)
+
+        users_monthly_data = []
+        total = 0
+        for k in sorted(users_monthly.keys()):
+            total += users_monthly[k]
+            users_monthly_data.append((k, total))
 
         data.update(
             {'sessions': sessions,
              'sessions_monthly': [(k, v[0], v[1], v[2]) for k, v in sessions_monthly.items()],
+             'users_monthly': users_monthly_data,
              'sessions_images': sessions_images,
              'sessions_size': sessions_size,
              'avg_images': sum(sessions_images) // n,
