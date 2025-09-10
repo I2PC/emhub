@@ -67,12 +67,14 @@
 
     function getArgs() {
         var app_id = $('#application-id').val();
+        var selected_resources = $('#selectpicker-resource').selectpicker('val');
+        console.log("selected: " + selected_resources.toString())
 
         return {
             key: last_key,
             start: start_date,
             end: end_date,
-            selected: $('#selectpicker-resource').selectpicker('val').join(','),
+            selected_resources: selected_resources, //.join(','),
             metric: 'days',
             application: app_id
         }

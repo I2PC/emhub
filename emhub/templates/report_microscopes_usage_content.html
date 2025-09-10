@@ -4,6 +4,7 @@
 
             <div class="row">
                 {% set nres = selected_resources|length %}
+                {% set resource = resources_dict[selected_resources[0]] %}
                 {% set rid = resource['id'] %}
                 <!-- Overall table -->
                 <div class="card  col-12">

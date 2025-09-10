@@ -71,7 +71,7 @@
             key: last_key,
             start: start_date,
             end: end_date,
-            selected: $('#selectpicker-resource').selectpicker('val'),
+            selected_resources: $('#selectpicker-resource').selectpicker('val'),
             metric: 'all',
             application: app_id
         }
@@ -79,16 +79,16 @@
 
     function updateReport() {
         var args = getArgs();
-        let selected = args.selected;
+        let selected_resources = args.selected_resources;
 
          $("#report-content").empty();
 
         const element = document.getElementById('report-content');
         // element.innerHTML = '';
 
-         for (let i = 0; i < selected.length; ++i){
-             let rid = selected[i];
-             let idStr = "content-resource-" + rid;
+         for (let i = 0; i < selected_resources.length; ++i){
+             let resource_id = selected_resources[i];
+             let idStr = "content-resource-" + resource_id;
              console.log('idStr: ' + idStr);
 
              // Create a new element
@@ -97,7 +97,8 @@
             child.className = "card card-body";
             child.textContent = idStr;
             element.appendChild(child);
-            args.resource = rid;
+            args.selected_resources = JSON.stringify([resource_id]);
+            console.log("selected_resources: " + JSON.stringify(args.selected_resources));
             load_html_from_ajax(idStr, get_ajax_content('report_microscopes_usage_content', args));
          }
     }
@@ -105,7 +106,7 @@
     function selectEntryList(key, resource_id) {
         last_key = key;
         var args = getArgs();
-        args.resource = resource_id;
+        args.selected_resources = JSON.stringify([resource_id]);
         show_modal_from_ajax('show-entries-modal',
             get_ajax_content('report_microscopes_usage_entrylist', args));
     }
