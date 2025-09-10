@@ -1570,6 +1570,34 @@ function create_hc_sessions_time(containerId, data, config) {
         yAxis = {min: 0, title: {text: config.yAxis[0]}};
     }
 
+    var series = [
+          {
+              name: config.dataNames[0],
+              type: 'column',
+              showInLegend: true,
+              color: columnsColor,
+              data: (function() {
+                  return data.map(function(point) {
+                    return [Date.parse(point[0]), point[1]];
+                  });
+              })()
+          }];
+
+    if (config.yAxis.length > 1) {
+         series.push({
+              name: config.dataNames[1],
+              type: 'spline',
+              yAxis: config.yAxis.length > 1 ? 1 : 0,
+              showInLegend: true,
+              color: splineColor,
+              data: (function() {
+                  return data.map(function(point) {
+                    return [Date.parse(point[0]), point[2]];
+                  });
+              })()
+          });
+    }
+
     Highcharts.chart(containerId, {
       title: {
         text: config.title
@@ -1592,32 +1620,7 @@ function create_hc_sessions_time(containerId, data, config) {
           borderWidth: 0
         }
       },
-      series: [
-          {
-              name: config.dataNames[0],
-              type: 'column',
-              showInLegend: true,
-              color: columnsColor,
-              data: (function() {
-                  return data.map(function(point) {
-                    return [Date.parse(point[0]), point[1]];
-                  });
-              })()
-          }
-          ,
-          {
-              name: config.dataNames[1],
-              type: 'spline',
-              yAxis: config.yAxis.length > 1 ? 1 : 0,
-              showInLegend: true,
-              color: splineColor,
-              data: (function() {
-                  return data.map(function(point) {
-                    return [Date.parse(point[0]), point[2]];
-                  });
-              })()
-          }
-      ]
+      series: series
 
 });
 

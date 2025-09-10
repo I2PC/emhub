@@ -238,7 +238,29 @@ function getSelectedValues(sel) {
  * @param title Title of the dialog.
  * @param msg Message to display.
  */
-function showMessage(title, msg) {
+function showMessage(title, msg, extra) {
+    var extraHtml = '';
+    if (nonEmpty(extra)) {
+        extraHtml =
+              '<div class="accordion-regular"  style="background-color: #f5f5f5">\n' +
+              '    <div id="accordionError"  style="background-color: #f5f5f5">\n' +
+              '        <div class="card">\n' +
+              '            <div class="card-header" id="headingError"  style="background-color: #f5f5f5">\n' +
+              '                <h5 class="mb-0">\n' +
+              '                <button class="btn btn-link" data-toggle="collapse" data-target="#collapseError" aria-expanded="false" aria-controls="collapseError">\n' +
+              '                <span class="fas fa-angle-down mr-3"></span>Display error traceback\n' +
+              '                </button>\n' +
+              '                </h5>\n' +
+              '            </div>\n' +
+              '            <div id="collapseError" class="collapse" aria-labelledby="headingError" data-parent="#accordionError">\n' +
+              '                <div class="card-body">\n' +
+              '                    <pre>' + extra + '</pre>\n' +
+              '                </div>\n' +
+              '            </div>\n' +
+              '        </div>\n' +
+              '    </div>\n' +
+              '</div>';
+    }
     var confirmModal =
     $('<div class="modal" id="msg-modal" tabindex="-1" role="dialog" aria-labelledby="msgModal" aria-hidden="true">\n' +
       '  <div class="modal-dialog modal-dialog-centered modal-lg" role="document">\n' +
@@ -247,7 +269,7 @@ function showMessage(title, msg) {
       '           <h4 class="modal-title" id="message-title">' + title + '</h4>\n' +
       '      </div>' +
       '      <div class="modal-body" id="yesno-body">' + msg +
-      '      </div>\n' +
+      '      </div>\n' + extraHtml +
       '      <div class="modal-footer">\n' +
       '        <button type="button" class="btn btn-primary" id="okButton" data-dismiss="modal">Ok</button>\n' +
       '      </div>\n' +
@@ -264,6 +286,15 @@ function showMessage(title, msg) {
  * @param msg Message to display, prepended by 'ERROR'.
  */
 function showError(msg) {
+    if (msg.startsWith('ERROR')){
+        var index = msg.indexOf('Traceback');
+        if (index >= 0){
+            var title = msg.substring(0, index);
+            var extra = msg.substring(index);
+            showMessage(title, '', extra);
+            return;
+        }
+    }
     showMessage('ERROR', msg);
 }
 
