@@ -559,6 +559,8 @@ def register_content(dc):
         bar_data = [{
             'name': _name(e),
             'color': e['color'],
+            'days': e['total_days'],
+            'data': e['values']['data'],
             'y': e['total_days'] * percent_usage,
             'drilldown': e['label']
         } for e in entries_sorted]

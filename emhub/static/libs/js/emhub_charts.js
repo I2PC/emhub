@@ -397,19 +397,24 @@ function create_hc_usage(containerId, chartType, usageData, drilldownData, args)
             valueSuffix: '%'
         }
     },
-
+    xAxis: {
+            labels: {
+                enabled: false
+            }
+        },
     plotOptions: {
         series: {
             dataLabels: {
                 enabled: true,
-                format: '{point.name}: {point.y:.1f}%'
+                //rotation: -90,
+                format: '<span style="">{point.name}</span>: </br><b>{point.y:.2f}%</b>'
             }
         }
     },
 
     tooltip: {
         headerFormat: '<span style="font-size:11px">{series.name}</span><br>',
-        pointFormat: '<span style="color:{point.color}">{point.name}</span>: <b>{point.y:.2f}%</b> of total<br/>'
+        pointFormat: '<span style="">{point.name}</span>: <b>{point.y:.2f}%</b> of total<br/>'
     },
 
     series: [
@@ -577,6 +582,59 @@ function create_hc_columns(containerId, config){
         series: config.series
     });
 } // function create_hc_columns
+
+function create_hc_vcolumns(containerId, config){
+
+    Highcharts.chart(containerId, {
+        chart: {
+            type: 'bar'
+        },
+        title: {
+            text: 'Usage by users'
+        },
+        xAxis: {
+            categories: config.categories,
+            title: {
+                text: null
+            },
+            gridLineWidth: 1,
+            lineWidth: 0,
+        },
+        yAxis: {
+            min: 0,
+            gridLineWidth: 0,
+            labels: {
+                enabled: false
+            },
+            title: {text: null}
+        },
+        plotOptions: {
+            bar: {
+                //borderRadius: '50%',
+                dataLabels: {
+                    enabled: true
+                },
+                groupPadding: 0.1
+            }
+        },
+        legend: {
+            layout: 'vertical',
+            align: 'right',
+            verticalAlign: 'bottom',
+            x: -20,
+            y: -60,
+            floating: true,
+            borderWidth: 1,
+            backgroundColor: 'var(--highcharts-background-color, #ffffff)',
+            shadow: true
+        },
+        credits: {
+            enabled: false
+        },
+        series: config.series,
+    });
+} // function create_hc_vcolumns
+
 
 
 /* Draw the micrograph images with coordinates(optional) */
