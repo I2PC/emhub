@@ -1625,7 +1625,16 @@ function create_hc_sessions_time(containerId, data, config) {
                  {min: 0, title: {text: config.yAxis[1]}, opposite: true}];
     }
     else {
-        yAxis = {min: 0, title: {text: config.yAxis[0]}};
+        yAxis = {
+            min: 0,
+            title: {text: config.yAxis[0]},
+            labels: {
+                style: {
+                    fontWeight: 'bold',
+                    fontSize: "14px"
+                }
+            }
+        };
     }
 
     var series = [
@@ -1663,8 +1672,12 @@ function create_hc_sessions_time(containerId, data, config) {
       xAxis: {
         type: 'datetime',
         ordinal: true,
-        labels: {
-        },
+          labels: {
+                style: {
+                    fontWeight: 'bold',
+                    fontSize: "14px"
+                }
+            },
          tickPositioner: function() {
           return data.map(function(point) {
             return Date.parse(point[0]);
