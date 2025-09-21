@@ -762,7 +762,8 @@ class DataContent:
                     r = round(mic['ctfResolution'], 3)
                     resolution.append(r)
                     rbins.addValue(r)
-                    tsList.append(mic['ts'] * 1000)  # Timestamp in milliseconds
+                    if 'ts' in mic:
+                        tsList.append(mic['ts'] * 1000)  # Timestamp in milliseconds
 
                 if firstMic and lastMic:
                     tsFirst, tsLast = _ts(firstMic), _ts(lastMic)
