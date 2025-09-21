@@ -524,9 +524,11 @@ function get_ajax_content(content_id, params) {
  * @param container_id: Container that will receive the HTML content
  * @param ajaxContent: already created AJAX content
  */
-function load_html_from_ajax(container_id, ajaxContent) {
+function load_html_from_ajax(container_id, ajaxContent, afterLoad) {
     ajaxContent.done(function(html) {
         $('#' + container_id).html(html);
+        if (nonEmpty(afterLoad))
+            setTimeout(afterLoad, 500);  // after half second
     });
 
     ajaxContent.fail(ajax_request_failed);
@@ -543,9 +545,7 @@ function show_modal_from_ajax(container_id, ajaxContent) {
     ajaxContent.done(function(html) {
         $('#' + container_id).html(html);
         // Timing, maybe implement Timer for js code
-        // console.log(`loaded html, ${performance.now() - timestamp} milliseconds.` );
         $('#' + container_id).modal('show');
-        // console.log(`loaded dialog, ${performance.now() - timestamp} milliseconds.` );
     });
 
     ajaxContent.fail(function(jqXHR, textStatus) {

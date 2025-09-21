@@ -1454,7 +1454,7 @@ function session_updatePlots() {
         session_plots = {};
         var data_defocus = [];
         var data_resolution = [];
-        var ts = config.startX;
+        var tsInc = config.startX;
         var date, gs;
 
         gsLines = [];
@@ -1470,7 +1470,8 @@ function session_updatePlots() {
             if (a > config.maxY)
                 config.maxY = a;
             data.push([angle, a])
-            ts = session_data.timestamps[i];
+            var ts = i < session_data.timestamps.length ? session_data.timestamps[i] : tsInc;
+
             date = new Date(ts)
             gs = session_data.gridsquares[i];
             if (gs !== lastGs) {
@@ -1480,7 +1481,7 @@ function session_updatePlots() {
 
             data_defocus.push([ts, session_data.defocus[i]]);
             data_resolution.push([ts, session_data.resolution[i]])
-            // ts += config.stepX;
+            tsInc += config.stepX;
         }
         config.maxY = config.maxY + (config.maxY * 0.1)
         session_plots.defocus = create_hc_defocus_series('defocus_plot', {
