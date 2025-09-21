@@ -1,0 +1,44 @@
+
+
+<!-- table row -->
+<div class="row">
+    <div class="col-2">
+        <div class="row">
+
+            {% for dewar in storage.dewars() %}
+
+                {% set d = dewar['id'] %}
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">Dewar {{ d }}</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                {% for cane in dewar['canes'].values() %}
+                                    {% set c = cane['id'] %}
+                                    <div class="col-12 mb-2">
+                                        {% set badge_type = 'dark' %}
+                                        <a href="javascript:loadCane({{ d }}, {{ c }})" class="badge badge-{{ badge_type }} mr-1" style="background-color: {{ cane['color'] }};">cane {{ c }}</a>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            {% endfor %}
+
+
+        </div>
+    </div>
+
+<div id="cane-content" class="col-10 p-0 m-0">
+    {% include "grids_cane.html" %}
+</div>
+
+</div>
+<!-- end table row -->
+
+
+

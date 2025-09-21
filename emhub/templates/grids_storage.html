@@ -6,49 +6,36 @@
     {% set is_manager = current_user.is_manager %}
     {% set is_admin = current_user.is_admin %}
 
-    <!-- table row -->
     <div class="row">
-        <div class="col-2">
-            <div class="row">
 
-                {% for dewar in storage.dewars() %}
-                    {% set d = dewar['id'] %}
-                <div class="col-12">
-                    <div class="card">
-                        <div class="card-header">
-                            <h5 class="mb-0">Dewar {{ d }}</h5>
-                        </div>
-                        <div class="card-body">
-                            <div class="row">
-                                {% for cane in dewar['canes'].values() %}
-                                    {% set c = cane['id'] %}
-                                    <div class="col-12 mb-2">
-{#                                    {% if i % 5 == 0 %}#}
-{#                                        {% set badge_type = 'light' %}#}
-{#                                        <label class="badge badge-{{ badge_type }} mr-1">cane {{ i }}</label>#}
-{#                                    {% else %}#}
-                                        {% set badge_type = 'dark' %}
-{#                                        <a href="{{ url_for_content('grids_storage', dewar=d, cane=i) }}" class="badge badge-{{ badge_type }} mr-1">cane {{ i }}</a>#}
-                                        <a href="javascript:loadCane({{ d }}, {{ c }})" class="badge badge-{{ badge_type }} mr-1" style="background-color: {{ cane['color'] }};">cane {{ c }}</a>
-{#                                    {% endif %}#}
-                                    </div>
-                                {% endfor %}
-                            </div>
-                        </div>
-                    </div>
+        <div class="pills-outline col-12">
+            <ul class="nav nav-pills mb-2" id="puckNav" role="tablist">
+
+                <li class="nav-item">
+                    <a class="nav-link active" id="puck-map-tab" data-toggle="tab" href="#puck-map" role="tab" aria-controls="current" aria-selected="true">Map</a>
+                </li>
+
+                 <li class="nav-item">
+                    <a class="nav-link" id="puck-table-tab" data-toggle="tab" href="#puck-table" role="tab" aria-controls="current" aria-selected="false">Table</a>
+                </li>
+
+            </ul> <!-- End Navigation -->
+
+            <div class="tab-content" id="puckContent">
+
+                <div class="tab-pane fade show active puck-tab" id="puck-map" role="tabpanel" aria-labelledby="puck-map-tab">
+                    {% include 'grids_storage_map.html' %}
                 </div>
-                {% endfor %}
 
+                <div class="tab-pane fade puck-tab" id="puck-table" role="tabpanel" aria-labelledby="puck-table-tab">
+                    {% include 'grids_storage_table.html' %}
+                </div>
 
-            </div>
+            </div> <!-- End Content -->
+
         </div>
 
-    <div id="cane-content" class="col-10 p-0 m-0">
-        {% include "grids_cane.html" %}
     </div>
-
-    </div>
-    <!-- end table row -->
 
 </div>
 
@@ -58,6 +45,7 @@
     function loadCane(dewar, cane) {
         load_html_from_ajax('cane-content',
             get_ajax_content('grids_cane', {dewar: dewar, cane: cane, pucks_range: range})
+            //,function (){ makeSameHeight('puck-tab'); }
         );
     }
 
@@ -68,4 +56,17 @@
         var title = document.getElementById('location-title');
         title.innerText = "Dewar " + dewar + " - Cane " + cane + " - Puck " + puck;
     }
+
+    (function(window, document, $, undefined) {
+    "use strict";
+
+    var table = $('#table-pucks').DataTable({
+        sDom: 'lfrtip',
+        paging: false,  // no paging
+        info: false
+
+    });
+
+
+    })(window, document, window.jQuery);
 </script>

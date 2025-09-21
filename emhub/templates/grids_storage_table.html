@@ -1,0 +1,64 @@
+
+
+<!-- table row -->
+<div class="row">
+
+    <div class="card col-12">
+        <div class="card-body">
+
+            <table id="table-pucks" class="table" style="width: 100%">
+            <thead>
+                <tr>
+                    <th>Dewar / Cane</th>
+                    <th>Puck</th>
+                    <th>Slot</th>
+                    <th>Entry</th>
+                    <th>Gridbox Label (Pos)</th>
+                    <th>Sample</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                {% for dewar in storage.dewars() %}
+                    {% set d = dewar['id'] %}
+                    {% for cane in dewar['canes'].values() %}
+                        {% set c = cane['id'] %}
+                        {% for p in storage.pucks(d, c) %}
+                            {% for i in range(1, 13) %}
+                                   {% set gridboxes = p['gridboxes'][i] %}
+                                    {% for k, row in gridboxes.items() %}
+                                        {% set entry = row['entry'] %}
+                                        {% set boxes = entry['extra']['data']['grids_storage_table'] %}
+                                        {% for box in boxes %}
+
+                                        <tr>
+                                            <td>{{ d }} / <label class="badge badge-dark" style="background-color: {{ cane['color'] }};">cane {{ c }}</label></td>
+                                            <td style="background-color: {{ p['color'] }}"><a style="color: white;" >{{ p['label'] }}</a></td>
+                                            <th>Slot{{ i }}</th>
+                                            <th>
+                                                <a href="javascript:showEntryForm({{ entry.id }}, {{ entry.project.id }})"><span class="badge badge-pill badge-success">{{ k }}</span></a>
+                                            </th>
+                                            <th>{{ box['gridbox_label'] }} ({{ box['box_position'] }})</th>
+                                            <td>{{ box['sample'] }}</td>
+                                        </tr>
+
+                                        {% endfor %}
+                                    {% endfor %}
+                            {% endfor %}
+                        {% endfor %}
+                    {% endfor %}
+                {% endfor %}
+
+
+            </tbody>
+
+            </table>
+
+        </div> <!-- Card body -->
+    </div> <!-- Card -->
+
+</div>
+<!-- end table row -->
+
+
+
