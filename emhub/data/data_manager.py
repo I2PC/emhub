@@ -1378,7 +1378,7 @@ class DataManager(DbManager):
             # the owner is a manager
             owner = self.get_user_by(id=booking.owner_id)
 
-            if not owner.is_manager:
+            if owner and not owner.is_manager:
                 apps = owner.get_applications()
                 n = len(apps)
 

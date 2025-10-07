@@ -214,7 +214,7 @@ class DataContent:
         # - managers
         # - application creators
         # - the owner and pi of the owner
-        can_modify_list = [owner.id]
+        can_modify_list = [owner.id] if owner else []
 
         if a is not None:
             can_modify_list.append(a.creator.id)
@@ -222,7 +222,7 @@ class DataContent:
         if user.is_manager and (a is None or a.allows_access(user)):
             can_modify_list.append(user.id)
 
-        pi = owner.get_pi()
+        pi = owner.get_pi() if owner else None
         if pi is not None:
             can_modify_list.append(pi.id)
 
@@ -254,7 +254,7 @@ class DataContent:
             display = dm.get_config('bookings')['display']
             emptyApp = a is None or not display['show_application']
             appStr = '' if emptyApp else ', %s' % a.code
-            emptyPi = (owner.is_manager or owner.is_pi or
+            emptyPi = (owner is None or owner.is_manager or owner.is_pi or
                        pi is None or not display.get('show_pi', False))
             piStr = '' if emptyPi else shortname(pi) + '/'
             emptyOp = operator is None or not display.get('show_operator', False)
