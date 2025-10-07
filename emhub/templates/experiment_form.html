@@ -1,2 +1,7 @@
 
-{% include 'dynamic_form_modal.html' %}
+{% if mode == 'modal' %}
+    {% include 'dynamic_form_modal.html' %}
+{% else %}
+    {% include 'dynamic_form.html' %}
+{% endif %}
+

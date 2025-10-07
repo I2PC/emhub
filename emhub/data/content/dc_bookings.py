@@ -169,15 +169,16 @@ def register_content(dc):
 
         bconfig = dm.get_config('bookings')
         if experiments := bconfig.get('experiment_forms', None):
-            formName = experiments.get(resource.name, 'experiment')
+            formName = experiments.get(resource.name, None)
         else:
-            formName = 'experiment'
+            formName = None
 
         if not formName:
             raise Exception("There is no Experiment defined for "
                             "this Instrument.")
         form = dm.get_form_by(name=formName)
         data = dc.dynamic_form(form, **kwargs)
+        data['mode'] = kwargs.get('mode', 'modal')
         return data
 
 

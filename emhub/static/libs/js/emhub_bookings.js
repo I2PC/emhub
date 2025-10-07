@@ -143,6 +143,10 @@ function onOkButtonClick(is_new) {
 
     try {
         booking = getBookingParams(!is_new);
+        if (experiment_mode === 'embedded'){
+            last_experiment = getFormAsJson('dynamic-form');
+            booking.experiment = last_experiment;
+        }
     }
     catch (err) {
         showError("Error: " + err.toString());
@@ -221,9 +225,10 @@ function onCancelButtonClick() {
     }
 }
 
-function showExperimentForm(booking_id) {
+function showExperimentForm(booking_id, mode) {
     var local_booking = getFormAsJson('booking-form');
     var params = {booking_id: booking_id};
+    params.mode = mode;
 
     if (!nonEmpty(local_booking.resource_id)){
         showError("Select a resource before opening the Experiment form.");
@@ -234,16 +239,28 @@ function showExperimentForm(booking_id) {
     if (last_experiment)
         params.form_values = JSON.stringify(last_experiment);
 
+    if (mode === 'embedded'){
+        $('#experiment-form-content').html('');
+    }
+
     ajaxContent = get_ajax_content("experiment_form", params);
 
     ajaxContent.done(function(html) {
-        $("#experiment-modal").html(html);
-        $("#dynamic-btn-ok" ).click(function() {
-            last_experiment = getFormAsJson('dynamic-form');
-            $('#experiment-modal').modal('hide');
-        });
-        // Show the form after setting html content
-        $('#experiment-modal').modal('show');
+        if (mode === 'modal') {
+            $("#experiment-modal").html(html);
+            $("#dynamic-btn-ok").click(function () {
+                last_experiment = getFormAsJson('dynamic-form');
+                $('#experiment-modal').modal('hide');
+            });
+            // Show the form after setting html content
+            $('#experiment-modal').modal('show');
+        }
+        else if (mode === 'embedded'){
+            if (html.indexOf('error-modal-title') < 0)  // No error produced
+                $('#experiment-form-content').html(html);
+        }
+        else
+            showError(`Unrecognized Experiment display mode ${model}.`)
     });
 
     ajaxContent.fail(function(jqXHR, textStatus) {

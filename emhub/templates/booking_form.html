@@ -34,7 +34,7 @@
                         {{ row_label('Resource') }}
 
                         <div class="col-7">
-                            <select id="selectpicker-resource" class="selectpicker show-tick" data-width="auto" data-key="resource_id" title="Select Resource to book..." {{ select_readonly }}>
+                            <select id="selectpicker-resource" class="selectpicker show-tick" data-width="auto" data-key="resource_id" title="Select Resource to book..." {{ select_readonly }}  onchange="onResourceChanged(this)">
                             {% for r in resources %}
                                 {% if r['user_can_book'] %}
                                     {% set selected = 'selected' if r['id'] == booking.resource_id|int else '' %}
@@ -142,14 +142,22 @@
                         </div>
                     </div>
 
-                    {% if show_experiment %}
-                        <div class="form-group row" id="div-describe-experiment">
-                            <a href="javascript: showExperimentForm({{ booking.id|tojson }})" class="col-12 col-form-label text-sm-left"><i class="fas fa-edit"></i> Describe Experiment</a>
-                        </div>
-                    {% endif %}
-
                 <!-- Form ends here -->
                 </form>
+
+                    {% if show_experiment == 'modal' %}
+                        <div class="form-group row" id="div-describe-experiment">
+                            <a href="javascript: showExperimentForm({{ booking.id|tojson }}, 'modal')" class="col-12 col-form-label text-sm-left"><i class="fas fa-edit"></i> Describe Experiment</a>
+                        </div>
+                    {% elif show_experiment == 'embedded' %}
+                        <div class="col-11 m-4" style="border: 1px solid #e6e6f2;">
+                            <div><h4 class="col-12 text-sm-left">Experiment</h4></div>
+                             <div id="experiment-form-content"></div>
+                        </div>
+
+                    {% endif %}
+
+
             </div>
             <!-- end Booking Form -->
 
@@ -287,6 +295,14 @@
 
 
 <script>
+    var booking_id = {{ booking.id or 0 }};
+    var experiment_mode = {{ show_experiment|tojson }};
+
+    function onResourceChanged() {
+        var v = $("#selectpicker-resource").selectpicker('val');
+        showExperimentForm(booking_id, 'embedded')
+    }
+
     (function(window, document, $, undefined) {
     "use strict";
 
@@ -295,6 +311,9 @@
     setDateAndTime('booking-end', '{{ booking.end.isoformat() }}');
     // We don't need to update stop date since it is only used at creation
     $('#booking-repeat-stop-date').datetimepicker({format: 'YYYY/MM/DD'});
+
+    if (booking_id && experiment_mode === 'embedded')
+        setTimeout(function (){ showExperimentForm(booking_id, experiment_mode); }, 500);
 
 
 
