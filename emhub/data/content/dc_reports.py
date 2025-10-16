@@ -34,7 +34,7 @@ from collections import defaultdict
 from random import shuffle
 import json
 
-from emtools.utils import Pretty
+from emtools.utils import Pretty, Color
 from emhub.utils import (shortname, get_quarter, pretty_quarter, pretty_date,
                          datetime_from_isoformat)
 
@@ -351,7 +351,8 @@ def register_content(dc):
         metric_all = {
             'data': {'_value': lambda b: b.total_size},
             'days': {'_value': lambda b: b.units(hours=12)},
-            'images': {'_value': lambda b: b.total_images}
+            'images': {'_value': lambda b: b.total_images},
+            'count': {'_value': lambda b: 1}
             #'hours': {'_value': lambda b: b.hours}
         }
 
@@ -365,14 +366,22 @@ def register_content(dc):
         centers = dm.get_config('sessions').get('centers', {})
         groups = dm.get_config('sessions').get('groups', {})
 
-        colors = ['#3cb44b', '#4363d8', '#f58231', '#911eb4', '#46f0f0', '#ffe119', '#008080', '#f032e6', '#bcf60c', '#fabebe',  '#e6beff', '#9a6324', '#fffac8', '#800000', '#aaffc3', '#808000', '#ffd8b1', '#000075',  '#808080', '#000000', '#e6194b']
+        colors = [
+            '#3cb44b', '#4363d8', '#f58231', '#911eb4', '#46f0f0', '#ffe119',
+            '#008080', '#f032e6', '#bcf60c', '#fabebe',  '#e6beff', '#9a6324',
+            '#fffac8', '#800000', '#aaffc3', '#808000', '#ffd8b1', '#000075',
+            '#808080', '#000000', '#e6194b'
+        ]
+
         pi_colors = {}
         groups_colors = dm.get_config('reports').get('groups_colors', None)
 
         types_colors = {
             'downtime': '#B22222',
+            'cryo-cycle': '#ffd580',
             'maintenance': '#FF7F50',
             'repair': '#FF4B33',
+            'training': '#702963',
             'special': '#20B2AA'
         }
 
@@ -418,7 +427,9 @@ def register_content(dc):
                      if r['name'] in report_resources]
         resources_dict = {r['id']: r for r in resources}
 
-        if 'selected_resources' in kwargs:
+        if 'r' in kwargs:
+            selected_resources = [int(v) for v in kwargs['r'].split(',')]
+        elif 'selected_resources' in kwargs:
             selected_resources = [int(v) for v in json.loads(kwargs['selected_resources'])]
         else:
             selected_resources = [r['id'] for r in resources]
@@ -450,6 +461,25 @@ def register_content(dc):
 
         total_entry = _entry('Total', 'Total', )
 
+        calendar_days = defaultdict(lambda: defaultdict(lambda: 0))
+        calendar_dates = {}
+        from datetime import timedelta
+
+        dm = dc.app.dm
+
+        def _register(b, category):
+            """ Register all day type of bookings. """
+            start = dm.dt_as_local(b.start)
+            end = dm.dt_as_local(b.end)
+            d = start.date()
+            # print(f"{category}: booking: {b}")
+            while d <= end.date():
+                dkey = Pretty.date(d)
+                calendar_days[dkey][category] += b.hours
+                calendar_dates[dkey] = d
+                # print(f"       - day: {Pretty.date(d)}")
+                d += timedelta(days=1)
+
         for b in bookings:
             rid = b.resource.id
             if rid not in selected_resources:
@@ -459,13 +489,14 @@ def register_content(dc):
             entry_app = ''
             entry_project = None
 
-            if b.type in ['downtime', 'maintenance', 'special', 'repair']:
+            if b.type in types_colors:
                 entry_key = b.type
                 entry_label = entry_key.capitalize()
                 entry_email = ''
                 entries = entries_down
                 total_down += b_values['days']
                 entry_color = types_colors[entry_key]
+                _register(b, b.type)
             else:
                 if b.project:
                     pi = b.project.user.get_pi()
@@ -481,6 +512,7 @@ def register_content(dc):
                 entry_color = _pi_color(entry_email)
                 entries = entries_usage
                 _add_values(total_entry, b_values)
+                _register(b, "used")
                 ts = dt.datetime.timestamp(b.end)
                 resources_data_usage[rid].append((ts * 1000, b_values['data']))
 
@@ -519,7 +551,8 @@ def register_content(dc):
 
         percent = _percent(total_days)
         total_usage = total_entry['total_days']
-        percent_usage = _percent(total_usage)
+        total_sessions = total_entry['values']['count']
+        percent_usage = _percent(total_sessions)
 
         def _name(e):
             name = centers.get(e['email'], e['label'])
@@ -538,13 +571,47 @@ def register_content(dc):
         # total days minus usage (including maintenance, downtime, or special)
         start = datetime_from_isoformat(range_dict['start'].replace('/', '-'))
         end = datetime_from_isoformat(range_dict['end'].replace('/', '-'))
-        period_days = (end - start).days
+        print(f">>>> start: {Pretty.datetime(start)}:", flush=True)
+        print(f">>>> end: {Pretty.datetime(end)}:", flush=True)
+
+        period_days = (end - start).days + 1
         period_units = period_days * 2
+
+        calendar_max = defaultdict(lambda: 0)
+
+        for k in sorted(calendar_days):
+            data = calendar_days[k]
+            print(f">>>> {k}:", flush=True)
+            max_k = None
+            max_v = 0
+            for k2, v2 in data.items():
+                if v2 > max_v:
+                    max_v = v2
+                    max_k = k2
+            if max_k:
+                all_str = ','.join(f'{k2}: {v2}' for k2, v2 in data.items())
+                print(f"       - ALL: {all_str}", flush=True)
+                print(f"       - MAX: {max_k}: {max_v}", flush=True)
+                d = calendar_dates[k]
+                # Only update stats when the date is in range
+                if not (d < start.date() or d > end.date()):
+                    calendar_max[max_k] += 1
+
+        # for k, v in calendar_max.items():
+        #     print(f">>>> MAX: {k}: {v}", flush=True)
+
+        for k, v in entries_down.items():
+            v['total_days'] = calendar_max.get(k, 0) * 2
+        total_usage = calendar_max.get('used') * 2
 
         other_total = sum(e['total_days'] for e in entries_down.values())
         unused_total = period_units - total_usage - other_total
+        #
+        # print(">>>> period_days: ", other_total, flush=True)
+        # print(">>>> other_total: ", other_total, flush=True)
+        # print(">>>> unused_total: ", unused_total, flush=True)
 
-        used_entry = _entry(key='usage', label='Usage', total_days=total_usage,
+        used_entry = _entry(key='used', label='Used', total_days=total_usage,
                             color='#3CB371')
         unused_entry = _entry(key='unused', label='Unused', total_days=unused_total,
                               color='#D3D3D3')
@@ -559,9 +626,9 @@ def register_content(dc):
         bar_data = [{
             'name': _name(e),
             'color': e['color'],
-            'days': e['total_days'],
+            'days': e['values']['count'],
             'data': e['values']['data'],
-            'y': e['total_days'] * percent_usage,
+            'y': e['values']['count'] * percent_usage,
             'drilldown': e['label']
         } for e in entries_sorted]
 
@@ -616,7 +683,9 @@ def register_content(dc):
             'start_date': start,
             'end_date': end,
             'period_days': period_days,
-            'period': periodStr
+            'period': periodStr,
+            'total_sessions': total_sessions,
+            'types_colors': types_colors
         }
         data.update(range_dict)
         return data

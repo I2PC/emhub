@@ -232,18 +232,18 @@ class DataContent:
 
         application_label = 'None'
 
-        if booking.type == 'special':
-            color = 'rgba(98,50,45,1.0)'
-            title = "%s (SPECIAL): %s" % (resource.name, b_title)
-        elif booking.type == 'downtime':
-            color = 'rgba(181,4,0,1.0)'
-            title = "%s (DOWNTIME): %s" % (resource.name, b_title)
-        elif booking.type == 'maintenance' or any(k in b_title for k in ['cycle', 'installation', 'maintenance', 'afis']):
-            color = 'rgba(255,107,53,1.0)'
-            title = "%s (MAINTENANCE): %s" % (resource.name, b_title)
-        elif booking.type == 'repair':
-            color = 'rgba(255,75,51,1.0)'
-            title = "%s (REPAIR): %s" % (resource.name, b_title)
+        types_colors = {
+            'downtime': 'rgba(181,4,0,1.0)',
+            'cryo-cycle': 'rgb(255,213,128,1.0)',
+            'maintenance': 'rgba(255,107,53,1.0)',
+            'repair': 'rgba(255,75,51,1.0)',
+            'training': '#702963',
+            'special': 'rgba(98,50,45,1.0)'
+        }
+
+        if booking.type in types_colors:
+            color = types_colors[booking.type]
+            title = f"{resource.name} ({booking.type.upper()}): {b_title}"
         elif booking.type == 'slot':
             color = color.replace('1.0', '0.5')  # transparency for slots
             title = "%s (SLOT): %s" % (resource.name,

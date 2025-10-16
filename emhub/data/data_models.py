@@ -698,7 +698,8 @@ def create_data_models(dm):
         """
         __tablename__ = 'bookings'
 
-        TYPES = ['booking', 'slot', 'downtime', 'maintenance', 'repair', 'special']
+        TYPES = ['booking', 'slot', 'downtime', 'maintenance', 'repair',
+                 'cryo-cycle', 'training', 'special']
 
         MAINTENANCE_LIST = ['cycle', 'installation', 'maintenance', 'afis', 'repair']
         DEVELOPMENT_LIST = ['method', 'research', 'test', 'mikroed', 'microed', 'devel']
