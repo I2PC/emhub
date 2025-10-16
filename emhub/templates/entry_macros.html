@@ -3,6 +3,11 @@
     <div class="col-12"><h3 class="pb-0 mb-0 mt-3">{{ title }}</h3><p>{{ text }}</p></div>
 {%- endmacro %}
 
+{% macro name_id(user) -%}
+    {% if user %}
+        {{ user|shortname }} ({{ user.id }})
+    {% endif %}
+{%- endmacro %}
 
 {% macro radiogroup(radioname, options) -%}
     {% for opt in options %}
