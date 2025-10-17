@@ -335,13 +335,17 @@ function createCalendar() {
             {
               url: Api.urls.booking.range,
               method: 'POST',
-                format: 'json'
+              format: 'json'
             }
         ],
         eventSourceSuccess: function(all_events, xhr) {
             var sel = document.getElementById("selectpicker-resource-display");
 
             var visibleResourcesId = getSelectedValues(sel);
+
+            function is_visible(e) {
+                return hasVisibleResource(visibleResourcesId, e.resource.id) && (!hide_slots || e.type != 'slot');
+            }
 
             hidden_events = [];
             var visible_events = [];
@@ -353,8 +357,7 @@ function createCalendar() {
                 e = all_events[i];
                 if (all_ids.indexOf(e.id) == -1){
                     all_ids.push(e.id);
-                    if (hasVisibleResource(visibleResourcesId,
-                                       e.resource.id))
+                    if (is_visible(e))
                         visible_events.push(e);
                     else {
                         e.extendedProps = {resource: e.resource};

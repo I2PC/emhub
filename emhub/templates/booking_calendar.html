@@ -28,7 +28,8 @@
                         <div class="col col-auto nopadding">
                             <select id="selectpicker-resource-display" class="selectpicker show-tick" multiple data-width="auto" data-selected-text-format="count > 2" title="Select Resource to display..."  data-actions-box="true"  onchange="filterBookingsByResources()">
                             {% for r in resources %}
-                              <option value="{{r['id']}}" class="badge" style="background: {{ r['color'] }}; color: #fff;">{{r['name']}}</option>
+                                {% set selected = 'selected' if r['id'] in selected_resources else '' %}
+                                <option {{ selected }} value="{{r['id']}}" class="badge" style="background: {{ r['color'] }}; color: #fff;">{{r['name']}}</option>
                             {% endfor %}
                             </select>
                         </div>
@@ -73,6 +74,7 @@
     var modify_all = false;
     var original_range = null;
     var hidden_events = [];
+    var hide_slots = {{ slots|tojson }} == false;
 
 (function(window, document, $, undefined) {
     "use strict";

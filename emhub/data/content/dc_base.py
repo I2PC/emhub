@@ -281,6 +281,7 @@ class DataContent:
             'color': color,
             'textColor': 'white',
             'booking_title': b_title,
+            'type': booking.type
         }
 
         if kwargs.get('prettyDate', False):

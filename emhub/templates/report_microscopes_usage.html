@@ -68,14 +68,14 @@
                 <div class="row">
                     {% set monthList = [['Jan', 'Feb', 'Mar'], ['Apr', 'May', 'Jun'],['Jul', 'Aug', 'Sep'], ['Oct', 'Nov', 'Dic']] %}
                     {% for months in monthList %}
-                        <div class="row col-12">
+                        <div class="row col-12 mt-1">
                             <div class="col-auto" >
                                 {% set key = "Q%s"|format(loop.index) %}
                                 <a href="javascript:reportShortcut('{{ key }}')" class="badge badge-dark mr-1" style="width: 50px">{{ key }}</a>
                             </div>
                             {% for m in months %}
                                 <div class="col-auto">
-                                    <a href="javascript:reportShortcut('{{ m }}')" class="badge badge-active mr-1" style="width: 50px">{{ m }}</a>
+                                    <a href="javascript:reportShortcut('{{ m }}')" class="badge badge-light mr-1" style="width: 50px">{{ m }}</a>
                                 </div>
                             {% endfor %}
                         </div>

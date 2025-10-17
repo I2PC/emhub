@@ -91,16 +91,13 @@ def register_content(dc):
     @dc.content
     def booking_calendar(**kwargs):
         dm = dc.app.dm  # shortcut
-        dataDict = dc.get_resources()
-        dataDict['bookings'] = [dc.booking_to_event(b)
-                                for b in dm.get_bookings()
-                                if b.resource is not None]
-        dataDict['applications'] = [{'id': a.id,
-                                     'code': a.code,
-                                     'alias': a.alias}
-                                    for a in dm.get_applications()
-                                    if a.is_active]
-        return dataDict
+        data = dc.get_resources()
+        selected = [int(v) for v in kwargs['r'].split(',')] if 'r' in kwargs else []
+        data['selected_resources'] = selected
+        data['applications'] = [{'id': a.id, 'code': a.code, 'alias': a.alias}
+                                for a in dm.get_applications() if a.is_active]
+        data['slots'] = bool(int(kwargs.get('slots', 1)))  # 0 to disable
+        return data
 
     @dc.content
     def booking_form(**kwargs):
