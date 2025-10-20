@@ -297,6 +297,7 @@
 <script>
     var booking_id = {{ booking.id or 0 }};
     var experiment_mode = {{ show_experiment|tojson }};
+    var booking_extra = {{ booking.extra|tojson }};
 
     function onResourceChanged() {
         var v = $("#selectpicker-resource").selectpicker('val');

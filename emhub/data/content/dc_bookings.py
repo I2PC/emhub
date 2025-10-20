@@ -135,6 +135,8 @@ def register_content(dc):
             args = dict(kwargs)
             args.pop('content_id')
             args.update(dates)
+            if 'extra' in kwargs:
+                args['extra'] = json.loads(kwargs['extra'])
             booking = dm.create_basic_booking(args)
 
         display = dm.get_config('bookings')['display']

@@ -143,6 +143,8 @@ function onOkButtonClick(is_new) {
 
     try {
         booking = getBookingParams(!is_new);
+        booking.extra = booking_extra;
+
         if (experiment_mode === 'embedded'){
             last_experiment = getFormAsJson('dynamic-form');
             booking.experiment = last_experiment;
