@@ -70,7 +70,7 @@ class DataContent:
         if get_func := self.get_content_func(name):
             return get_func(**kwargs)
         else:
-            raise Exception(f"Missing content function for '{content_id}'")
+            raise Exception(f"Missing content function for '{name}'")
 
     def get(self, **kwargs):
         content_id = kwargs['content_id']

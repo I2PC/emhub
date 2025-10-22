@@ -37,12 +37,6 @@
                         </li>
                     {%  endif %}
 
-                    {% if is_admin %}
-                        <li class="nav-item">
-                            <a class="nav-link" id="session-advanced-tab" data-toggle="tab" href="#session-advanced" role="tab" aria-controls="summary" aria-selected="false">Admin</a>
-                        </li>
-                    {% endif %}
-
                 </ul>
 
                 <div class="tab-content" id="myTabContent7">
@@ -101,6 +95,9 @@
                                 </div>
                             </div>
 
+                            {{ macros.session_dialog_row('RAW data folder', 'raw_folder', '', 'Provide RAW data folder') }}
+                            {{ macros.session_dialog_row('OTF folder', 'otf_folder', '', 'If OTF folder is not provided it will be created') }}
+
                         </div>
 
                         <div class="col-5 p-0 m-0">
@@ -125,17 +122,6 @@
                         </form>
                     </div>
                 {%  endif %}
-
-
-                {% if is_admin %}
-
-                    <div class="tab-pane fade" id="session-advanced" role="tabpanel" aria-labelledby="session-advanced-tab">
-                        <form id="session_extra_admin">
-                            {{ macros.session_dialog_row('RAW data folder', 'raw_folder', '', 'Provide RAW data folder') }}
-                            {{ macros.session_dialog_row('OTF folder', 'otf_folder', '', 'If OTF folder is not provided it will be created') }}
-                        </form>
-                    </div>
-                {% endif %}
 
                 </div>
             </div>
@@ -180,7 +166,8 @@
         if (nonEmpty(sessionName)) {
             attrs.name = sessionName;
             attrs.extra = {
-                raw: {},
+                raw: { path: formValues.raw_folder },
+                otf: { path: formValues.otf_folder },
                 project_id: formValues.project_id,
                 data: getFormAsJson('session_extra_form', true)
             }
