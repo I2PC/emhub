@@ -1028,46 +1028,21 @@ class DataManager(DbManager):
 
         return False
 
-    def _validate_access_microscopes(self, entry):
-        data = entry.extra['data']
-        micId = data.get('microscope_id', None)
-        if not (micId and self.get_resource_by(id=micId)):
-            raise Exception("Please select microscope")
-        dstr = data.get('suggested_date', '')
-        try:
-            sdate = self.date(dt.datetime.strptime(dstr, '%Y/%m/%d'))
-            now = self.now()
-            nowDay = self.date(dt.datetime.now())
-            monday = nowDay - dt.timedelta(days=nowDay.weekday())
-            fridayNoon = monday + dt.timedelta(days=4, hours=12)
-            start = monday + dt.timedelta(weeks=1 if now < fridayNoon else 2)
-            end = start + dt.timedelta(days=4)
 
-            if sdate < start or sdate > end:
-                raise Exception(f"Currently, requests are allowed for the following "
-                                f"period: </br>{self.local_weekday(start)} - "
-                                f"{self.local_weekday(end)}.")
-
-        except ValueError:
-            raise Exception("Provide a valid suggested date")
-
-    def __validate_entry(self, attrs):
+    def __validate_entry(self, validate_func, attrs):
         entry = self.Entry(**attrs)
-        t = attrs['type']
-        formDef = self.get_form_by_name(f"entry_form:{t}").definition if t != 'note' else {}
-        config = formDef.get('config', {})
-        validate = config.get('validation', '')
-        if validate:
-            validateFunc = getattr(self, validate)
-            validateFunc(entry)
+        if validate_func:
+            validate_func(entry)
         return entry
 
     def create_entry(self, **attrs):
+        validate_func = attrs.pop('validate_func', None)
+
         if 'title' not in attrs:
             attrs['title'] = ''
 
         def __create(attrs):
-            return self.__validate_entry(attrs)
+            return self.__validate_entry(validate_func, attrs)
 
         now = self.now()
         attrs.update({
@@ -1084,13 +1059,14 @@ class DataManager(DbManager):
     def update_entry(self, **attrs):
         # In some special cases, update_entry is called after create_entry,
         # and we don't want to validate in this case
-        validate = attrs.pop('validate', True)
+
         attrs.update({
             'last_update_date': self.now(),
             'last_update_user_id': self._user.id,
         })
-        if validate:
-            self.__validate_entry(attrs)
+        validate_func = attrs.pop('validate_func', None)
+        if validate_func:
+            self.__validate_entry(validate_func, attrs)
 
         return self.__update_item(self.Entry, **attrs)
 

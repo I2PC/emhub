@@ -47,7 +47,7 @@ def create_app(test_config=None):
                         send_json_data, send_error, shortname, pairname)
     from .utils.mail import MailManager
 
-    from emtools.utils import Pretty
+    from emtools.utils import Pretty, Path
 
     # create and configure the app
     emhub_instance_path = os.environ.get('EMHUB_INSTANCE', None)
@@ -379,7 +379,7 @@ def create_app(test_config=None):
 
     @app.template_filter('basename')
     def basename(filename):
-        return os.path.basename(filename) if filename else ''
+        return os.path.basename(Path.rmslash(filename)) if filename else ''
 
     @app.template_filter('id_from_label')
     def id_from_label(label):

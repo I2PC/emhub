@@ -969,6 +969,7 @@ def get_entries():
 @flask_login.login_required
 def create_entry():
     def handle(**attrs):
+        load_validate_func(attrs)
         fix_dates(attrs, 'date')
         entry = app.dm.create_entry(**attrs)
         save_entry_files(entry, entry.extra['data'])
@@ -983,6 +984,7 @@ def create_entry():
 @flask_login.login_required
 def update_entry():
     def handle(**attrs):
+        load_validate_func(attrs)
         fix_dates(attrs, 'date', 'creation_date', 'last_update_date')
         entry = app.dm.get_entry_by(id=attrs['id'])
         old_files = set(app.dm.get_entry_files(entry))
@@ -1079,6 +1081,14 @@ def fix_dates(attrs, *date_keys):
                 attrs[date_key] = datetime_from_isoformat(attrs[date_key])
             except:
                 attrs[date_key] = None
+
+
+def load_validate_func(attrs):
+    t = attrs['type']
+    formDef = app.dm.get_form_by_name(f"entry_form:{t}").definition if t != 'note' else {}
+    config = formDef.get('config', {})
+    func_name = config.get('validate_func', None)
+    attrs['validate_func'] = app.dc.get_content_func(func_name)
 
 
 def _handle_item(handle_func, result_key):
