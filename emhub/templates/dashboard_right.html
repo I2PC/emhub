@@ -11,17 +11,21 @@
                     {% set row_style = 'background-color: #ededed' if active else '' %}
                     <tr class="row p-0 m-0" style="{{ row_style }}" >
                         <td class="col-3 text-left" style="{{ style }}">{{ b|booking_span }}</td>
-                        {% if b.type == 'downtime' %}
+                        {% if b.type in types_colors %}
+                            <td class="col-4"><span style="color: {{ types_colors[b.type] }};">{{ b.type }}</span></td>
+                            <td class="col-4">{{ b.title }}</td>
+
+{#                        {% if b.type == 'downtime' %}#}
 {#                            <td class="col-4"><span class="badge" style="color: white; background-color: rgb(181,4,0);">Downtime</span></td>#}
-                            <td class="col-4"><span style="color: rgb(181,4,0);">Downtime</span></td>
-                            <td class="col-4">{{ b.title }}</td>
-                        {% elif b.type == 'maintenance' %}
+{#                            <td class="col-4"><span style="color: rgb(181,4,0);">Downtime</span></td>#}
+{#                            <td class="col-4">{{ b.title }}</td>#}
+{#                        {% elif b.type == 'maintenance' %}#}
 {#                            <td class="col-4"><span class="badge" style="color: white; background-color: rgb(255,107,53);">Maintenance</span></td>#}
-                            <td class="col-4"><span style="color: rgb(255,107,53);">Maintenance</span></td>
-                            <td class="col-4">{{ b.title }}</td>
-                        {% elif b.type == 'repair' %}
-                            <td class="col-4"><span style="color: rgb(255,75,51);">Repair</span></td>
-                            <td class="col-4">{{ b.title }}</td>
+{#                            <td class="col-4"><span style="color: rgb(255,107,53);">Maintenance</span></td>#}
+{#                            <td class="col-4">{{ b.title }}</td>#}
+{#                        {% elif b.type == 'repair' %}#}
+{#                            <td class="col-4"><span style="color: rgb(255,75,51);">Repair</span></td>#}
+{#                            <td class="col-4">{{ b.title }}</td>#}
                         {% else %}
 
                             <td class="col-4" style="{{ style }}">{{ b.owner|pairname}} </td>
@@ -36,7 +40,7 @@
 
                         {% endif %}
                         <td class="col-1">
-                            {% if b.type in ['booking', 'downtime', 'maintenance'] %}
+                            {% if b.type in types_colors %}
                                 <a href="javascript:showBookingFromDashboard({{ b.id }})"><i class="far fa-calendar-alt"></i></a>
 
                             {% elif b.type == 'request' %}

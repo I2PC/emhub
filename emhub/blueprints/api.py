@@ -1087,8 +1087,8 @@ def load_validate_func(attrs):
     t = attrs['type']
     formDef = app.dm.get_form_by_name(f"entry_form:{t}").definition if t != 'note' else {}
     config = formDef.get('config', {})
-    func_name = config.get('validate_func', None)
-    attrs['validate_func'] = app.dc.get_content_func(func_name)
+    if func_name := config.get('validate_func', None):
+        attrs['validate_func'] = app.dc.get_content_func(func_name)
 
 
 def _handle_item(handle_func, result_key):

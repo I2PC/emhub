@@ -336,7 +336,10 @@ class DataContent:
                     resource_id=rid,
                     project_id=p.id,
                     project=p,
-                    extra={'session_type': data.get('session_type', '')}
+                    extra={
+                        'session_type': data.get('session_type', ''),
+                        'entry_id': entry.id
+                    }
                 )
 
     def booking_active_today(self, b):
