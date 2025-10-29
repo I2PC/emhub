@@ -592,12 +592,17 @@ def get_session_users():
     def _session_users(**attrs):
         session = app.dm.get_session_by(id=attrs['id'])
         b = session.booking
-        return {
+        users = {
             'owner': _user(b.owner),
             'operator': _user(b.operator),
             'creator': _user(b.creator),
             'group': app.dm.get_user_group(b.owner)
         }
+        if b.owner and b.owner.get_pi():
+            users['pi'] = _user(b.owner.get_pi())
+
+        return users
+
     return _handle_item(_session_users, 'session_users')
 
 

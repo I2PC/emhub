@@ -271,7 +271,7 @@ class SessionTaskHandler(TaskHandler):
                                 for fn in existing:
                                     f.write(f"{fn.replace(framesPath, '')}\n")
                             args = [
-                                "-c",
+                                "--no-compress",
                                 "--temp-dir=/gscem/testgrp/TRANSFER_TMP/",
                                 f"--files-from={tmpfile.name}"
                             ]
@@ -486,7 +486,7 @@ class SessionTaskHandler(TaskHandler):
         sleep_minutes = self.sleep // 60
 
         try:
-            n, size = Path.rsync(gscemPath, judePath, size=True)
+            n, size = Path.rsync(gscemPath, judePath, '--no-compress', size=True)
             elapsed = t.getElapsedTime()
             seconds = max(1, elapsed.seconds)
         except Exception as e:
