@@ -281,7 +281,7 @@ def register_content(dc):
 
         if not os.path.exists(filepath):
             raise Exception("File does not exist. Make you have uploaded it before displaying.")
-        
+
         thumb = Thumbnail(output_format='base64', max_size=(1024, 1024))
 
         filetype = 'unknown'
