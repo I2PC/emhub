@@ -7,7 +7,7 @@
 <div class="container-fluid dashboard-content">
     <!-- Header -->
     {% set title = "Tomo Session" %}
-    {% set navigation = [('Tomo Sessions', url_for_content('tomo_sessions_list')),
+    {% set navigation = [('Tomo Sessions', url_for_content('processing_tomo_list')),
                          ('Session Overview', '')] %}
     {% include 'include_header.html' %}
 
@@ -16,9 +16,13 @@
             <div class="col-8">
                 <form id="tomo_session_form">
                     {{ macros.session_dialog_row('Session Path', 'path', tomo_session['path'], 'Provide session path') }}
-                    {{ macros.session_dialog_row('Tomograms List', 'tomograms', tomo_session['tomograms'], 'Provide tomograms folder') }}
-                    {{ macros.session_dialog_row('Reconstruction', 'reconstruction', tomo_session['reconstruction'], 'Provide reconstruction folder') }}
-                    {{ macros.session_dialog_row('Picking', 'picking', tomo_session['picking'], 'Provide Pytom picking path') }}
+                    {% if folders %}
+                        {{ macros.session_dialog_row('Tomograms List', 'tomograms', tomo_session['tomograms'], 'Provide tomograms folder') }}
+                        {{ macros.session_dialog_row('Reconstruction', 'reconstruction', tomo_session['reconstruction'], 'Provide reconstruction folder') }}
+                        {{ macros.session_dialog_row('Picking', 'picking', tomo_session['picking'], 'Provide Pytom picking path') }}
+                    {% else %}
+                        {{ macros.session_dialog_row('Tomograms STAR', 'tomograms_star', tomo_session['tomograms_star'], 'Provide tomograms STAR file') }}
+                    {% endif %}
                 </form>
             </div>
 
