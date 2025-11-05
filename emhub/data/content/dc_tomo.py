@@ -49,19 +49,26 @@ def register_content(dc):
 
     @dc.content
     def tomo_session(**kwargs):
-        data = {
-            'tomo_session': DEFAULT_SESSION,
-            'tomograms': []  # To be loaded
-        }
+        if tsId := kwargs.get('tomo_session_id', None):
+            if tp := dc.app.dm.get_entry_by(id=tsId):
+                tomo_session = {
+                    'path': tp.extra['data']['processing_path'],
+                    'tomograms_star': 'tomograms.star'
+                }
+                data = {
+                    'tomo_session': tomo_session,
+                    'tomograms': []  # To be loaded
+                }
+                tsession = json.loads(kwargs.get('tomo_session', '{}'))
+                if 'tomograms_star' in tsession:
+                    tomo_session['tomograms_star'] = tsession['tomograms_star']
+                data.update(tomo_session_content(tomo_session=json.dumps(tomo_session)))
 
-        if tsId := kwargs.get('tomo_session_id', ''):
-            for tsession in dc.app.dm.get_config('tomo_sessions')['sessions'].values():
-                if tsession['id'] == tsId:
-                    data['tomo_session'] = tsession
-                    data.update(tomo_session_content(tomo_session=json.dumps(tsession)))
-                    break
-
-        return data
+                return data
+            else:
+                raise Exception(f"Can load tomography session: {tsId}")
+        else:
+            raise Exception("Expecting tomo_session_id as argument.")
 
     @dc.content
     def tomo_picking(**kwargs):
@@ -92,12 +99,15 @@ def register_content(dc):
             'message': f'Exported {len(tomograms)} tomograms to folder {newTomoFolder}'
         }
 
-    @dc.content
-    def tomo_session_content(**kwargs):
-        dm = dc.app.dm
-        tomo_session = json.loads(kwargs['tomo_session'])
-        session_path = tomo_session['path']
+    def _load_table_from_star(session_path, star_file):
+        star_path = os.path.join(session_path, star_file)
 
+        if not os.path.exists(star_path):
+            raise Exception(f"Star file '{star_path}' does not exist")
+
+        return StarFile.getTableFromFile(star_path, 'tomograms')
+
+    def _load_table_from_folders(session_path, tomo_session):
         s = FolderManager(session_path)
 
         # Read first if there is a session.json in the session path
@@ -107,110 +117,76 @@ def register_content(dc):
                 # Restore session_path
                 tomo_session['path'] = session_path
 
-        picking = tomo_session['picking']
+        from emwrap.warp.utils import load_tomograms_table
+        return load_tomograms_table(tomo_session)
+
+    @dc.content
+    def tomo_session_content(**kwargs):
+        tomo_session = json.loads(kwargs['tomo_session'])
+        session_path = tomo_session['path']
+        s = FolderManager(session_path)
         data = {
-            'errors': [],
             'tomograms': [],
             'session_path': session_path
         }
-        if not s.exists():
-            data['errors'].append("Session path does not exist")
-        else:
-            for k in DEFAULT_SESSION:
-                if k != 'path' and not s.exists(tomo_session[k]):
-                    data['errors'].append(f"*{k}* folder does not exist.")
 
-        if not data['errors']:
-            # FIXME
-            # Temporarly store all sessions in a config form
-            # just a quick and dirty way to save the sessions used
-            tomo_sessions = dm.get_config('tomo_sessions')
-            sessions = tomo_sessions['sessions']
-            if session_path not in sessions:
-                tomo_session['id'] = str(uuid4())
-            else:
-                tomo_session['id'] = sessions[session_path]['id']
+        tomograms_star = tomo_session.get('tomograms_star', 'tomograms.star')
+        table = _load_table_from_star(session_path, tomograms_star)
 
-            sessions[session_path] = tomo_session
-            dm.update_config('tomo_sessions', tomo_sessions)
+        # It is possible to load the table from folder, but better to explicitly
+        # generate the tomograms.star
+        # table = _load_table_from_folders(session_path, tomo_session)
 
-            t = FolderManager(s.join(tomo_session['tomograms']))
-            c = FolderManager(s.join(picking, 'Coordinates'))
-            r = FolderManager(s.join(tomo_session['reconstruction']))
-            ts = FolderManager(r.path.replace('reconstruction', 'tiltstack'))
+        tomograms = data['tomograms']
 
-            tomograms = data['tomograms']
+        def _join(p):
+            return s.join(p) if p else p
 
-            def _glob_file(fm, pattern):
-                if files := fm.glob(pattern):
-                    return files[0]
-                else:
-                    return ''
-
-            coordsDict = {}
-            if coords := c.glob('*_default_particles.star'):
-                # Get the splitting token (e.g 9.52Apx)
-                token = coords[0].split('_')[-3]
-                coordsDict = {os.path.basename(c.split(token)[0]): c for c in coords}
-
-            tomoDict = {}
-            if tomos := r.glob('*.mrc'):
-                # Get the splitting token (e.g 9.52Apx)
-                suffix = tomos[0].split('_')[-1]
-                tomoDict = {os.path.basename(t).replace(suffix, ''): t for t in tomos}
-
-            thickDict = {}
-            if tomoStar := tomo_session.get('thickness', None):
-                with StarFile(s.join(tomoStar)) as sf:
-                    for row in sf.iterTable('tomograms'):
-                        suffix = "_" + row.rlnTomoName.split('_')[-1]
-                        thickDict[row.rlnTomoName.replace(suffix, '')] = row.slabThickness
-                from pprint import pprint
-                pprint(thickDict)
-
-            for tstar in t.glob("*.tomostar"):
-                tsName = Path.removeBaseExt(tstar)
-
-                # Load coordinates file
-                #coordMd = _glob_file(c, tsName + '*default_particles.star')
-                tsKey = f'{tsName}_'
-                coordMd = coordsDict.get(tsKey, '')
-
-                if coordMd:
-                    with StarFile(coordMd) as sf:
-                        coordN = sf.getTableSize('particles')
-                else:
-                    coordN = ''
-
-                # Load xml, tomogram, and aligned TS files
-                #tomoFn = _glob_file(r, tsName + '*.mrc')
-                tomoFn = tomoDict.get(tsKey, '')
-                alignedTs = _glob_file(ts, f"{tsName}/{tsName}_aligned.mrc")
-                tomoXml = _glob_file(r, f"../{tsName}.xml")
-
-                # Load defocus
-                if tomoXml:
-                    ctf = WarpXml(tomoXml).getDict('TiltSeries', 'CTF', 'Param')
-                    defocus = round(float(ctf['Defocus']), 2)
-                else:
-                    defocus = ''
-
-                tomograms.append({
-                    'tomoName': tsName,
-                    'md': tstar,  #os.path.basename(tstar),
-                    'coords_md': coordMd,
-                    'coords_n': coordN,
-                    'tomo_fn': tomoFn,
-                    'aligned_ts': alignedTs,
-                    'tomo_xml': tomoXml,
-                    'defocus': defocus,
-                    'thickness': thickDict.get(tsName, 0)
-                })
-
-                if len(tomograms) == 10000:
-                    break
+        for row in table:
+            tomograms.append({
+                'tomoName': row.rlnTomoName,
+                'md': _join(row.rlnTomoMetadata),
+                'coords_md': _join(row.rlnCoordinatesMetadata),
+                'coords_n': row.rlnCoordinatesCount,
+                'tomo_fn': _join(row.rlnTomogram),
+                'aligned_ts': _join(row.rlnAlignedTiltSeries),
+                'tomo_xml': _join(row.wrpTomoMetadataXml),
+                'defocus': row.rlnDefocus,
+                'thickness': row.rlnThickness
+            })
 
         return data
+
+    @dc.content
+    def entry_tomo_processing_validate(entry):
+        e = entry.json()
+        data = e['extra']['data']
+        processing_path = data.get('processing_path', '')
+
+        if not os.path.exists(processing_path):
+            raise Exception(f"Processing path '{processing_path}' does not exist!")
+
+    @dc.content
+    def entry_tomo_processing_content(**kwargs):
+        return {}
+
+    @dc.content
+    def processing_tomo_list(**kwargs):
+        dm = dc.app.dm  # shortcut
+        entries = dm.get_entries(condition="type='tomo_processing'", asJson=True)
+        for e in entries:
+            data = e['extra']['data']
+            e['title'] = e['title'] or os.path.basename(data.get('processing_path', ''))
+
+        return {
+            'tomo_projects': entries
+        }
+
+    @dc.content
+    def processing_tomo(**kwargs):
+        kwargs['content_id'] = 'project_form'
+        return dc.get(**kwargs)
+
 
     # FIXME: More benchmark_ functions to a separate place
     def get_benchmarks():

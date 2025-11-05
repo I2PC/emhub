@@ -779,23 +779,29 @@ class DataManager(DbManager):
         """
         args = {}
         if 'path' in kwargs:
-            project_path = kwargs['path']
-            args['path'] = project_path
+            processing_path = kwargs['path']
+            args['path'] = processing_path
         elif 'entry_id' in kwargs:
             entry_id = int(kwargs['entry_id'])
             entry = self.get_entry_by(id=entry_id)
-            project_path = entry.extra['data']['project_path']
+            processing_path = entry.extra['data']['processing_path']
             args = {'entry_id': entry_id}
         elif 'session_id' in kwargs:
             session_id = int(kwargs['session_id'])
             session = self.get_session_by(id=session_id)
-            project_path = session.data_path
+            processing_path = session.data_path
             args = {'session_id': session_id}
         else:
             raise Exception("Expecting either 'session_id', 'entry_id' or 'path'"
                             "to load a project.")
 
-        pp = get_processing_project(project_path)
+        # This is just for debugging when the path are mounted with a different root
+        # e.g. /jude/facility/ -> /Volumes/cryo_facility/
+        if path_map := os.environ.get('EMHUB_PATH_MAP', None):
+            a, b = path_map.split(':')
+            processing_path = processing_path.replace(a, b)
+
+        pp = get_processing_project(processing_path)
         result = {'project': pp, 'args': args}
 
         if 'run_id' in kwargs:
