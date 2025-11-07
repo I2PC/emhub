@@ -26,6 +26,9 @@ from emtools.metadata import StarFile, EPU, SqliteFile
 from emtools.image import Thumbnail
 
 
+processing_fm = FolderManager(os.path.join(os.environ['EMHUB_INSTANCE'], 'processing'))
+
+
 def hours(tsFirst, tsLast):
     dtFirst = dt.datetime.fromtimestamp(tsFirst)
     dtLast = dt.datetime.fromtimestamp(tsLast)
@@ -33,16 +36,13 @@ def hours(tsFirst, tsLast):
     return d.days * 24 + d.seconds / 3600
 
 
-class SessionRun:
+class SessionRun(FolderManager):
     """ Group functions related to a run in a Session. """
     def __init__(self, project, path):
+        FolderManager.__init__(self, path)
         self.project = project
-        self._path = path
         self._epuData = None
         self._ios = None  # Input/outputs cache
-
-    def join(self, *paths):
-        return os.path.join(self._path, *paths)
 
     def getFormDefinition(self):
         """ Return the class definition for this run type. """

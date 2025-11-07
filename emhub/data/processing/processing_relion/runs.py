@@ -24,11 +24,11 @@ import numpy as np
 from flask import current_app as app
 
 import mrcfile
-from emtools.utils import Path, Timer, Pretty
-from emtools.metadata import StarFile, EPU, SqliteFile
+from emtools.utils import Path, Timer, Pretty, FolderManager
+from emtools.metadata import StarFile, EPU, SqliteFile, Table
 from emtools.image import Thumbnail
 
-from ..base import SessionRun, SessionData, hours
+from ..base import SessionRun, SessionData, hours, processing_fm
 
 location = os.path.dirname(__file__)
 
@@ -38,24 +38,33 @@ class RelionRun(SessionRun):
     def __init__(self, project, path, job, **kwargs):
         SessionRun.__init__(self, project, path)
         d, self.id = os.path.split(Path.rmslash(path))
-
         self.job = job
         self.jobtype = job['jobtype']
         self.values = {} # FIXME
         self.extra = kwargs
 
+        if self.exists('job.json'):
+            with open(self.join('job.json')) as f:
+                self.values = json.load(f)
+
+            d = {
+                'job': {'jobtype': self.jobtype},
+                'values': self.values
+            }
+            self._dictToJobStar(d, self.join('job.star'))
+
         #with StarFile(self.join('job.star')) as sf:
         #    self.job = sf.getTable('job')
         #    self.values = {row.rlnJobOptionVariable: row.rlnJobOptionValue
         #                   for row in sf.iterTable('joboptions_values', guessType=False)}
-        
-        parts = self.jobtype.split('.')
+
+        sep = '-' if '-' in self.jobtype else '.'
+        parts = self.jobtype.split(sep)
         self.package = parts[0]
         self.className = parts[1] if len(parts) > 1 else self.jobtype
-        self.classSuffix = '' if len(parts) < 3 else '.'.join(parts[2:])
 
         self.name = job.id
-        self.alias = job['alias']
+        self.alias = job['alias'] or self.jobtype
 
         #with StarFile(self.join('job_pipeline.star')) as sf:
         #    t = sf.getTable('pipeline_processes')
@@ -63,9 +72,48 @@ class RelionRun(SessionRun):
         #    self.name = row.rlnPipeLineProcessName
         #    self.alias = row.rlnPipeLineProcessAlias
 
+    def _dictToJobStar(self, d, jobStarFile):
+        """ Convert a dictionary into a job.star.
+        data_job
+
+        _rlnJobTypeLabel             relion.class3d
+        _rlnJobIsContinue                       0
+        _rlnJobIsTomo                           1
+
+
+        # version 50001
+
+        data_joboptions_values
+
+        loop_
+        _rlnJobOptionVariable #1
+        _rlnJobOptionValue #2
+        allow_coarser         No
+        ctf_intact_first_peak         No
+        do_apply_helical_symmetry        Yes
+        """
+        with StarFile(jobStarFile, 'w') as sfOut:
+            tJob = Table(['rlnJobTypeLabel', 'rlnJobIsContinue', 'rlnJobIsTomo'])
+            tJob.addRowValues(d['job']['jobtype'], 0, 0)  # FIXME check continue and isTomo
+            sfOut.writeTable('job', tJob)
+            tValues = Table(['rlnJobOptionVariable', 'rlnJobOptionValue'])
+            for k, v in d['values'].items():
+                val = ('Yes' if v else 'No') if isinstance(v, bool) else v
+                tValues.addRowValues(k, val)
+            sfOut.writeTable('joboptions_values', tValues, computeFormat=True)
+
+    def _jobStarToDict(self, jobStarFile):
+        pass
+
     def getInfo(self):
-        return {'id': self.id, 'className': self.className, 'label': self.id,
-                'name': self.name, 'alias': self.alias}
+        return {
+            'id': self.id,
+            'className': self.className,
+            'label': self.id,
+            'name': self.name,
+            'alias': self.alias,
+            'jobtype': self.jobtype
+        }
 
     def getFormDefinition(self):
         default = {'valueClass': 'String',
@@ -75,8 +123,8 @@ class RelionRun(SessionRun):
                    }
 
         formDef = {
-            'package': 'relion',
-            'name': self.className,
+            'package': '',
+            'name': self.jobtype,
             'logo': '',
             'sections': []
         }
@@ -89,18 +137,33 @@ class RelionRun(SessionRun):
                     paramDef[k] = v
             return paramDef
 
-        config = f"{self.package}.{self.className}.json"
-        configFn = os.path.join(location, 'forms', config)
-        print("Config file", configFn)
+        def _register(paramDef):
+            if name := paramDef.get('name', None):
+                _set_defaults(paramDef)
+                allParams.add(name)
+
+        configFn = ''
+        if processing_fm.exists():
+            with open(processing_fm.join('config.json')) as f:
+                config = json.load(f)
+                for jobConfig in config['jobs']:
+                    print(jobConfig)
+                    if jobConfig['type'] == self.jobtype:
+                        configFn = processing_fm.join(jobConfig['form'])
+                        break
 
         if os.path.exists(configFn):
+
+
             with open(configFn) as f:
                 formConf = json.load(f)
                 for sectionDef in formConf['sections']:
                     for paramDef in sectionDef['params']:
-                        if 'name' in paramDef:
-                            _set_defaults(paramDef)
-                            allParams.add(paramDef['name'])
+                        if paramDef.get('paramClass', '') == 'Line':
+                            for paramDef2 in paramDef['params']:
+                                _register(paramDef2)
+                        else:
+                            _register(paramDef)
                     formDef['sections'].append(sectionDef)
 
         extraParams = []

@@ -18,6 +18,7 @@ import os
 from glob import glob
 import numpy as np
 import base64
+from collections import defaultdict
 
 import mrcfile
 from emtools.utils import Path, Timer, Pretty, FolderManager
@@ -36,23 +37,25 @@ class RelionSessionData(SessionData):
     """
     def __init__(self, *args, **kwargs):
         SessionData.__init__(self, *args, **kwargs)
+        self.session = defaultdict(lambda: None)
+
         with open(self.join('session.json')) as f:
-            session = json.load(f)
-            for k in ['movies', 'micrographs', 'coordinates', 'classes2d']:
-                setattr(self, k, self.join(session[k]))
+            self.session.update(json.load(f))
+            # for k in ['movies', 'micrographs', 'coordinates', 'classes2d']:
+            #     setattr(self, k, self.join(session.get(k, '')))
 
         pipelineStar = self.join('default_pipeline.star')
         self.workflow = RelionStar.pipeline_to_workflow(pipelineStar)
         self.movDataTable = None
         self.micDataTable = None
 
-        if os.path.exists(self.movies):
-            with StarFile(self.movies) as sf:
+        if self.session['movies'] and os.path.exists(self.session['movies']):
+            with StarFile(self.session['movies']) as sf:
                 self.movDataTable = sf.getTable('movies')
                 self.movDataDict = {r.rlnImageId: r for r in self.movDataTable} if self.movDataTable else {}
 
-        if os.path.exists(self.micrographs):
-            with StarFile(self.micrographs) as sf:
+        if self.session['micrographs'] and os.path.exists(self.session['micrographs']):
+            with StarFile(self.session['micrographs']) as sf:
                 self.micOpticsTable = sf.getTable('optics')
                 self.micDataTable = sf.getTable('micrographs')
                 self.micDataDict = {r.rlnImageId: r for r in self.micDataTable} if self.micDataTable else {}
@@ -76,7 +79,7 @@ class RelionSessionData(SessionData):
                 s.update(hours=h, first=first, last=last)
             return s
 
-        if not self.movies:
+        if not self.session['movies']:
             return {'movies': {'count': 0}, 'ctfs': {'count': 0}}
 
         countEpu = 0
@@ -133,7 +136,7 @@ class RelionSessionData(SessionData):
 
     def get_ctfs_runid(self):
         """ Return the run_id for the ctfs used for the general session overview. """
-        return self.micrographs
+        return self.session['micrographs']
 
     def get_workflow(self):
         protList = []
@@ -161,10 +164,7 @@ class RelionSessionData(SessionData):
         return protList
 
     def get_run(self, runId):
-        print(">>> runId: ", runId)
-        parts = runId.split('/')
-        rid = '/'.join(parts[-3:-1])
-        return RelionRun(self, self.join(rid), self.workflow.getJob(rid),
+        return RelionRun(self, self.join(runId), self.workflow.getJob(runId),
                          data=runId)
 
     def get_classes2d_runs(self):
@@ -462,7 +462,7 @@ class RelionSessionData(SessionData):
         resolution = []
         particles = 0
 
-        gsRoot = os.path.dirname(self.movies)
+        gsRoot = os.path.dirname(self.session['movies'])
         gsDir = FolderManager(os.path.join(gsRoot, 'EPU', 'GridSquares', gsId))
 
         for fn in gsDir.listdir():
@@ -595,7 +595,7 @@ class RelionSessionData(SessionData):
         """ Return micrographs star file from the last CTF job or None
         if there is no run yet or output file.
         """
-        return self.micrographs
+        return self.session['micrographs']
 
         jobs = self._jobs('CtfFind')
         if jobs:

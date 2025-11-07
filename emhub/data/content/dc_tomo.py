@@ -53,11 +53,12 @@ def register_content(dc):
             if tp := dc.app.dm.get_entry_by(id=tsId):
                 tomo_session = {
                     'path': tp.extra['data']['processing_path'],
-                    'tomograms_star': 'tomograms.star'
+                    'tomograms_star': 'tomograms.star',
                 }
                 data = {
                     'tomo_session': tomo_session,
-                    'tomograms': []  # To be loaded
+                    'tomograms': [],  # To be loaded
+                    'tomo_session_id': tsId
                 }
                 tsession = json.loads(kwargs.get('tomo_session', '{}'))
                 if 'tomograms_star' in tsession:
