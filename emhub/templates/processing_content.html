@@ -71,8 +71,22 @@
                                 <div class="tab-pane fade show active" id="pills-params" role="tabpanel" aria-labelledby="params-tab">
 
                                     <div class="col-12 p-0 m-0" id="run_row">
+                                        <form id="processing_form">
                                         <div id="run_form_container" class="col-12 m-0 p-0">
                                         </div>
+                                        <div class="toolbar ml-auto col-12 text-right">
+                                            <button type="button" id="processing-btn-delete" class="btn btn-danger" onclick="onOkButtonClick()">Delete</button>
+                                            <button type="button" id="processing-btn-save" class="btn btn-light" onclick="onSaveButtonClick()">Save</button>
+                                            <button type="button" id="processing-btn-run" data-toggle="dropdown" class="btn btn-dark dropdown-toggle">Run and</button>
+                                            <div class="dropdown-menu">
+                                                <a href="#" class="dropdown-item">Action</a>
+                                                <a href="#" class="dropdown-item">Another action</a>
+                                                <a href="#" class="dropdown-item">Something else here</a>
+                                                <div class="dropdown-divider"></div>
+                                                <a href="#" class="dropdown-item">Separated link</a>
+                                            </div>
+                                        </div>
+                                        </form>
                                     </div>
 
                                 </div>
@@ -209,22 +223,12 @@
 
             if (form_data) {
                 let info = runDict.info;
-                $('#logo-label').text(form_data.package + ' - ' + form_data.name);
+                $('#logo-label').text(form_data.name);
                 $('#logo-label-extra').text('(' + info.name + ')');
                 $('#logo-img').attr('src', 'data:image/png;base64,' + form_data.logo);
                 $('#logo-img').css('display', form_data.logo ? 'flex': 'none');
 
                 let values = runDict.values;
-
-                {#if ('gpusToUse' in values)#}
-                {#    $('#gpuList').val(values.gpusToUse);#}
-                {#else#}
-                {#    $('#gpuList').val(values.gpuList);#}
-                {##}
-                {#$('#runLabel').val(runDict.info.label);#}
-                {#$('#numberOfThreads').val(values.numberOfThreads);#}
-                {#$('#numberOfMpi').val(values.numberOfMpi);#}
-
                 form_create(form_data, values, 'run_form_container');
                 jsonEditor.setValue(JSON.stringify(values, null, 4));
             }
@@ -273,9 +277,6 @@
         // Make arrangements depending on the other panel status
         let otherItem = statuses_values[1 - index];
 
-        console.log("item: ", item);
-        console.log("other: ", otherItem);
-
         if (item.status > 0) { // showing current index
             if (otherItem.status > 0)
                 splitPanels(3, 3);
@@ -289,5 +290,10 @@
                 switchStatus(1 - index);
         }
 
+    }
+
+    function onSaveButtonClick() {
+        let values = getFormAsJson('processing_form');
+        alert(JSON.stringify(values, null, 4));
     }
 </script>

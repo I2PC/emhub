@@ -387,6 +387,10 @@ function createOrUpdateSession(session_params){
 
             if (param.paramClass === "LabelParam"){
                 label.classList.replace('col-4', 'col-12');
+                // label.classList.add('text-left');
+                label.classList.replace('text-sm-right', 'text-left')
+                // row.className = 'row text-left';
+                row.style.backgroundColor = "#F5F5F5";
             }
             else if (param.paramClass === "Line") {
                 var div = document.createElement('div');
@@ -395,7 +399,7 @@ function createOrUpdateSession(session_params){
                 for (var j = 0;  j < param.params.length; j++) {
                     let p = param.params[j];
                     div.appendChild(create_label('ml-0 pl-0 col-2', p.label))
-                    div.appendChild(create_input('col-2', p.name, get_param_value(p)));
+                    div.appendChild(create_input('col-3', p.name, get_param_value(p)));
                 }
                 row.appendChild(div);
             }
@@ -517,6 +521,7 @@ function createOrUpdateSession(session_params){
              div.className += "show active";
          }
          div.role = "tabpanel";
+         div.style = "height: 420px";
          div.setAttribute('aria-labelledby', a.id);
          content.appendChild(div);
 
