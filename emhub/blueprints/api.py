@@ -631,6 +631,7 @@ def get_frames():
 
 
 def _loadFileLines(fn):
+    result = ''
     if os.path.exists(fn):
         with open(fn) as f:
             lines = f.readlines()
