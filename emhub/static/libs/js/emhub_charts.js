@@ -643,8 +643,25 @@ function drawMicrograph(containerId, micrograph, drawValue) {
     var ctx = canvas.getContext("2d");
 
     var image = new Image();
+    let imageLoaded = false;
 
     image.onload = function() {
+        imageLoaded = true;
+        draw();
+    };
+
+    image.src = 'data:image/png;base64,' + micrograph.thumbnail;
+
+    let ruler = getObjectValue(micrograph, 'ruler', null);
+
+    // Variables related to the ruler
+    // let points = [];
+    // let draggingPoint = null;
+    // let ruler.draggingCenter = false;
+    // let isMeasuring = false;
+    const pixelSizeInAngstroms = 1.32;
+
+    function draw(tempPoint = null) {
         if (canvas.height != image.height) {
             let image_ratio = image.width / parseFloat(image.height);
 
@@ -654,10 +671,17 @@ function drawMicrograph(containerId, micrograph, drawValue) {
             //canvas_ratio = canvas.width / parseFloat(canvas.height);
 
         }
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
         let canvas_image_ratio = canvas.width / parseFloat(image.width);
         ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
 
+        drawPoints(canvas_image_ratio);
 
+        if (ruler != null)
+            drawRuler(tempPoint);
+    }
+
+    function drawPoints(canvas_image_ratio) {
         if (drawValue === 'none' || micrograph.coordinates.length == 0)
             return;
 
@@ -682,11 +706,163 @@ function drawMicrograph(containerId, micrograph, drawValue) {
                 ctx.arc(x, y, 2, 0, 2 * Math.PI);
                 ctx.fill();
             }
-
         }
-    };
+    } // function drawPoints
 
-    image.src = 'data:image/png;base64,' + micrograph.thumbnail;
+    canvas.addEventListener('mousedown', (e) => {
+      const { offsetX: x, offsetY: y } = e;
+
+      if (ruler.points.length === 2) {
+        const center = getCenter(ruler.points[0], ruler.points[1]);
+
+        if (x >= center.x - 5 && x <= center.x + 5 &&
+            y >= center.y - 5 && y <= center.y + 5) {
+          ruler.draggingCenter = true;
+          return;
+        }
+
+        for (let i = 0; i < ruler.points.length; i++) {
+          if (distance({ x, y }, ruler.points[i]) < 10) {
+            ruler.draggingPoint = i;
+            return;
+          }
+        }
+        return;
+      }
+
+      if (!ruler.isMeasuring) {
+        ruler.points = [{ x, y }];
+        ruler.isMeasuring = true;
+      } else {
+        ruler.points.push({ x, y });
+        ruler.isMeasuring = false;
+        draw();
+      }
+    });
+
+    canvas.addEventListener('mousemove', (e) => {
+        const { offsetX: x, offsetY: y } = e;
+
+          let hovering = false;
+          if (ruler.points.length === 2) {
+            const center = getCenter(ruler.points[0], ruler.points[1]);
+            if (x >= center.x - 5 && x <= center.x + 5 &&
+                y >= center.y - 5 && y <= center.y + 5) {
+              hovering = true;
+              canvas.style.cursor = 'grab';
+            } else {
+              for (let i = 0; i < ruler.points.length; i++) {
+                if (distance({ x, y }, ruler.points[i]) < 10) {
+                  hovering = true;
+                  canvas.style.cursor = 'grab';
+                  break;
+                }
+              }
+            }
+          }
+
+          if (!hovering && !ruler.draggingPoint && !ruler.draggingCenter) {
+            canvas.style.cursor = ruler.isMeasuring ? 'crosshair' : 'default';
+          }
+
+          if (ruler.draggingPoint !== null) {
+            ruler.points[ruler.draggingPoint] = { x, y };
+            draw();
+            return;
+          }
+
+          if (ruler.draggingCenter) {
+            const dx = x - getCenter(ruler.points[0], ruler.points[1]).x;
+            const dy = y - getCenter(ruler.points[0], ruler.points[1]).y;
+            ruler.points = ruler.points.map(p => ({ x: p.x + dx, y: p.y + dy }));
+            draw();
+            return;
+          }
+
+          if (ruler.isMeasuring && ruler.points.length === 1) {
+            draw({ x, y });
+          }
+    });
+
+    canvas.addEventListener('mouseup', () => {
+      ruler.draggingPoint = null;
+      ruler.draggingCenter = false;
+
+      let distA = ruler.distPx * pixelSizeInAngstroms;
+
+      // Update the distance text label
+        $(`#${ruler.textId}`).text(`Ruler: ${ruler.distPx.toFixed(2)} px / ${distA.toFixed(2)} Å`);
+    });
+
+    $(`#${ruler.clearId}`).on('click', function (){
+            ruler.points = [];
+          ruler.isMeasuring = false;
+          ruler.draggingPoint = null;
+          ruler.draggingCenter = false;
+            $(`#${ruler.textId}`).text('Ruler: click to activate');
+          draw();
+    })
+
+    // clearBtn.addEventListener('click', () => {
+    //
+    // });
+
+    function drawRuler(tempPoint = null) {
+      if (!imageLoaded) return;
+
+      if (ruler.points.length === 0) return;
+
+      const p1 = ruler.points[0];
+      const p2 = tempPoint || ruler.points[1];
+
+      if (!p2) return;
+
+      // Draw ruler line
+      ctx.beginPath();
+      ctx.moveTo(p1.x, p1.y);
+      ctx.lineTo(p2.x, p2.y);
+      ctx.strokeStyle = 'red';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // Draw endpoint handles
+      [p1, p2].forEach(p => {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
+        ctx.fillStyle = 'blue';
+        ctx.fill();
+      });
+
+      // Draw center handle as a rectangle
+      const center = getCenter(p1, p2);
+      const rectSizeX = 8;
+      const rectSizeY = 8;
+      ctx.fillStyle = '#00bfff';
+      ctx.fillRect(center.x - rectSizeX / 2, center.y - rectSizeY / 2, rectSizeX, rectSizeY);
+
+      // Draw distance labels
+      ruler.distPx = distance(p1, p2);
+      //const distA = distPx * pixelSizeInAngstroms;
+
+      // Uncomment the follow to draw the text in the image
+      // ctx.font = '16px Arial';
+      // ctx.fillStyle = 'white';
+      // ctx.fillText(`${distPx.toFixed(2)} px`, center.x + 12, center.y - 20);
+      // ctx.fillStyle = 'limegreen';
+      // ctx.fillText(`${distA.toFixed(2)} Å`, center.x + 12, center.y);
+    }
+
+    function distance(p1, p2) {
+      return Math.sqrt((p1.x - p2.x) ** 2 + (p1.y - p2.y) ** 2);
+    }
+
+    function getCenter(p1, p2) {
+      return {
+        x: (p1.x + p2.x) / 2,
+        y: (p1.y + p2.y) / 2
+      };
+    }
+
 }
 
 function nothing(){
@@ -857,6 +1033,7 @@ class ImageSliderCard extends Card {
         this.slices = slices;
         this.slider_prefix = getObjectValue(config, 'slider_prefix', '');
         this.cooordinates = config.coordinates
+        this.ruler = this.createRuler();
 
         const width = getObjectValue(config, 'slice_dim', 128);
         var styleStr = '" style="width: 100%"';
@@ -872,9 +1049,13 @@ class ImageSliderCard extends Card {
             this.indexes.push(sliceIndex);
         }
         const N = this.indexes.length;
-        var sliderHtml = `<div class="row col-12 id="${this.id('slider_row')}">`;
+        var sliderHtml = `<div class="row col-12 id="${this.id('slider_row')}" style="width: 500px">`;
         sliderHtml += '<div class="col-12 align-content-start align-items-start text-left"><input id="' + this.id('slider_input') + styleStr + '" type="range" min="0" value="0" max="' + (N - 1) + '" step="1"></div>';
-        sliderHtml += '<div class="col-12" id="' + this.id('slider_text') + '"></div></div>';
+        sliderHtml += '<div class="col-3" id="' + this.id('image_dim_text') + '">Y dim: 500px</div>'
+        sliderHtml += '<div class="col-3" id="' + this.id('slider_text') + '"></div>'
+        sliderHtml += '<div class="col-5" id="' + this.id('ruler_text') + '">Ruler: click to activate</div>'
+        sliderHtml += '<div class="col-1" id="' + this.id('ruler_clear') + '"><a><i class="fa fa-eraser"></i> </a></div>'
+        sliderHtml += '</div>';
 
         var bodyHtml = getObjectValue(config, "slider_ontop", false) ? `${sliderHtml}${figureHtml}` : `${figureHtml}${sliderHtml}`;
         var html = `<div>${bodyHtml}</div>`;
@@ -887,6 +1068,21 @@ class ImageSliderCard extends Card {
 
         let initialSlice = getObjectValue(config, 'initial_slice', Math.floor(N / 2));
         this.setSlice(initialSlice);
+
+    }
+
+    /* Create ruler object with properties to draw the ruler
+    on the image
+     */
+    createRuler() {
+        return {
+            points: [],
+            draggingPoint: null,
+            draggingCenter: false,
+            isMeasuring: false,
+            textId: this.id('ruler_text'),
+            clearId: this.id('ruler_clear')
+        }
     }
 
     setSlice(sliceIndex) {
@@ -910,7 +1106,8 @@ class ImageSliderCard extends Card {
             thumbnail: sliceImg,
             pixelSize: 1,
             thumbnailPixelSize: 1,
-            coordinates: coords
+            coordinates: coords,
+            ruler: this.ruler
         })
         $(this.jid('slider_text')).text(this.slider_prefix + sliceNumber);
     }
@@ -1845,111 +2042,3 @@ function create_pl_ctfplot(containerId, ctfvalues) {
     Plotly.newPlot(containerId, data, layout);
 
 } // function create_pl_ctfplot
-
-
-// ---------- Network related functions ----------------
-var network_colors = {
-  saved: '#CBF6F8',  // water
-  launched: '#A8E4EF',  // Blizzard Blue
-  //'#0CC078',  // Crayola's Green
-  //finished: '#79DE79',  // Pastel Green
-  finished: '#BBEC7B',
-  interactive: '#FCFC99',  // Pastel Yellow
-  running: '#FFC634',  // Sunglow (African heart palette)
-  aborted: '#DD9789', //'#ABABC3',
-  scheduled: '#F0D17A',
-  failed: '#FB6962',  // Pastel Red
-};
-
-
-function createNetwork(container, workflow) {
-    var nodes = new vis.DataSet();
-
-    for (var i = 0;  i < workflow.length; i++){
-        var prot = workflow[i];
-        var c = network_colors[prot['status']];
-        var label = prot['label'];
-        if (label !== prot['id'])
-            label += "(id=" + prot['id'] + ")";
-
-        nodes.add({
-            id: prot['id'],
-            label: label,
-            widthConstraint: { minimum: 120, maximum: 180 },
-            labelHighlightBold: false,
-            color: {
-              background: c,
-              highlight: {
-                border: 'black',
-                background: c
-              },
-              hover: {
-                border: 'black',
-                background: c
-              },
-            }
-          });
-    }
-
-    var edges = new vis.DataSet();
-
-    for (var i = 0;  i < workflow.length; i++){
-        var prot = workflow[i];
-        for (var j = 0; j < prot.links.length; j++){
-            edges.add({from: prot.id, to: prot.links[j]});
-        }
-    }
-
-    var data = {
-        nodes: nodes,
-        edges: edges,
-    };
-
-    var options = {
-        edges: {
-          font: {
-            size: 12,
-          },
-          widthConstraint: {
-            maximum: 90,
-          },
-          arrows: {
-          from: {
-              enabled: true,
-              type: "circle",
-            },
-            to: {
-              enabled: true,
-              type: "arrow",
-            },
-          },
-        },
-        nodes: {
-          shape: "box",
-          margin: 10,
-          widthConstraint: {
-            maximum: 200,
-          },
-        },
-        physics: {
-          enabled: false,
-        },
-        layout: {
-          hierarchical: {
-            direction: "UD",
-            sortMethod: "directed", // "directed"
-              shakeTowards: "roots",
-              nodeSpacing: 200,
-              parentCentralization: true,
-              edgeMinimization: true,
-              blockShifting: true
-          }
-        },
-        interaction: {
-            hover: true,
-            multiselect: true,
-        }
-    };
-
-    return new vis.Network(container, data, options);
-}

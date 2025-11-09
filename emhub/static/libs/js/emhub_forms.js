@@ -539,3 +539,312 @@ function createOrUpdateSession(session_params){
      return card;
  } // function createForm
 
+/* --------------- Network/flowchart related functions ---------------*/
+
+var network_colors = {
+  saved: '#CBF6F8',  // water
+  launched: '#A8E4EF',  // Blizzard Blue
+  //'#0CC078',  // Crayola's Green
+  //finished: '#79DE79',  // Pastel Green
+  finished: '#BBEC7B',
+  interactive: '#FCFC99',  // Pastel Yellow
+  running: '#FFC634',  // Sunglow (African heart palette)
+  aborted: '#DD9789', //'#ABABC3',
+  scheduled: '#F0D17A',
+  failed: '#FB6962',  // Pastel Red
+};
+
+function createNetwork(container, workflow) {
+    var nodes = new vis.DataSet();
+
+    for (var i = 0;  i < workflow.length; i++){
+        var prot = workflow[i];
+        var c = network_colors[prot['status']];
+        var label = prot['label'];
+        if (label !== prot['id'])
+            label += " (id=" + prot['id'] + ")";
+
+        nodes.add({
+            id: prot['id'],
+            label: label,
+            widthConstraint: { minimum: 120, maximum: 180 },
+            labelHighlightBold: false,
+            color: {
+              background: c,
+              highlight: {
+                border: 'black',
+                background: c
+              },
+              hover: {
+                border: 'black',
+                background: c
+              },
+            }
+          });
+    }
+
+    var edges = new vis.DataSet();
+
+    for (var i = 0;  i < workflow.length; i++){
+        var prot = workflow[i];
+        for (var j = 0; j < prot.links.length; j++){
+            edges.add({from: prot.id, to: prot.links[j]});
+        }
+    }
+
+    var data = {
+        nodes: nodes,
+        edges: edges,
+    };
+
+    var options = {
+        edges: {
+          font: {
+            size: 12,
+          },
+          widthConstraint: {
+            maximum: 90,
+          },
+          arrows: {
+          from: {
+              enabled: true,
+              type: "circle",
+            },
+            to: {
+              enabled: true,
+              type: "arrow",
+            },
+          },
+        },
+        nodes: {
+          shape: "box",
+          margin: 10,
+          widthConstraint: {
+            maximum: 200,
+          },
+        },
+        physics: {
+          enabled: false,
+        },
+        layout: {
+          hierarchical: {
+            direction: "UD",
+            sortMethod: "directed", // "directed"
+              shakeTowards: "roots",
+              nodeSpacing: 200,
+              parentCentralization: true,
+              edgeMinimization: true,
+              blockShifting: true
+          }
+        },
+        interaction: {
+            hover: true,
+            multiselect: true,
+        }
+    };
+
+    return new vis.Network(container, data, options);
+}
+
+/**
+ * Class containing the network and the forms
+ */
+class ProcessingDashboard {
+    constructor(workflow, get_project_args, flowchartContainerId) {
+
+        this.workflow = workflow;
+        this.testing = "Some test";
+        console.log("Creating ProcessingDashboard, worklfow: " + this.testing.length);
+        // Project arguments to retrieve runs or project info
+        // args should contain 'sessionId' or 'entry_id' keys
+        this.get_project_args = get_project_args;
+
+        this.selected_node = null;
+        this.display_expert = 'none';
+        this.forms = {};
+        this.runDict = null;
+        this.statuses_values = [
+            {id: 'run_', status: 1},
+            {id: 'summary_', status: 1}
+        ];
+
+        this.status_classes = ['badge-light', 'badge-dark'];
+        this.status_display = ['none', 'block'];
+
+        var container = document.getElementById(flowchartContainerId);
+        this.network = createNetwork(container, workflow);
+        let self = this;
+        this.network.on("click", function (params) {
+            self.clickOnCanvas(params);
+        });
+
+        // Create stdoutEditor
+        this.stdoutEditor = ace.edit("stdout-editor");
+        this.stdoutEditor.setTheme("ace/theme/monokai");
+
+        this.stderrEditor = ace.edit("stderr-editor");
+        this.stderrEditor.setTheme("ace/theme/monokai");
+
+        this.jsonEditor = ace.edit("json-editor")
+        this.jsonEditor.session.setMode("ace/mode/json");
+    } // constructor
+
+    initialize(flowchat_containerId) {
+
+    } // initialize
+
+    getArgs(extraArgs){
+        var args = {run_id: this.selected_node.id};
+        jQuery.extend(args, this.get_project_args);
+        if (extraArgs)
+            jQuery.extend(args, extraArgs);
+        return args;
+    } // getArgs
+
+    displayButtons(value) {
+        let element = document.getElementById('processing_buttons_toolbar')
+        element.style.display = value ? 'inline-block' : 'none'; // show or hide
+    }
+
+    clickOnCanvas(params){
+        var  nodeId = params.nodes[0];
+        this.selected_node = null;
+
+
+        console.log("clickOnCanvas, worklfow: " + this.testing.length);
+
+
+        // find node with  that id
+          for (var i = 0;  i < this.workflow.length; i++){
+              var prot = this.workflow[i];
+              if (prot.id == nodeId) {
+                  this.selected_node = prot;
+                  break;
+              }
+          }
+
+          if (this.selected_node) {
+              this.stdoutEditor.setValue('');
+              this.stderrEditor.setValue('');
+              this.jsonEditor.setValue('');
+
+              this.displayButtons(false);
+              setLoading('run_form_container');
+              setLoading('summary_row');
+
+              this.loadRun(['json']);
+              this.loadRun(['stdout']);
+              this.loadRun(['stderr']);
+
+              load_html_from_ajax('summary_row',
+                  get_ajax_content('processing_run_summary', this.getArgs()));
+          }
+    }
+
+    loadRun(output){
+        var reqRun = $.ajax({
+            url: Api.urls.get_session_run,
+            type: "POST",
+            contentType: 'application/json; charset=utf-8',
+            data: JSON.stringify({attrs: this.getArgs({output: output})}),
+            dataType: "json"
+        });
+
+        let self = this;
+
+        reqRun.done(function(data) {
+            var run_data = data['run'];
+            var form_data = null;
+
+            //alert(JSON.stringify(data));
+            if ('json' in run_data) {
+                self.runDict = run_data['json']
+                //jsonEditor.setValue(JSON.stringify(run_data, null, 4), 1);
+                if (self.selected_node.type in self.forms) {
+                    form_data = self.forms[self.selected_node.type]
+                    //jsonEditor.setValue(JSON.stringify(form_data, null, 4), 1);
+                }
+                else
+                    self.loadRun(['form']);
+            }
+            else if ('form' in run_data) {
+                form_data = run_data['form'];
+                self.forms[self.selected_node.type] = form_data;
+                //jsonEditor.setValue(JSON.stringify(form_data, null, 4), 1);
+            }
+
+            if (form_data) {
+                let info = self.runDict.info;
+                $('#logo-label').text(form_data.name);
+                $('#logo-label-extra').text('(' + info.name + ')');
+                $('#logo-img').attr('src', 'data:image/png;base64,' + form_data.logo);
+                $('#logo-img').css('display', form_data.logo ? 'flex': 'none');
+
+                let values = self.runDict.values;
+                form_create(form_data, values, 'run_form_container');
+                self.displayButtons(true);
+                self.jsonEditor.setValue(JSON.stringify(values, null, 4));
+            }
+
+            if ('stdout' in run_data)
+                self.stdoutEditor.setValue(run_data['stdout'], 1)
+
+            if ('stderr' in run_data)
+                self.stderrEditor.setValue(run_data['stderr'], 1)
+        });
+
+        reqRun.fail(function(jqXHR, textStatus) {
+          alert( "Run request failed: " + textStatus );
+        });
+    }
+
+    loadRunOverview(title){
+        load_overview(title, get_ajax_content('processing_run_overview', this.getArgs()));
+    }
+
+    loadRunFileInfo(path) {
+        load_overview(path, get_ajax_content('processing_run_overview', this.getArgs({file_path: path})));
+    }
+
+    clickOnExpert() {
+        this.display_expert = $('#switch-expert').prop('checked') ? 'flex' : 'none';
+        $('.scn-expert-param').css('display', this.display_expert);
+    }
+
+
+    // FIXME: Check if in use
+    splitPanels(col1, col2) {
+        console.log('Splitting ', 'col-' + col1, 'col-' + col2);
+        $('#run_col').removeClass().addClass('col-' + col1);
+        $('#summary_col').removeClass().addClass('col-' + col2);
+    }
+
+    // FIXME: Check if in use
+    switchStatus(index) {
+        let item = this.statuses_values[index];
+        console.log('Switching status: ', item);
+        let otherStatus = 1 - item.status;
+        console.log($('#' + item.id + 'row').css('display'));
+
+        $('#' + item.id + 'span').removeClass(this.status_classes[item.status]).addClass(this.status_classes[otherStatus]);
+        $('#' + item.id + 'row').css('display', this.status_display[otherStatus]);
+        item.status = otherStatus;
+
+        // Make arrangements depending on the other panel status
+        let otherItem = this.statuses_values[1 - index];
+
+        if (item.status > 0) { // showing current index
+            if (otherItem.status > 0)
+                this.splitPanels(3, 3);
+            else
+                this.splitPanels(5, 1);
+        }
+        else { // hiding current index
+            if (otherItem.status > 0)
+                this.splitPanels(1, 5);
+            else
+                this.switchStatus(1 - index);
+        }
+
+    }
+}
