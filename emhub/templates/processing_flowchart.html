@@ -3,4 +3,10 @@
 {% set navigation = [('Processing Dashboard', url_for_content('processing_dashboard')),
                      ('Workflow', '')] %}
 
-{% include "processing_content.html" %}
+<div class="container-fluid dashboard-content">
+
+    {% include 'include_header.html' %}
+
+    {% include "processing_content.html" %}
+
+</div>

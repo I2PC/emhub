@@ -5,4 +5,10 @@
                      ('OTF', url_for_content('session_live', session_id=session.id)),
                      ('Workflow', '')] %}
 
-{% include "processing_content.html" %}
+<div class="container-fluid dashboard-content">
+
+    {% include 'include_header.html' %}
+
+    {% include "processing_content.html" %}
+
+</div>

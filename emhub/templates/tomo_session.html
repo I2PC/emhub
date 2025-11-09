@@ -33,7 +33,7 @@
         </div>
     </div>
 
-    <div class="row col-12" id="session-content">
+    <div class="row col-12 m-0 p-0" id="session-content">
         {% include 'tomo_session_content.html' %}
     </div>
 
@@ -62,7 +62,7 @@
     function loadWorkflow() {
         setLoading('session-content');
         load_html_from_ajax('session-content',
-            get_ajax_content('processing_content', {entry_id: tomo_session_id}))    ;
+            get_ajax_content('tomo_processing_content', {entry_id: tomo_session_id}))    ;
     }
 
     var reload_counter = 60;  // 60 seconds to reload

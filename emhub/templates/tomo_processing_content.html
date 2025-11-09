@@ -1,0 +1,29 @@
+
+<div class="col-12 m-0 p-0">
+
+    <div class="row m-0 p-0 mb-4">
+
+    {% for menuEntry in menu %}
+        {% set pr = 'pr-0' if loop.index == menu|length else '' %}
+        <div class="col-3 pl-0 {{ pr }}">
+            <div class="card p-0 m-0">
+                <div class="card-body">
+                    <h4 class="card-title">{{ menuEntry['label'] }}</h4>
+                    <br>
+                    {% for job in menuEntry['jobs'] %}
+                    <a href="javascript:onSaveButtonClick()" class="btn btn-sm btn-outline-dark">{{ job }}</a>
+                    {% endfor %}
+                    {% for wf in menuEntry['workflows'] %}
+                        <a href="#" class="btn btn-sm btn-outline-primary">{{ wf   }}</a>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    {% endfor %}
+
+    </div>
+
+    {% include "processing_content.html" %}
+
+
+</div>
