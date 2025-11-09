@@ -27,6 +27,11 @@ from emtools.image import Thumbnail
 
 
 processing_fm = FolderManager(os.path.join(os.environ['EMHUB_INSTANCE'], 'processing'))
+processing_config = {}
+
+if processing_fm.exists('config.json'):
+    with open(processing_fm.join('config.json')) as f:
+        processing_config = json.load(f)
 
 
 def hours(tsFirst, tsLast):

@@ -36,6 +36,8 @@ from emtools.utils import Path, FolderManager, Process, Pretty
 from emtools.image import Thumbnail
 from emtools.metadata import StarFile, WarpXml
 
+from emhub.data.processing import processing_config
+
 
 DEFAULT_SESSION = {
     'path': '/Volumes/CoESCB/home/common/purified_ApoF_tomo_data2_processing',  #'/Volumes/CoESCB/home/common/Thermo_20250620-Sample7',
@@ -187,6 +189,12 @@ def register_content(dc):
     def processing_tomo(**kwargs):
         kwargs['content_id'] = 'project_form'
         return dc.get(**kwargs)
+
+    @dc.content
+    def tomo_processing_content(**kwargs):
+        data = dc.get_data('processing_content', **kwargs)
+        data['menu'] = processing_config['menu']
+        return data
 
 
     # FIXME: More benchmark_ functions to a separate place

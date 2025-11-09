@@ -155,7 +155,7 @@ class RelionSessionData(SessionData):
 
             protList.append({
                 'id': job.id,
-                'label': job['alias'],
+                'label': job['alias'] or job['jobtype'],
                 'links': links,
                 'status': status_map.get(job['status'], job['status']),
                 'type': job['jobtype']
