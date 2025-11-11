@@ -743,8 +743,11 @@ function drawMicrograph(containerId, micrograph, drawValue) {
     canvas.addEventListener('mousemove', (e) => {
         const { offsetX: x, offsetY: y } = e;
 
+
+
           let hovering = false;
           if (ruler.points.length === 2) {
+
             const center = getCenter(ruler.points[0], ruler.points[1]);
             if (x >= center.x - 5 && x <= center.x + 5 &&
                 y >= center.y - 5 && y <= center.y + 5) {

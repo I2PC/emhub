@@ -322,7 +322,7 @@ function createOrUpdateSession(session_params){
  function form_addRows(parent, params, values){
 
      function get_param_value(param){
-         return (param.name in values) ? values[param.name] : '';
+         return (param.name in values) ? values[param.name] : getObjectValue(param, 'default', '');
      }
      function create_label(col, labelText){
         var label = document.createElement('label');
@@ -554,96 +554,111 @@ var network_colors = {
   failed: '#FB6962',  // Pastel Red
 };
 
-function createNetwork(container, workflow) {
-    var nodes = new vis.DataSet();
 
-    for (var i = 0;  i < workflow.length; i++){
-        var prot = workflow[i];
-        var c = network_colors[prot['status']];
-        var label = prot['label'];
-        if (label !== prot['id'])
-            label += " (id=" + prot['id'] + ")";
+class Flowchart {
+    constructor(container, workflow) {
+        let data = this.getData(workflow);
+        let options = this.getOptions();
+        this.network = new vis.Network(container, data, options);
+    }
 
-        nodes.add({
-            id: prot['id'],
-            label: label,
-            widthConstraint: { minimum: 120, maximum: 180 },
-            labelHighlightBold: false,
-            color: {
-              background: c,
-              highlight: {
-                border: 'black',
-                background: c
-              },
-              hover: {
-                border: 'black',
-                background: c
-              },
+    update(workflow){
+        let data = this.getData(workflow);
+        this.network.setData(data);
+    }
+
+    getData(workflow) {
+        var nodes = new vis.DataSet();
+
+        for (var i = 0;  i < workflow.length; i++){
+            var prot = workflow[i];
+            var c = network_colors[prot['status']];
+            var label = prot['label'];
+            if (label !== prot['id'])
+                label += " (id=" + prot['id'] + ")";
+
+            nodes.add({
+                id: prot['id'],
+                label: label,
+                widthConstraint: { minimum: 120, maximum: 180 },
+                labelHighlightBold: false,
+                color: {
+                  background: c,
+                  highlight: {
+                    border: 'black',
+                    background: c
+                  },
+                  hover: {
+                    border: 'black',
+                    background: c
+                  },
+                }
+              });
+        }
+
+        var edges = new vis.DataSet();
+
+        for (var i = 0;  i < workflow.length; i++){
+            var prot = workflow[i];
+            for (var j = 0; j < prot.links.length; j++){
+                edges.add({from: prot.id, to: prot.links[j]});
             }
-          });
-    }
-
-    var edges = new vis.DataSet();
-
-    for (var i = 0;  i < workflow.length; i++){
-        var prot = workflow[i];
-        for (var j = 0; j < prot.links.length; j++){
-            edges.add({from: prot.id, to: prot.links[j]});
         }
-    }
 
-    var data = {
-        nodes: nodes,
-        edges: edges,
-    };
+        return {
+            nodes: nodes,
+            edges: edges,
+        };
 
-    var options = {
-        edges: {
-          font: {
-            size: 12,
-          },
-          widthConstraint: {
-            maximum: 90,
-          },
-          arrows: {
-          from: {
-              enabled: true,
-              type: "circle",
+    } // getData function
+
+    getOptions() {
+         return {
+            edges: {
+              font: {
+                size: 12,
+              },
+              widthConstraint: {
+                maximum: 90,
+              },
+              arrows: {
+              from: {
+                  enabled: true,
+                  type: "circle",
+                },
+                to: {
+                  enabled: true,
+                  type: "arrow",
+                },
+              },
             },
-            to: {
-              enabled: true,
-              type: "arrow",
+            nodes: {
+              shape: "box",
+              margin: 10,
+              widthConstraint: {
+                maximum: 200,
+              },
             },
-          },
-        },
-        nodes: {
-          shape: "box",
-          margin: 10,
-          widthConstraint: {
-            maximum: 200,
-          },
-        },
-        physics: {
-          enabled: false,
-        },
-        layout: {
-          hierarchical: {
-            direction: "UD",
-            sortMethod: "directed", // "directed"
-              shakeTowards: "roots",
-              nodeSpacing: 200,
-              parentCentralization: true,
-              edgeMinimization: true,
-              blockShifting: true
-          }
-        },
-        interaction: {
-            hover: true,
-            multiselect: true,
-        }
-    };
-
-    return new vis.Network(container, data, options);
+            physics: {
+              enabled: false,
+            },
+            layout: {
+              hierarchical: {
+                direction: "UD",
+                sortMethod: "directed", // "directed"
+                  shakeTowards: "roots",
+                  nodeSpacing: 200,
+                  parentCentralization: true,
+                  edgeMinimization: true,
+                  blockShifting: true
+              }
+            },
+            interaction: {
+                hover: true,
+                multiselect: true,
+            }
+        };
+    } // function getOptions
 }
 
 /**
@@ -671,10 +686,10 @@ class ProcessingDashboard {
         this.status_classes = ['badge-light', 'badge-dark'];
         this.status_display = ['none', 'block'];
 
-        var container = document.getElementById(flowchartContainerId);
-        this.network = createNetwork(container, workflow);
+        let container = document.getElementById(flowchartContainerId);
+        this.flowchart = new Flowchart(container, workflow);
         let self = this;
-        this.network.on("click", function (params) {
+        this.flowchart.network.on("click", function (params) {
             self.clickOnCanvas(params);
         });
 
@@ -694,7 +709,10 @@ class ProcessingDashboard {
     } // initialize
 
     getArgs(extraArgs){
-        var args = {run_id: this.selected_node.id};
+        var args = {
+            run_id: this.selected_node.id,
+            job_type: this.selected_node.type
+        };
         jQuery.extend(args, this.get_project_args);
         if (extraArgs)
             jQuery.extend(args, extraArgs);
@@ -708,31 +726,26 @@ class ProcessingDashboard {
 
     clickOnCanvas(params){
         var  nodeId = params.nodes[0];
-        this.selected_node = null;
-
-
-        console.log("clickOnCanvas, worklfow: " + this.testing.length);
-
+        let selected_node = null;
 
         // find node with  that id
           for (var i = 0;  i < this.workflow.length; i++){
               var prot = this.workflow[i];
               if (prot.id == nodeId) {
-                  this.selected_node = prot;
+                  selected_node = prot;
                   break;
               }
           }
 
-          if (this.selected_node) {
-              this.stdoutEditor.setValue('');
-              this.stderrEditor.setValue('');
-              this.jsonEditor.setValue('');
+          if (selected_node) {
+              this.selected_node = selected_node;
+              this.clearRunInfo();
 
-              this.displayButtons(false);
-              setLoading('run_form_container');
-              setLoading('summary_row');
+              if (this.selected_node.type in this.forms)
+                this.loadRun(['json']);
+              else
+                  this.loadRun(['form', 'json']);
 
-              this.loadRun(['json']);
               this.loadRun(['stdout']);
               this.loadRun(['stderr']);
 
@@ -741,36 +754,117 @@ class ProcessingDashboard {
           }
     }
 
-    loadRun(output){
-        var reqRun = $.ajax({
-            url: Api.urls.get_session_run,
+    clearRunInfo(){
+        this.stdoutEditor.setValue('');
+        this.stderrEditor.setValue('');
+        this.jsonEditor.setValue('');
+
+        this.displayButtons(false);
+        setLoading('run_form_container');
+        setLoading('summary_row');
+    }
+
+    newRun(jobType) {
+        this.selected_node = {
+            id: null,
+            type: jobType
+        };
+        this.clearRunInfo();
+        this.loadRun('form');
+    }
+
+    request(url, args){
+        return $.ajax({
+            url: url,
             type: "POST",
             contentType: 'application/json; charset=utf-8',
-            data: JSON.stringify({attrs: this.getArgs({output: output})}),
+            data: JSON.stringify({attrs: args}),
             dataType: "json"
         });
+    }
+
+    saveJob(){
+        let self = this;
+
+        var reqRun = this.request(
+            Api.urls.save_job,
+            this.getArgs({params: getFormAsJson('processing_form')})
+        );
+        reqRun.done(function(data) {
+            if ('job' in data && 'id' in data.job) {
+                let job = data.job;
+                showMessage('Operation completed', `Saved job ${job.id}.`);
+                self.flowchart.update(job.workflow);
+                self.selected_node = {
+                    id: job.id
+                }
+            }
+            else if ('error' in data) {
+                showError(data.error)
+            }
+        });
+    } // function saveJob
+
+    deleteJob() {
 
         let self = this;
+        let jobId = this.selected_node.id;
+
+        if (jobId == null)
+            showError("Can't delete unsaved job.");
+        else
+            confirm(
+                "Delete Operation",
+                `Do you want to <label style="color: red">DELETE</label> run <strong>${jobId}</strong> and ALL its content?`,
+                'Cancel', 'Delete',
+                function () {
+                    var reqRun = self.request(
+                        Api.urls.delete_job,
+                        self.getArgs({params: getFormAsJson('processing_form')})
+                    );
+                    reqRun.done(function(data) {
+                        let job_data = data['job']
+                        if ('id' in job_data) {
+                            let jobId = job_data['id']
+                            // showMessage('Operation completed', `Deleted job ${jobId}.`);
+                            self.flowchart.update(job_data['workflow']);
+                        }
+                        else if ('error' in job_data) {
+                            showError(job_data['error'])
+                        }
+                    });
+                });
+    }
+
+    loadRun(output){
+        var reqRun = this.request(
+            Api.urls.get_session_run,
+            this.getArgs({output: output})
+        );
+
+        let self = this;
+        let jobType = self.selected_node.type;
 
         reqRun.done(function(data) {
             var run_data = data['run'];
             var form_data = null;
 
+            self.runDict = {
+                info: {name: jobType},
+                values: {}
+            };
+
+            if ('form' in run_data) {
+                form_data = run_data['form'];
+                self.forms[jobType] = form_data;
+                //jsonEditor.setValue(JSON.stringify(form_data, null, 4), 1);
+            }
+
             //alert(JSON.stringify(data));
             if ('json' in run_data) {
                 self.runDict = run_data['json']
                 //jsonEditor.setValue(JSON.stringify(run_data, null, 4), 1);
-                if (self.selected_node.type in self.forms) {
-                    form_data = self.forms[self.selected_node.type]
-                    //jsonEditor.setValue(JSON.stringify(form_data, null, 4), 1);
-                }
-                else
-                    self.loadRun(['form']);
-            }
-            else if ('form' in run_data) {
-                form_data = run_data['form'];
-                self.forms[self.selected_node.type] = form_data;
-                //jsonEditor.setValue(JSON.stringify(form_data, null, 4), 1);
+                form_data = self.forms[jobType]
             }
 
             if (form_data) {
@@ -783,7 +877,7 @@ class ProcessingDashboard {
                 let values = self.runDict.values;
                 form_create(form_data, values, 'run_form_container');
                 self.displayButtons(true);
-                self.jsonEditor.setValue(JSON.stringify(values, null, 4));
+                self.loadJsonValues();
             }
 
             if ('stdout' in run_data)
@@ -796,6 +890,11 @@ class ProcessingDashboard {
         reqRun.fail(function(jqXHR, textStatus) {
           alert( "Run request failed: " + textStatus );
         });
+    }
+
+    loadJsonValues(){
+        let values = getFormAsJson('processing_form');
+        this.jsonEditor.setValue(JSON.stringify(values, null, 4));
     }
 
     loadRunOverview(title){

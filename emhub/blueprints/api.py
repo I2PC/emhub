@@ -657,7 +657,10 @@ def get_session_run():
     dm = app.dm
 
     def _get_run(**attrs):
-        run = dm.get_processing_project(**attrs)['run']
+        pp = dm.get_processing_project(**attrs)
+        project = pp['project']
+        run = pp['run']
+        jobtype = run.jobtype if run else attrs['job_type']
         outputs = attrs.get('output', ['json'])
         results = {}
 
@@ -673,11 +676,67 @@ def get_session_run():
             results['stderr'] = _loadFileLines(run.getStdError())
 
         if 'form' in outputs:
-            results['form'] = run.getFormDefinition()
+            values = run.values if run else None
+            results['form'] = project.get_form_definition(jobtype, jobValues=values)
 
         return results
 
     return _handle_item(_get_run, 'run')
+
+
+@api_bp.route('/save_job', methods=['POST'])
+@flask_login.login_required
+def save_job():
+    """
+    This method will retrieve a run instance.
+    Processing project can be loaded from a session_id
+    or an entry_id
+    """
+    dm = app.dm
+
+    def _save_job(**attrs):
+        pp = dm.get_processing_project(**attrs)
+        project = pp['project']
+        run = pp['run']
+        jobtype = run.jobtype if run else attrs['job_type']
+        params = attrs['params']
+
+        from emwrap.base import ProjectManager
+        pm = ProjectManager(project.path)
+        jobTypeOrId = run.id if run else jobtype
+        job = pm.saveJob(jobTypeOrId, params)
+        return {
+            'id': job.id,
+            'workflow': project.get_workflow(update=True)
+        }
+
+    return _handle_item(_save_job, 'job')
+
+
+@api_bp.route('/delete_job', methods=['POST'])
+@flask_login.login_required
+def delete_job():
+    """
+    This method will retrieve a run instance.
+    Processing project can be loaded from a session_id
+    or an entry_id
+    """
+    dm = app.dm
+
+    def _delete_job(**attrs):
+        pp = dm.get_processing_project(**attrs)
+        project = pp['project']
+        run = pp['run']
+        from emwrap.base import ProjectManager
+        pm = ProjectManager(project.path)
+        pm.deleteJob(run.id)
+        result = {
+            'id': run.id,
+            'workflow': project.get_workflow(update=True)
+        }
+        return result
+
+    return _handle_item(_delete_job, 'job')
 
 
 @api_bp.route("/get_classes2d", methods=['POST'])

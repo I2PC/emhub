@@ -26,14 +26,6 @@ from emtools.metadata import StarFile, EPU, SqliteFile
 from emtools.image import Thumbnail
 
 
-processing_fm = FolderManager(os.path.join(os.environ['EMHUB_INSTANCE'], 'processing'))
-processing_config = {}
-
-if processing_fm.exists('config.json'):
-    with open(processing_fm.join('config.json')) as f:
-        processing_config = json.load(f)
-
-
 def hours(tsFirst, tsLast):
     dtFirst = dt.datetime.fromtimestamp(tsFirst)
     dtLast = dt.datetime.fromtimestamp(tsLast)
@@ -176,4 +168,7 @@ class SessionData(FolderManager):
 
     def get_run(self, runId):
         """ Retrieve Run class. """
+        return None
+
+    def get_form_definition(self, jobType, jobValues=None):
         return None

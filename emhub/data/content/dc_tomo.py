@@ -36,7 +36,7 @@ from emtools.utils import Path, FolderManager, Process, Pretty
 from emtools.image import Thumbnail
 from emtools.metadata import StarFile, WarpXml
 
-from emhub.data.processing import processing_config
+from emwrap.base import ProcessingConfig
 
 
 DEFAULT_SESSION = {
@@ -57,15 +57,22 @@ def register_content(dc):
                     'path': tp.extra['data']['processing_path'],
                     'tomograms_star': 'tomograms.star',
                 }
+                load_workflow = 'workflow' in kwargs
                 data = {
                     'tomo_session': tomo_session,
                     'tomograms': [],  # To be loaded
-                    'tomo_session_id': tsId
+                    'tomo_session_id': tsId,
+                    'workflow': load_workflow
                 }
+                if load_workflow:
+                    data.update(tomo_processing_content(entry_id=tsId, **kwargs))
+
                 tsession = json.loads(kwargs.get('tomo_session', '{}'))
                 if 'tomograms_star' in tsession:
                     tomo_session['tomograms_star'] = tsession['tomograms_star']
                 data.update(tomo_session_content(tomo_session=json.dumps(tomo_session)))
+
+
 
                 return data
             else:
@@ -134,29 +141,31 @@ def register_content(dc):
         }
 
         tomograms_star = tomo_session.get('tomograms_star', 'tomograms.star')
-        table = _load_table_from_star(session_path, tomograms_star)
 
-        # It is possible to load the table from folder, but better to explicitly
-        # generate the tomograms.star
-        # table = _load_table_from_folders(session_path, tomo_session)
+        if s.exists(tomograms_star):
+            table = _load_table_from_star(session_path, tomograms_star)
 
-        tomograms = data['tomograms']
+            # It is possible to load the table from folder, but better to explicitly
+            # generate the tomograms.star
+            # table = _load_table_from_folders(session_path, tomo_session)
 
-        def _join(p):
-            return s.join(p) if p else p
+            tomograms = data['tomograms']
 
-        for row in table:
-            tomograms.append({
-                'tomoName': row.rlnTomoName,
-                'md': _join(row.rlnTomoMetadata),
-                'coords_md': _join(row.rlnCoordinatesMetadata),
-                'coords_n': row.rlnCoordinatesCount,
-                'tomo_fn': _join(row.rlnTomogram),
-                'aligned_ts': _join(row.rlnAlignedTiltSeries),
-                'tomo_xml': _join(row.wrpTomoMetadataXml),
-                'defocus': row.rlnDefocus,
-                'thickness': row.rlnThickness
-            })
+            def _join(p):
+                return s.join(p) if p else p
+
+            for row in table:
+                tomograms.append({
+                    'tomoName': row.rlnTomoName,
+                    'md': _join(row.rlnTomoMetadata),
+                    'coords_md': _join(row.rlnCoordinatesMetadata),
+                    'coords_n': row.rlnCoordinatesCount,
+                    'tomo_fn': _join(row.rlnTomogram),
+                    'aligned_ts': _join(row.rlnAlignedTiltSeries),
+                    'tomo_xml': _join(row.wrpTomoMetadataXml),
+                    'defocus': row.rlnDefocus,
+                    'thickness': row.rlnThickness
+                })
 
         return data
 
@@ -193,7 +202,7 @@ def register_content(dc):
     @dc.content
     def tomo_processing_content(**kwargs):
         data = dc.get_data('processing_content', **kwargs)
-        data['menu'] = processing_config['menu']
+        data['menu'] = ProcessingConfig.get_menu()
         return data
 
 

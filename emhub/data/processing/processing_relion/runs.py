@@ -25,10 +25,11 @@ from flask import current_app as app
 
 import mrcfile
 from emtools.utils import Path, Timer, Pretty, FolderManager
-from emtools.metadata import StarFile, EPU, SqliteFile, Table
+from emtools.metadata import StarFile, EPU, SqliteFile, Table, RelionStar
 from emtools.image import Thumbnail
+from emwrap.base import ProcessingConfig, ProjectManager
 
-from ..base import SessionRun, SessionData, hours, processing_fm
+from ..base import SessionRun, SessionData, hours
 
 location = os.path.dirname(__file__)
 
@@ -37,26 +38,23 @@ class RelionRun(SessionRun):
     """ Helper class to manipulate Relion run data. """
     def __init__(self, project, path, job, **kwargs):
         SessionRun.__init__(self, project, path)
-        d, self.id = os.path.split(Path.rmslash(path))
+        self.id = job.id
         self.job = job
         self.jobtype = job['jobtype']
         self.values = {} # FIXME
         self.extra = kwargs
 
-        if self.exists('job.json'):
-            with open(self.join('job.json')) as f:
-                self.values = json.load(f)
+        if self.exists('job.star'):
+            self.values = RelionStar.read_jobstar(self.join('job.star'))
 
-            d = {
-                'job': {'jobtype': self.jobtype},
-                'values': self.values
-            }
-            self._dictToJobStar(d, self.join('job.star'))
-
-        #with StarFile(self.join('job.star')) as sf:
-        #    self.job = sf.getTable('job')
-        #    self.values = {row.rlnJobOptionVariable: row.rlnJobOptionValue
-        #                   for row in sf.iterTable('joboptions_values', guessType=False)}
+            # with open(self.join('job.json')) as f:
+            #     self.values = json.load(f)
+            #
+            # d = {
+            #     'job': {'jobtype': self.jobtype},
+            #     'values': self.values
+            # }
+            # ProjectManager.write_jobstar(d, self.join('job.star'))
 
         sep = '-' if '-' in self.jobtype else '.'
         parts = self.jobtype.split(sep)
@@ -64,46 +62,12 @@ class RelionRun(SessionRun):
         self.className = parts[1] if len(parts) > 1 else self.jobtype
 
         self.name = job.id
-        self.alias = job['alias'] or self.jobtype
+        self.alias = RelionRun.jobAlias(job)
 
-        #with StarFile(self.join('job_pipeline.star')) as sf:
-        #    t = sf.getTable('pipeline_processes')
-        #    row = t[0]
-        #    self.name = row.rlnPipeLineProcessName
-        #    self.alias = row.rlnPipeLineProcessAlias
-
-    def _dictToJobStar(self, d, jobStarFile):
-        """ Convert a dictionary into a job.star.
-        data_job
-
-        _rlnJobTypeLabel             relion.class3d
-        _rlnJobIsContinue                       0
-        _rlnJobIsTomo                           1
-
-
-        # version 50001
-
-        data_joboptions_values
-
-        loop_
-        _rlnJobOptionVariable #1
-        _rlnJobOptionValue #2
-        allow_coarser         No
-        ctf_intact_first_peak         No
-        do_apply_helical_symmetry        Yes
-        """
-        with StarFile(jobStarFile, 'w') as sfOut:
-            tJob = Table(['rlnJobTypeLabel', 'rlnJobIsContinue', 'rlnJobIsTomo'])
-            tJob.addRowValues(d['job']['jobtype'], 0, 0)  # FIXME check continue and isTomo
-            sfOut.writeTable('job', tJob)
-            tValues = Table(['rlnJobOptionVariable', 'rlnJobOptionValue'])
-            for k, v in d['values'].items():
-                val = ('Yes' if v else 'No') if isinstance(v, bool) else v
-                tValues.addRowValues(k, val)
-            sfOut.writeTable('joboptions_values', tValues, computeFormat=True)
-
-    def _jobStarToDict(self, jobStarFile):
-        pass
+    @staticmethod
+    def jobAlias(job):
+        a = job['alias']
+        return a if (a and a != 'None') else job['jobtype']
 
     def getInfo(self):
         return {
@@ -114,68 +78,6 @@ class RelionRun(SessionRun):
             'alias': self.alias,
             'jobtype': self.jobtype
         }
-
-    def getFormDefinition(self):
-        default = {'valueClass': 'String',
-                   'paramClass': 'StringParam',
-                   'important': False,
-                   'expert': False
-                   }
-
-        formDef = {
-            'package': '',
-            'name': self.jobtype,
-            'logo': '',
-            'sections': []
-        }
-
-        allParams = set()
-
-        def _set_defaults(paramDef):
-            for k, v in default.items():
-                if k not in paramDef:
-                    paramDef[k] = v
-            return paramDef
-
-        def _register(paramDef):
-            if name := paramDef.get('name', None):
-                _set_defaults(paramDef)
-                allParams.add(name)
-
-        configFn = ''
-        if processing_fm.exists():
-            with open(processing_fm.join('config.json')) as f:
-                config = json.load(f)
-                for jobConfig in config['jobs']:
-                    print(jobConfig)
-                    if jobConfig['type'] == self.jobtype:
-                        configFn = processing_fm.join(jobConfig['form'])
-                        break
-
-        if os.path.exists(configFn):
-
-
-            with open(configFn) as f:
-                formConf = json.load(f)
-                for sectionDef in formConf['sections']:
-                    for paramDef in sectionDef['params']:
-                        if paramDef.get('paramClass', '') == 'Line':
-                            for paramDef2 in paramDef['params']:
-                                _register(paramDef2)
-                        else:
-                            _register(paramDef)
-                    formDef['sections'].append(sectionDef)
-
-        extraParams = []
-        for k, v in self.values.items():
-            if k not in allParams:
-                extraParams.append(_set_defaults({'label': k, 'name': k}))
-
-        if extraParams:
-            formDef['sections'].append({'label': 'extra params',
-                                        'params': extraParams})
-
-        return formDef
 
     def getValues(self):
         return self.values

@@ -16,7 +16,6 @@
 
 import os
 
-from .base import processing_fm, processing_config
 from .processing_relion import RelionSessionData
 from .processing_scipion import ScipionSessionData
 

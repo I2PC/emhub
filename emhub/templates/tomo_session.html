@@ -34,7 +34,12 @@
     </div>
 
     <div class="row col-12 m-0 p-0" id="session-content">
-        {% include 'tomo_session_content.html' %}
+        {% if workflow %}
+            {% include 'tomo_processing_content.html' %}
+        {% else %}
+            {% include 'tomo_session_content.html' %}
+        {% endif %}
+
     </div>
 
     <div class="row col-12">

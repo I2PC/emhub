@@ -25,6 +25,8 @@ from emtools.utils import Path, Timer, Pretty, FolderManager
 from emtools.metadata import StarFile, EPU, SqliteFile, RelionStar
 from emtools.image import Thumbnail
 
+from emwrap.base import ProcessingConfig, ProjectManager
+
 from ..base import SessionRun, SessionData, hours
 from .runs import RelionRun
 
@@ -39,13 +41,13 @@ class RelionSessionData(SessionData):
         SessionData.__init__(self, *args, **kwargs)
         self.session = defaultdict(lambda: None)
 
-        with open(self.join('session.json')) as f:
-            self.session.update(json.load(f))
-            # for k in ['movies', 'micrographs', 'coordinates', 'classes2d']:
-            #     setattr(self, k, self.join(session.get(k, '')))
+        if self.exists('session.json'):
+            with open(self.join('session.json')) as f:
+                self.session.update(json.load(f))
+                # for k in ['movies', 'micrographs', 'coordinates', 'classes2d']:
+                #     setattr(self, k, self.join(session.get(k, '')))
 
-        pipelineStar = self.join('default_pipeline.star')
-        self.workflow = RelionStar.pipeline_to_workflow(pipelineStar)
+        self.workflow = RelionStar.pipeline_to_workflow(self.join('default_pipeline.star'))
         self.movDataTable = None
         self.micDataTable = None
 
@@ -138,7 +140,10 @@ class RelionSessionData(SessionData):
         """ Return the run_id for the ctfs used for the general session overview. """
         return self.session['micrographs']
 
-    def get_workflow(self):
+    def get_workflow(self, update=False):
+        if update:
+            self.workflow = RelionStar.pipeline_to_workflow(self.join('default_pipeline.star'))
+
         protList = []
         status_map = {
             'Succeeded': 'finished',
@@ -155,7 +160,7 @@ class RelionSessionData(SessionData):
 
             protList.append({
                 'id': job.id,
-                'label': job['alias'] or job['jobtype'],
+                'label': RelionRun.jobAlias(job),
                 'links': links,
                 'status': status_map.get(job['status'], job['status']),
                 'type': job['jobtype']
@@ -164,8 +169,62 @@ class RelionSessionData(SessionData):
         return protList
 
     def get_run(self, runId):
-        return RelionRun(self, self.join(runId), self.workflow.getJob(runId),
-                         data=runId)
+        if job := self.workflow.getJob(runId, None):
+            return RelionRun(self, self.join(runId), job, data=runId)
+        else:
+            return None
+
+    def get_form_definition(self, jobType, jobValues=None):
+        """ Return the form for a given jobType.
+        Args:
+            jobType: the type of the job.
+            jobValues: values of an existing job, to extend the form if
+                these keys are missing.
+        """
+        default = {'valueClass': 'String',
+                   'paramClass': 'StringParam',
+                   'important': False,
+                   'expert': False
+                   }
+
+        formDef = {
+            'package': '',
+            'name': jobType,
+            'logo': '',
+            'sections': []
+        }
+
+        allParams = set()
+
+        def _set_defaults(paramDef):
+            for k, v in default.items():
+                if k not in paramDef:
+                    paramDef[k] = v
+            return paramDef
+
+        def _register(paramDef):
+            if name := paramDef.get('name', None):
+                _set_defaults(paramDef)
+                allParams.add(name)
+
+        if jobForm := ProcessingConfig.get_job_form(jobType):
+            for paramDef in ProcessingConfig.iter_form_params(jobForm):
+                _register(paramDef)
+            for sectionDef in jobForm['sections']:
+                formDef['sections'].append(sectionDef)
+
+        if jobValues:
+            extraParams = []
+            for k, v in jobValues.items():
+                if k not in allParams:
+                    extraParams.append(_set_defaults({'label': k, 'name': k}))
+
+            if extraParams:
+                formDef['sections'].append({'label': 'extra params',
+                                            'params': extraParams})
+
+        return formDef
+
 
     def get_classes2d_runs(self):
         classesPath = os.path.join(self.classes2d, 'Classes2D')
