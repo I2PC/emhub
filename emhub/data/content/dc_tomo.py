@@ -115,7 +115,7 @@ def register_content(dc):
         if not os.path.exists(star_path):
             raise Exception(f"Star file '{star_path}' does not exist")
 
-        return StarFile.getTableFromFile(star_path, 'tomograms')
+        return StarFile.getTableFromFile('tomograms', star_path)
 
     def _load_table_from_folders(session_path, tomo_session):
         s = FolderManager(session_path)

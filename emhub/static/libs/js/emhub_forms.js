@@ -427,11 +427,16 @@ function createOrUpdateSession(session_params){
             }
             else if ('valueClass' in param) {
 
+                function _bool(v){
+                    return (v === true || v === 1 || v === '1' || v === 'Yes' || v === 'True' || v === 'true')
+                }
+
                 if (param.paramClass === "BooleanParam") {
                     var div = document.createElement('div');
                     div.className = 'row col-8 ml-1';
-                    form_addRadio(div, base_id + '-yes', base_id, true, 'Yes', param_value === '1');
-                    form_addRadio(div, base_id + '-no', base_id, false, 'No', param_value === '0');
+                    let b = _bool(param_value);
+                    form_addRadio(div, base_id + '-yes', base_id, true, 'Yes', b);
+                    form_addRadio(div, base_id + '-no', base_id, false, 'No', !b);
                     row.appendChild(div);
                 }
                 else {
@@ -521,7 +526,7 @@ function createOrUpdateSession(session_params){
              div.className += "show active";
          }
          div.role = "tabpanel";
-         div.style = "height: 420px";
+         div.style = "height: 440px";
          div.setAttribute('aria-labelledby', a.id);
          content.appendChild(div);
 
@@ -788,7 +793,7 @@ class ProcessingDashboard {
 
         var reqRun = this.request(
             Api.urls.save_job,
-            this.getArgs({params: getFormAsJson('processing_form')})
+            this.getArgs({params: getFormAsJson('processing_form', true)})
         );
         reqRun.done(function(data) {
             if ('job' in data && 'id' in data.job) {
@@ -820,7 +825,7 @@ class ProcessingDashboard {
                 function () {
                     var reqRun = self.request(
                         Api.urls.delete_job,
-                        self.getArgs({params: getFormAsJson('processing_form')})
+                        self.getArgs({})
                     );
                     reqRun.done(function(data) {
                         let job_data = data['job']
@@ -893,7 +898,7 @@ class ProcessingDashboard {
     }
 
     loadJsonValues(){
-        let values = getFormAsJson('processing_form');
+        let values = getFormAsJson('processing_form', true);
         this.jsonEditor.setValue(JSON.stringify(values, null, 4));
     }
 
