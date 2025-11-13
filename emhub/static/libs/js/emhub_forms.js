@@ -810,6 +810,11 @@ class ProcessingDashboard {
         });
     } // function saveJob
 
+    duplicateJob(){
+        this.selected_node.id = null;
+        this.saveJob();
+    } // function saveJob
+
     deleteJob() {
 
         let self = this;
