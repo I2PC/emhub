@@ -15,13 +15,34 @@
         <div class="row">
             <div class="col-8">
                 <form id="tomo_session_form">
-                    {{ macros.session_dialog_row('Session Path', 'path', tomo_session['path'], 'Provide session path') }}
+{#                    {{ macros.session_dialog_row('Session Path', 'path', tomo_session['path'], 'Provide session path') }}#}
+
+                    <div class="form-group row ">
+                        <label class="col-3 col-form-label text-right">Session Path</label>
+                        <div class="col-6">
+                            <input type="text" required="" id="session_path" class="form-control" readonly
+                                   value="{{ tomo_session['path'] }}" data-key="path">
+                        </div>
+                        <div class="col-2">
+                        </div>
+                    </div>
+
                     {% if folders %}
                         {{ macros.session_dialog_row('Tomograms List', 'tomograms', tomo_session['tomograms'], 'Provide tomograms folder') }}
                         {{ macros.session_dialog_row('Reconstruction', 'reconstruction', tomo_session['reconstruction'], 'Provide reconstruction folder') }}
                         {{ macros.session_dialog_row('Picking', 'picking', tomo_session['picking'], 'Provide Pytom picking path') }}
                     {% else %}
-                        {{ macros.session_dialog_row('Tomograms STAR', 'tomograms_star', tomo_session['tomograms_star'], 'Provide tomograms STAR file') }}
+                            <div class="form-group row ">
+                                <label class="col-3 col-form-label text-right">Tomograms STAR</label>
+                                <div class="col-6">
+                                    <input type="text" required="" placeholder="Provide tomograms STAR file" id="tomograms_star" class="form-control"
+                                           value="{{ tomo_session['tomograms_star'] }}" data-key="tomograms_star">
+                                </div>
+                                <div class="col-2">
+                                    <a href="javascript:showTomogramsStar()"><icon class="fas fa-file mr-2"></icon></a>
+                                </div>
+                            </div>
+{#                          {{ macros.session_dialog_row('Tomograms STAR', 'tomograms_star', tomo_session['tomograms_star'], 'Provide tomograms STAR file') }}#}
                     {% endif %}
                 </form>
             </div>
@@ -51,9 +72,18 @@
 <script>
     $('select').selectpicker();
     var tomo_session_id = {{ tomo_session_id|tojson }};
+    var tomo_session_path = {{ tomo_session['path']|tojson }};
+
+    function showTomogramsStar(){
+        let tomoStar = $("#tomograms_star").val();
+        let tomoPath = `${tomo_session_path}/${tomoStar}`;
+        loadStarOverview(tomoPath, 'global');
+    }
 
     function getTomoSession(){
-        return JSON.stringify(getFormAsJson('tomo_session_form', true));
+        let args = getFormAsJson('tomo_session_form', true);
+        args.session_id = tomo_session_id;
+        return JSON.stringify(args);
     }
 
     function loadSession(doLoad) {

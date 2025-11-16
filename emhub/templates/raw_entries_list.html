@@ -141,7 +141,8 @@ function editEntry(entryId) {
 function onEntryUpdate() {
     var entry = {
         id: last_entry,
-        extra: JSON.parse(editor.getValue())
+        extra: JSON.parse(editor.getValue()),
+        validate: false  // Don't validate if editing the entry's extra JSON
     };
     var formData = new FormData();
     formData.append('attrs', JSON.stringify(entry));

@@ -1,5 +1,18 @@
 {% import "entry_macros.html" as macros %}
 
+{% macro cond(col) %}
+    {% if col in columns_map %}
+        {{ caller() }}
+    {% endif %}
+{%- endmacro %}
+
+{% macro condHeader(col, label) %}
+    {% if col in columns_map %}
+        <th>{{ label }}</th>
+    {% endif %}
+{%- endmacro %}
+
+
 <div class="row col-12">
     {% if errors %}
         <h3 class="col-12">Errors:</h3> <br/>
@@ -59,9 +72,9 @@
                                         <th>Enabled</th>
                                         <th>Index</th>
                                         <th>TomoName</th>
-                                        <th>Defocus</th>
-                                        <th>Coords</th>
-                                        <th>Thickness</th>
+                                        {{ condHeader('defocus', 'Defocus') }}
+                                        {{ condHeader('coords_n', 'Coords') }}
+                                        {{ condHeader('thickness', 'Thickness') }}
                                         <th>Metadata</th>
                                         <th>TS / Tomogram</th>
                                     </tr>
@@ -87,9 +100,15 @@
                                         </td>
                                         <td>{{ index }}</td>
                                         <td>{{ t['tomoName'] }}</td>
-                                        <td>{{ t['defocus'] }}</td>
-                                        <td><a href="javascript:loadCoordinatesStar({{ index }})">{{ t['coords_n'] }}</a></td>
-                                        <td>{{ t['thickness'] }}</td>
+                                        {% call cond('defocus') %}
+                                            <td>{{ t['defocus'] }}</td>
+                                        {% endcall %}
+                                        {% call cond('coords_n') %}
+                                            <td><a href="javascript:loadCoordinatesStar({{ index }})">{{ t['coords_n'] }}</a></td>
+                                        {% endcall %}
+                                        {% call cond('coords_n') %}
+                                            <td>{{ t['thickness'] }}</td>
+                                        {% endcall %}
                                         <td>
                                             <a href="javascript:loadTomoStar({{ index }})">tomostar</a>
                                             {% if t['tomo_xml'] %}
@@ -97,8 +116,16 @@
                                             {% endif %}
                                         </td>
                                         <td>
-                                            <a href="javascript:loadAlignedTs({{ index }})"><icon class="fas fa-images mr-2"></icon></a>
-                                            <a href="javascript:loadTomogram({{ index }})"><icon class="fas fa-cube mr-2"></icon></a>
+                                            {% set tomo = tomograms[index] %}
+                                            {% if tomo['ts_md'] %}
+                                                <a href="javascript:loadTsMetadata({{ index }})"><icon class="far fa-images mr-2"></icon></a>
+                                            {% endif %}
+                                            {% if tomo['aligned_ts'] %}
+                                                <a href="javascript:loadAlignedTs({{ index }})"><icon class="fas fa-images mr-2"></icon></a>
+                                            {% endif %}
+                                            {% if tomo['tomo_fn'] %}
+                                                <a href="javascript:loadTomogram({{ index }})"><icon class="fas fa-cube mr-2"></icon></a>
+                                            {% endif %}
                                         </td>
                                     </tr>
                                 {% endfor %}
@@ -179,8 +206,13 @@
     }
 
     function loadTomogram(index) {
-        var args = {
-            file_path: tomograms[index].tomo_fn,
+        let tomo_fn = getObjectValue(tomograms[index], 'tomo_fn', null);
+        if (tomo_fn === null) {
+            showError("There is not tomogram information. ")
+        }
+        else {
+            var args = {
+            file_path: tomo_fn,
             volume_data: 'slices',
             axis: 'z x y',
             slice_dim: 512,
@@ -192,21 +224,32 @@
 
         load_html_from_ajax('tomogram-div',
             get_ajax_content('processing_tomogram_card', args))
+        }
+    }
+
+    function loadTsMetadata(index){
+        loadStarOverview(tomograms[index].ts_md);
     }
 
     function loadAlignedTs(index) {
-        var args = {
-            file_path: tomograms[index].aligned_ts,
-            volume_data: 'slices',
-            axis: 'z',
-            slice_step: 1,
-            slice_dim: 512
-        };
+        let aligned_ts = getObjectValue(tomograms[index], 'aligned_ts', null);
+        if (aligned_ts === null) {
+            showError("There is not aligned tilt-series information. ")
+        }
+        else {
+            var args = {
+                file_path: aligned_ts,
+                volume_data: 'slices',
+                axis: 'z',
+                slice_step: 1,
+                slice_dim: 512
+            };
 
-        setLoading('tomogram-div');
+            setLoading('tomogram-div');
 
-        load_html_from_ajax('tomogram-div',
-            get_ajax_content('processing_tomogram_card', args))
+            load_html_from_ajax('tomogram-div',
+                get_ajax_content('processing_tomogram_card', args))
+        }
     }
 
     function onChangeEnabled(chb) {

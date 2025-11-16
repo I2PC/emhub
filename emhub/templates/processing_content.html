@@ -80,9 +80,9 @@
                                             <button type="button" id="processing-btn-save" class="btn btn-light" onclick="processingDashboard.saveJob()">Save</button>
                                             <button type="button" id="processing-btn-run" data-toggle="dropdown" class="btn btn-dark dropdown-toggle">Launch</button>
                                             <div class="dropdown-menu">
-                                                <a href="#" class="dropdown-item">Launch</a>
+                                                <a href="javascript:processingDashboard.launchJob()" class="dropdown-item">Launch</a>
                                                 <div class="dropdown-divider"></div>
-                                                <a href="#" class="dropdown-item">Clear and Launch</a>
+                                                <a href="javascript:processingDashboard.launchJob(true)" class="dropdown-item">Clear and Launch</a>
                                             </div>
                                         </div>
                                         </form>
