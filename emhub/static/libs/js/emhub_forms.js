@@ -810,6 +810,29 @@ class ProcessingDashboard {
         });
     } // function saveJob
 
+
+    launchJob(clean=false){
+        let self= this;
+
+        var reqRun = this.request(
+            Api.urls.launch_job,
+            this.getArgs({params: getFormAsJson('processing_form', true), clean: clean})
+        );
+        reqRun.done(function(data) {
+            if ('job' in data && 'id' in data.job) {
+                let job = data.job;
+                showMessage('Operation completed', `Launched job ${job.id}.`);
+                self.flowchart.update(job.workflow);
+                self.selected_node = {
+                    id: job.id
+                }
+            }
+            else if ('error' in data) {
+                showError(data.error)
+            }
+        });
+    } // function saveJob
+
     duplicateJob(){
         this.selected_node.id = null;
         this.saveJob();
