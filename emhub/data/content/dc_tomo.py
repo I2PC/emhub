@@ -72,8 +72,6 @@ def register_content(dc):
                     tomo_session['tomograms_star'] = tsession['tomograms_star']
                 data.update(tomo_session_content(tomo_session=json.dumps(tomo_session)))
 
-
-
                 return data
             else:
                 raise Exception(f"Can load tomography session: {tsId}")
@@ -115,7 +113,7 @@ def register_content(dc):
         if not os.path.exists(star_path):
             raise Exception(f"Star file '{star_path}' does not exist")
 
-        return StarFile.getTableFromFile('tomograms', star_path)
+        return StarFile.getTableFromFile('global', star_path)
 
     def _load_table_from_folders(session_path, tomo_session):
         s = FolderManager(session_path)
@@ -137,7 +135,8 @@ def register_content(dc):
         s = FolderManager(session_path)
         data = {
             'tomograms': [],
-            'session_path': session_path
+            'session_path': session_path,
+            'columns_map': {}
         }
 
         tomograms_star = tomo_session.get('tomograms_star', 'tomograms.star')
@@ -148,24 +147,31 @@ def register_content(dc):
             # It is possible to load the table from folder, but better to explicitly
             # generate the tomograms.star
             # table = _load_table_from_folders(session_path, tomo_session)
-
             tomograms = data['tomograms']
+            colsMap = data['columns_map']
+            cols = table.getColumnNames()
 
             def _join(p):
                 return s.join(p) if p else p
 
+            def _addCol(key, label, join=False):
+                if label in cols:
+                    colsMap[key] = lambda row: _join(getattr(row, label)) if join else getattr(row, label)
+
+            _addCol('tomoName', 'rlnTomoName')
+            _addCol('coords_md', 'rlnCoordinatesMetadata', join=True)
+            _addCol('coords_n', 'rlnCoordinatesCount')
+            _addCol('tomo_fn', 'rlnTomogram', join=True)
+            _addCol('md', 'rlnTomoTiltSeriesStarFile', join=True)
+            _addCol('ts_md', 'rlnTomoTiltSeriesStarFile', join=True)
+            _addCol('aligned_ts', 'rlnTiltSeriesAligned', join=True)
+            _addCol('tomo_xml', 'wrpTomoMetadataXml', join=True)
+            _addCol('defocus', 'rlnDefocus')
+            _addCol('thickness', 'rlnThickness')
+
             for row in table:
-                tomograms.append({
-                    'tomoName': row.rlnTomoName,
-                    'md': _join(row.rlnTomoMetadata),
-                    'coords_md': _join(row.rlnCoordinatesMetadata),
-                    'coords_n': row.rlnCoordinatesCount,
-                    'tomo_fn': _join(row.rlnTomogram),
-                    'aligned_ts': _join(row.rlnAlignedTiltSeries),
-                    'tomo_xml': _join(row.wrpTomoMetadataXml),
-                    'defocus': row.rlnDefocus,
-                    'thickness': row.rlnThickness
-                })
+                values = {k: func(row) for k, func in colsMap.items()}
+                tomograms.append(values)
 
         return data
 

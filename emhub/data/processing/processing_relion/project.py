@@ -152,6 +152,17 @@ class RelionSessionData(SessionData):
             'Failed': 'failed'
         }
 
+        def _elapsed(job):
+            elapsed = ''
+            infoFile = self.join(job.id, 'info.json')
+            if os.path.exists(infoFile):
+                with open(infoFile) as f:
+                    info = json.load(f)
+                    if runs := info['runs']:
+                        if e := runs[-1].get('elapsed', ''):
+                            elapsed = " " + e.split('.')[0]
+            return elapsed
+
         for job in self.workflow.jobs():
             links = []
             for o in job.outputs:
@@ -160,7 +171,7 @@ class RelionSessionData(SessionData):
 
             protList.append({
                 'id': job.id,
-                'label': RelionRun.jobAlias(job),
+                'label': RelionRun.jobAlias(job) + _elapsed(job),
                 'links': links,
                 'status': status_map.get(job['status'], job['status']),
                 'type': job['jobtype']
