@@ -645,6 +645,26 @@ def _loadFileLines(fn):
 
     return result
 
+@api_bp.route('/get_session_workflow', methods=['POST'])
+@flask_login.login_required
+def get_session_workflow():
+    """
+    This method will retrieve a run instance.
+    Processing project can be loaded from a session_id
+    or an entry_id
+    """
+    dm = app.dm
+
+    def _get_workflow(**attrs):
+        pp = dm.get_processing_project(**attrs)
+        project = pp['project']
+        from emwrap.base import ProjectManager
+        pm = ProjectManager(project.path)
+        pm.update()
+        return project.get_workflow(update=True)
+
+    return _handle_item(_get_workflow, 'workflow')
+
 
 @api_bp.route('/get_session_run', methods=['POST'])
 @flask_login.login_required
@@ -711,6 +731,30 @@ def save_job():
         }
 
     return _handle_item(_save_job, 'job')
+
+@api_bp.route('/launch_job', methods=['POST'])
+@flask_login.login_required
+def launch_job():
+    """
+    This method will retrieve a run instance.
+    Processing project can be loaded from a session_id
+    or an entry_id
+    """
+    dm = app.dm
+
+    def _launch_job(**attrs):
+        pp = dm.get_processing_project(**attrs)
+        project = pp['project']
+        run = pp['run']
+        from emwrap.base import ProjectManager
+        pm = ProjectManager(project.path)
+        job = pm.runJob(run.id, attrs['params'], clean=attrs['clean'])
+        return {
+            'id': job.id,
+            'workflow': project.get_workflow(update=True)
+        }
+
+    return _handle_item(_launch_job, 'job')
 
 
 @api_bp.route('/delete_job', methods=['POST'])
@@ -1049,7 +1093,9 @@ def create_entry():
 @flask_login.login_required
 def update_entry():
     def handle(**attrs):
-        load_validate_func(attrs)
+        validate = attrs.pop('validate', True)
+        if validate:
+            load_validate_func(attrs)
         fix_dates(attrs, 'date', 'creation_date', 'last_update_date')
         entry = app.dm.get_entry_by(id=attrs['id'])
         old_files = set(app.dm.get_entry_files(entry))
