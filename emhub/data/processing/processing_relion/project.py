@@ -19,6 +19,7 @@ from glob import glob
 import numpy as np
 import base64
 from collections import defaultdict
+from datetime import datetime
 
 import mrcfile
 from emtools.utils import Path, Timer, Pretty, FolderManager
@@ -161,6 +162,11 @@ class RelionSessionData(SessionData):
                     if runs := info['runs']:
                         if e := runs[-1].get('elapsed', ''):
                             elapsed = " " + e.split('.')[0]
+                        elif s := runs[-1].get('start', ''):
+                            started = Pretty.parse_datetime(s)
+                            e = str(datetime.now() - started)
+                            elapsed = " " + e.split('.')[0]
+
             return elapsed
 
         for job in self.workflow.jobs():

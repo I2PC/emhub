@@ -75,9 +75,14 @@
     var tomo_session_path = {{ tomo_session['path']|tojson }};
 
     function showTomogramsStar(){
-        let tomoStar = $("#tomograms_star").val();
-        let tomoPath = `${tomo_session_path}/${tomoStar}`;
-        loadStarOverview(tomoPath, 'global');
+        let fileName = $("#tomograms_star").val();
+        let filePath = `${tomo_session_path}/${fileName}`;
+        loadStarOverview(filePath, 'global');
+    }
+
+    function loadRunFileInfo(fileName) {
+        $("#tomograms_star").val(fileName);
+        loadSession();
     }
 
     function getTomoSession(){

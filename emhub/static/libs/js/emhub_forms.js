@@ -673,13 +673,11 @@ class ProcessingDashboard {
     constructor(workflow, get_project_args, flowchartContainerId) {
 
         this.workflow = workflow;
-        this.testing = "Some test";
-        console.log("Creating ProcessingDashboard, worklfow: " + this.testing.length);
         // Project arguments to retrieve runs or project info
         // args should contain 'sessionId' or 'entry_id' keys
         this.get_project_args = get_project_args;
 
-        this.selected_node = null;
+        this.selected_node = {id: null, type: ''};
         this.display_expert = 'none';
         this.forms = {};
         this.runDict = null;
@@ -707,15 +705,21 @@ class ProcessingDashboard {
 
         this.jsonEditor = ace.edit("json-editor")
         this.jsonEditor.session.setMode("ace/mode/json");
+
+        setInterval(() => this.reloadWorkflow(), 30000);
     } // constructor
 
     initialize(flowchat_containerId) {
 
     } // initialize
 
+    getSelectedNodeId() {
+        return this.selected_node.id;
+    }
+
     getArgs(extraArgs){
         var args = {
-            run_id: this.selected_node.id,
+            run_id: this.getSelectedNodeId(),
             job_type: this.selected_node.type
         };
         jQuery.extend(args, this.get_project_args);
@@ -729,20 +733,18 @@ class ProcessingDashboard {
         element.style.display = value ? 'inline-block' : 'none'; // show or hide
     }
 
-    clickOnCanvas(params){
-        var  nodeId = params.nodes[0];
-        let selected_node = null;
-
+    selectJob(jobId) {
+        let selected_node = {id: null, type: ''};
         // find node with  that id
           for (var i = 0;  i < this.workflow.length; i++){
               var prot = this.workflow[i];
-              if (prot.id == nodeId) {
+              if (prot.id == jobId) {
                   selected_node = prot;
                   break;
               }
           }
 
-          if (selected_node) {
+          if (selected_node.id != null) {
               this.selected_node = selected_node;
               this.clearRunInfo();
 
@@ -757,16 +759,29 @@ class ProcessingDashboard {
               load_html_from_ajax('summary_row',
                   get_ajax_content('processing_run_summary', this.getArgs()));
           }
+          else {
+              this.clearRunInfo(false);
+          }
     }
 
-    clearRunInfo(){
+    clickOnCanvas(params){
+        this.selectJob(params.nodes[0]);
+    }
+
+    clearRunInfo(loading=true){
         this.stdoutEditor.setValue('');
         this.stderrEditor.setValue('');
         this.jsonEditor.setValue('');
 
         this.displayButtons(false);
-        setLoading('run_form_container');
-        setLoading('summary_row');
+        if (loading) {
+            setLoading('run_form_container');
+            setLoading('summary_row');
+        }
+        else {
+            $('#run_form_container').html('');
+            $('#summary_row').html('');
+        }
     }
 
     newRun(jobType) {
@@ -788,6 +803,44 @@ class ProcessingDashboard {
         });
     }
 
+    reloadWorkflow(){
+        let self = this;
+        console.log("Reloading workflow.")
+
+        var reqRun = self.request(
+            Api.urls.get_session_workflow,
+            self.getArgs()
+        );
+        reqRun.done(function(data) {
+            if ('workflow' in data) {
+                // showMessage('Operation completed', `Deleted job ${jobId}.`);
+                self.flowchart.update(data['workflow']);
+                let jobId = self.getSelectedNodeId();
+                if (jobId != null) {
+                    console.log("Selecting job id: " + jobId);
+                    self.flowchart.network.selectNodes([jobId]);
+                }
+            }
+            else if ('error' in data) {
+                showError(data['error'])
+            }
+        });
+    }
+
+    jobRequestDone(data, operationLabel) {
+        if ('job' in data && 'id' in data.job) {
+                let job = data.job;
+                showMessage('Operation completed', `${operationLabel} job ${job.id}.`);
+                this.workflow = job.workflow;
+                this.flowchart.update(job.workflow);
+                this.flowchart.network.selectNodes([job.id]);
+                this.selectJob(job.id);
+            }
+            else if ('error' in data) {
+                showError(data.error)
+            }
+    }
+
     saveJob(){
         let self = this;
 
@@ -796,17 +849,7 @@ class ProcessingDashboard {
             this.getArgs({params: getFormAsJson('processing_form', true)})
         );
         reqRun.done(function(data) {
-            if ('job' in data && 'id' in data.job) {
-                let job = data.job;
-                showMessage('Operation completed', `Saved job ${job.id}.`);
-                self.flowchart.update(job.workflow);
-                self.selected_node = {
-                    id: job.id
-                }
-            }
-            else if ('error' in data) {
-                showError(data.error)
-            }
+            self.jobRequestDone(data, 'Saved');
         });
     } // function saveJob
 
@@ -819,17 +862,7 @@ class ProcessingDashboard {
             this.getArgs({params: getFormAsJson('processing_form', true), clean: clean})
         );
         reqRun.done(function(data) {
-            if ('job' in data && 'id' in data.job) {
-                let job = data.job;
-                showMessage('Operation completed', `Launched job ${job.id}.`);
-                self.flowchart.update(job.workflow);
-                self.selected_node = {
-                    id: job.id
-                }
-            }
-            else if ('error' in data) {
-                showError(data.error)
-            }
+            self.jobRequestDone(data, 'Launched');
         });
     } // function saveJob
 
@@ -853,7 +886,7 @@ class ProcessingDashboard {
                 function () {
                     var reqRun = self.request(
                         Api.urls.delete_job,
-                        self.getArgs({})
+                        self.getArgs()
                     );
                     reqRun.done(function(data) {
                         let job_data = data['job']

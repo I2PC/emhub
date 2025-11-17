@@ -94,22 +94,26 @@ class RelionRun(SessionRun):
         if self._ios is None:
             ios = {'inputs': [], 'outputs': []}
 
-            jobJson = self.join('job.json')
+            infoJson = self.join('info.json')
             jobPipeline = self.join('job_pipeline.star')
 
-            if os.path.exists(jobJson):
-                with open(jobJson) as f:
-                    job = json.load(f)
-                    ios.update(job)
-            elif os.path.exists(jobPipeline):
-                with StarFile(jobPipeline) as sf:
-                    tables = sf.getTableNames()
-                    if 'pipeline_input_edges' in tables:
-                        inputsTable = sf.getTable('pipeline_input_edges')
-                        ios['inputs'] = [row.rlnPipeLineEdgeFromNode for row in inputsTable]
-                    if 'pipeline_output_edges' in tables:
-                        outputsTable = sf.getTable('pipeline_output_edges')
-                        ios['outputs'] = [row.rlnPipeLineEdgeToNode for row in outputsTable]
+            ios['inputs'] = [i.id for i in self.job.inputs]
+            ios['outputs'] = [o.id for o in self.job.outputs]
+
+            #
+            # if os.path.exists(infoJson):
+            #     with open(infoJson) as f:
+            #         info = json.load(f)
+            #         # FIXME: Properly annotate inputs/outputs in info.json and read from there
+            # elif os.path.exists(jobPipeline):
+            #     with StarFile(jobPipeline) as sf:
+            #         tables = sf.getTableNames()
+            #         if 'pipeline_input_edges' in tables:
+            #             inputsTable = sf.getTable('pipeline_input_edges')
+            #             ios['inputs'] = [row.rlnPipeLineEdgeFromNode for row in inputsTable]
+            #         if 'pipeline_output_edges' in tables:
+            #             outputsTable = sf.getTable('pipeline_output_edges')
+            #             ios['outputs'] = [row.rlnPipeLineEdgeToNode for row in outputsTable]
             self._ios = ios
 
         return self._ios
@@ -118,7 +122,7 @@ class RelionRun(SessionRun):
         """ Find if there are micrographs (with/without CTF) in outputs. """
         mics = micsCtf = None
         for o in self.getInputsOutputs()['outputs']:
-            if o.endswith('ctf.star'):
+            if o.endswith('micrographs_ctf.star'):
                 micsCtf = self.project.join(o)
             elif o.endswith('micrographs.star'):
                 mics = self.project.join(o)
