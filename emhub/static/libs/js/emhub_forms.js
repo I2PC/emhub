@@ -889,14 +889,13 @@ class ProcessingDashboard {
                         self.getArgs()
                     );
                     reqRun.done(function(data) {
-                        let job_data = data['job']
-                        if ('id' in job_data) {
-                            let jobId = job_data['id']
+                        if ('job' in data) {
+                            let jobId = data.job.id;
                             // showMessage('Operation completed', `Deleted job ${jobId}.`);
                             self.flowchart.update(job_data['workflow']);
                         }
-                        else if ('error' in job_data) {
-                            showError(job_data['error'])
+                        else if ('error' in data) {
+                            showError(data['error'])
                         }
                     });
                 });
