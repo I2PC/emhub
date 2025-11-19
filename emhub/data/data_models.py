@@ -1215,7 +1215,7 @@ def create_data_models(dm):
         creation_user_id = Column(Integer, ForeignKey('users.id'),
                                      nullable=False)
         creation_user = relationship("User",
-                                        foreign_keys=[creation_user_id])
+                                     foreign_keys=[creation_user_id])
 
         # Last date (date and user)
         last_update_date = Column(UtcDateTime, nullable=False)

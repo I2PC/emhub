@@ -31,6 +31,7 @@ import json
 from uuid import uuid4
 import shutil
 import random
+from collections import defaultdict
 
 from emtools.utils import Path, FolderManager, Process, Pretty
 from emtools.image import Thumbnail
@@ -179,10 +180,46 @@ def register_content(dc):
     def entry_tomo_processing_validate(entry):
         e = entry.json()
         data = e['extra']['data']
-        processing_path = data.get('processing_path', '')
+        ppath = None
 
-        if not os.path.exists(processing_path):
-            raise Exception(f"Processing path '{processing_path}' does not exist!")
+        keys = [
+            "processing_path",
+            "pixel_size",
+            "voltage",
+            "spherical_aberration",
+            "amplitude_contrast",
+            "total_dose"
+        ]
+
+        for k in keys:
+            v = data.get(k, '')
+            if not v:
+                raise Exception(f"Provide a value for '{k}', it can not be empty.")
+            if k == 'processing_path':
+                ppath = v
+                if not os.path.exists(v):
+                    raise Exception(f"Processing path '{v}' does not exist!")
+
+        fm = FolderManager(ppath)
+        if not fm.exists('default_pipeline.star'):
+            from emwrap.base import ProjectManager
+            pm = ProjectManager(ppath, create=True)
+            # Also create an import job template with the provided values
+            args = {
+                "tilt_images": "data/",
+                "mdoc_files": "data/Position*[1-9].mdoc",
+                "gain_file": "",
+                "tilt_axis_angle": "85",
+                "acq.pixel_size": data['pixel_size'],
+                "acq.voltage": data['voltage'],
+                "acq.cs": data['spherical_aberration'],
+                "acq.amplitude_constrast": data['amplitude_contrast'],
+                "acq.total_dose": data['total_dose'],
+                "wait.timeout": "0",
+                "wait.file_change": "1",
+                "wait.sleep": "1"
+            }
+            pm.saveJob('emw-import-ts', args)
 
     @dc.content
     def entry_tomo_processing_content(**kwargs):
@@ -191,13 +228,42 @@ def register_content(dc):
     @dc.content
     def processing_tomo_list(**kwargs):
         dm = dc.app.dm  # shortcut
+        uid = dc.app.user.id
+        user_projects = dm.get_projects(condition=f"user_id={uid}")
+        projects = set(p.id for p in user_projects)
         entries = dm.get_entries(condition="type='tomo_processing'", asJson=True)
+        # Group entries by project
+        tomo_projects = defaultdict(lambda: [])
         for e in entries:
-            data = e['extra']['data']
-            e['title'] = e['title'] or os.path.basename(data.get('processing_path', ''))
+            pid = e['project_id']
+            if pid in projects:
+                tomo_projects[pid].append(e)
+                data = e['extra']['data']
+                e['title'] = e['title'] or os.path.basename(data.get('processing_path', ''))
+
+        # If there are no current tomography entries,
+        # let's create a default project
+        if not tomo_projects:
+            defaultTomoProject = None
+            for p in user_projects:
+                if p.status == 'special:processing_tomo':
+                    defaultTomoProject = p
+                    break
+
+            if defaultTomoProject is None:
+
+                defaultTomoProject = dm.create_project(
+                    user_id=uid,
+                    status='special:processing_tomo',
+                    user_can_edit=True,
+                    is_confidential=False,
+                    title="Default Project for Tomography processing",
+                    description=""
+                )
+            tomo_projects[defaultTomoProject.id] = []
 
         return {
-            'tomo_projects': entries
+            'tomo_projects': tomo_projects
         }
 
     @dc.content
