@@ -404,21 +404,33 @@ function createOrUpdateSession(session_params){
                 row.appendChild(div);
             }
             else if (param.paramClass === "EnumParam") {
+                let choices = param.choices;
+
                 var div = document.createElement('div');
                 div.className = 'col-8 form-group';
+                console.log('EnumParam, display: ' + param.display);
 
-                if (param.display == 1) { // Combo
+                if (param.display == "radio") {
+                    div.className = 'row col-8 ml-1';
+                    for (var j = 0; j < choices.length; j++) {
+                        let c = choices[j];
+                        let selected = (param_value == c);
+                        form_addRadio(div, base_id + '-' + j, base_id, c, c, selected);
+                    }
+                }
+                else { // Combo is the default display option
                     var select = document.createElement('select');
                     select.dataset.key = param.name;
                     select.className = 'form-control form-control-sm';
                     select.style.backgroundColor = "#fff";
                     select.style.color = "black";
 
-                    for (var j = 0; j < param.choices.length; j++) {
+                    for (var j = 0; j < choices.length; j++) {
                         var opt = document.createElement('option');
-                        opt.textContent = param.choices[j];
-                        opt.selected = param_value == j; // Let JS compare string integer values with indexes
-                        opt.value = j;
+                        let c = choices[j];
+                        opt.textContent = c;
+                        opt.selected = param_value == c;
+                        opt.value = c;
                         select.appendChild(opt);
                     }
                     div.appendChild(select);
