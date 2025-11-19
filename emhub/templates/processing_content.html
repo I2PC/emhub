@@ -78,12 +78,28 @@
                                             <button type="button" id="processing-btn-delete" class="btn btn-outline-danger" onclick="processingDashboard.deleteJob()">Delete</button>
                                             <button type="button" id="processing-btn-delete" class="btn btn-outline-info" onclick="processingDashboard.duplicateJob()">Duplicate</button>
                                             <button type="button" id="processing-btn-save" class="btn btn-light" onclick="processingDashboard.saveJob()">Save</button>
-                                            <button type="button" id="processing-btn-run" data-toggle="dropdown" class="btn btn-dark dropdown-toggle">Launch</button>
+
+                                             <button type="button" id="processing-btn-run" data-toggle="dropdown" class="btn btn-dark dropdown-toggle">Launch</button>
                                             <div class="dropdown-menu">
                                                 <a href="javascript:processingDashboard.launchJob()" class="dropdown-item">Launch</a>
                                                 <div class="dropdown-divider"></div>
                                                 <a href="javascript:processingDashboard.launchJob(true)" class="dropdown-item">Clear and Launch</a>
                                             </div>
+
+{#                                            <button type="button" id="processing-btn-save" data-toggle="dropdown" class="btn btn-outline-info dropdown-toggle">Save</button>#}
+{#                                            <div class="dropdown-menu">#}
+{#                                                <a href="javascript:processingDashboard.saveJob()" class="dropdown-item">Save</a>#}
+{#                                                <div class="dropdown-divider"></div>#}
+{#                                                <a href="javascript:processingDashboard.duplicateJob(true)" class="dropdown-item">Save a Copy</a>#}
+{#                                            </div>#}
+{##}
+{#                                            <!-- Launch button with dropdown -->#}
+{#                                            <button type="button" id="processing-btn-run" data-toggle="dropdown" class="btn btn-dark dropdown-toggle">Launch</button>#}
+{#                                            <div class="dropdown-menu">#}
+{#                                                <a href="javascript:processingDashboard.launchJob()" class="dropdown-item">Launch</a>#}
+{#                                                <div class="dropdown-divider"></div>#}
+{#                                                <a href="javascript:processingDashboard.launchJob(true)" class="dropdown-item">Clear and Launch</a>#}
+{#                                            </div>#}
                                         </div>
                                         </form>
                                     </div>
