@@ -746,9 +746,13 @@ def launch_job():
         pp = dm.get_processing_project(**attrs)
         project = pp['project']
         run = pp['run']
+        jobtype = run.jobtype if run else attrs['job_type']
+        params = attrs['params']
+
         from emwrap.base import ProjectManager
         pm = ProjectManager(project.path)
-        job = pm.runJob(run.id, attrs['params'], clean=attrs['clean'])
+        jobTypeOrId = run.id if run else jobtype
+        job = pm.runJob(jobTypeOrId, params, clean=attrs['clean'])
         return {
             'id': job.id,
             'workflow': project.get_workflow(update=True)
