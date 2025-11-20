@@ -215,7 +215,7 @@ def register_content(dc):
                 "acq.cs": data['spherical_aberration'],
                 "acq.amplitude_constrast": data['amplitude_contrast'],
                 "acq.total_dose": data['total_dose'],
-                "wait.timeout": "0",
+                "wait.timeout": "1",
                 "wait.file_change": "1",
                 "wait.sleep": "1"
             }
