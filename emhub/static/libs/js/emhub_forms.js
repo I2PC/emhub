@@ -581,7 +581,19 @@ class Flowchart {
 
     update(workflow){
         let data = this.getData(workflow);
+
+        // Save current view
+        const view = this.network.getViewPosition();
+        const scale = this.network.getScale();
+
         this.network.setData(data);
+
+        // Restore view
+        this.network.moveTo({
+          position: view,
+          scale: scale,
+          animation: false
+        });
     }
 
     getData(workflow) {
