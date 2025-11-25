@@ -223,4 +223,8 @@ def register_content(dc):
         data = dc.get_user_projects(dc.app.user, **kwargs)
         return data
 
+    @dc.content
+    def test_widget(**kwargs):
+        return {}
+
 
