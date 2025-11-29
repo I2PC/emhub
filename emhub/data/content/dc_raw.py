@@ -227,4 +227,17 @@ def register_content(dc):
     def test_widget(**kwargs):
         return {}
 
+    @dc.content
+    def project_widget(**kwargs):
+        # Read project_id from query string: /main?content_id=project_widget&project_id=XYZ
+        project_id = 43  # data test
+        # project_id = kwargs.get("project_id")
+        props = {}
+        if project_id:
+            props["initialProjectId"] = project_id
+
+        return {
+            "props": props
+        }
+
 
