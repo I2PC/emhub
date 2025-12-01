@@ -1,0 +1,1230 @@
+{% import "entry_macros.html" as macros %}
+
+<div class="card h-100 col-12">
+    <div class="card-body">
+
+        <div id="project-widget-root">
+          {# We keep only what we need from the user #}
+          {% set is_manager = current_user.is_manager %}
+
+          <div id="projects-page-root">
+            <div class="grid" id="grid">
+              <!-- Projects list -->
+              <div id="projects-host"></div>
+              <!-- Project page -->
+              <div id="project-page-host"></div>
+              <!-- Protocol detail (ProtocolForm) -->
+              <div id="protocol-detail-host"></div>
+            </div>
+
+            <!-- Common portals, inside the root to isolate them -->
+            <div id="modal-root"></div>
+            <div id="drawer-root"></div>
+            <div id="toast-root"></div>
+            <div id="portal-root"></div>
+            <div id="app"></div>
+            <div id="root"></div>
+          </div>
+        </div>
+
+    </div>
+</div>
+
+<style>
+  /* ===============================
+   *  Layout only inside the widget
+   * =============================== */
+
+  #project-widget-root {
+    padding-top: 0px;
+    padding-bottom: 0px;
+    margin-top: -20px;
+  }
+
+  #projects-page-root {
+    margin-top: 0;
+    padding-top: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    padding-bottom: 0px;
+  }
+
+  #projects-page-root .grid {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: grid;
+    gap: 16px;
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  #projects-page-root .grid.two-cols {
+    grid-template-columns: 1fr 1.1fr;
+  }
+
+  #projects-page-root .host {
+    border: 1px dashed #bfbfbf;
+    border-radius: 10px;
+    padding: 12px;
+    background: #fafafa;
+    height: 100%;
+    min-height: 0;
+  }
+
+  #projects-page-root .host.fullpage {
+    border: 0;
+    padding: 0;
+    background: transparent;
+  }
+
+  #projects-page-root #project-page-host.fullpage {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+  }
+
+  #projects-page-root #projects-host,
+  #projects-page-root #project-page-host,
+  #projects-page-root #protocol-detail-host {
+    height: 100%;
+    min-height: 0;
+  }
+
+  #projects-page-root #protocol-detail-host {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  #projects-page-root #protocol-detail-host > * {
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  #projects-page-root #protocol-detail-host .protocol-form {
+    display: flex;
+    flex-direction: column;
+    height: 100% !important;
+    min-height: 0;
+  }
+
+  #projects-page-root #protocol-detail-host .protocol-form .form-body {
+    height: auto !important;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+  }
+
+  #projects-page-root #protocol-detail-host .protocol-form .top-tab-content,
+  #projects-page-root #protocol-detail-host .protocol-form .bottom-tab-content {
+    max-height: none !important;
+  }
+
+  #projects-page-root .hidden {
+    display: none !important;
+  }
+
+  #projects-page-root .error {
+    color: #b91c1c;
+    background: #fee2e2;
+    padding: 10px;
+    border-radius: 8px;
+    white-space: pre-wrap;
+  }
+
+  /* ===============================
+   *  Keep left sidebar visible
+   * =============================== */
+
+  .nav-left-sidebar,
+  .nav-left-sidebar * {
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+  }
+
+  /* Sidebar should start right below the topbar */
+  .nav-left-sidebar {
+    top: 60px !important; /* default theme value */
+  }
+
+  /* ===============================
+   *  Fix topbar only on this page
+   *  (logo size + user menu visibility)
+   * =============================== */
+
+  /* Keep header from becoming a huge banner */
+  .dashboard-header {
+    max-height: 70px !important;
+    overflow: visible !important;
+    position: relative;
+    z-index: 1030;
+  }
+
+  .dashboard-header .navbar {
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    min-height: 60px !important;
+    height: 60px !important;
+    display: flex !important;
+    align-items: center !important;
+  }
+
+  /* Force logos to be small, never full-width */
+  .dashboard-header .navbar > img {
+    height: 45px !important;
+    width: auto !important;
+    max-width: none !important;
+  }
+
+  /* Navbar right side must be visible and inline */
+  .dashboard-header .navbar-collapse {
+    display: flex !important;
+    justify-content: flex-end !important;
+    align-items: center !important;
+  }
+
+  .dashboard-header .navbar-nav {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+  }
+
+  .dashboard-header .navbar-nav .nav-item {
+    display: block !important;
+  }
+
+  /* Ensure "admin" text + avatar are always visible */
+  .dashboard-header .nav-user .nav-user-img {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    font-size: 15px !important;
+    line-height: 1 !important;
+    color: #82849f !important;
+    white-space: nowrap !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    overflow: visible !important;
+  }
+
+  .dashboard-header .nav-user .nav-user-img img {
+    display: inline-block !important;
+    width: 32px !important;
+    height: 32px !important;
+    border-radius: 50% !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+  }
+
+  /* Avoid any generic "img { width: 100% }" from widgets affecting the header */
+  .dashboard-header img {
+    width: auto !important;
+    height: auto !important;
+  }
+
+  /* ===============================
+   *  Force dropdown menu behavior here
+   * =============================== */
+
+  /* Ensure the nav-user dropdown is positioned relative */
+  .dashboard-header .nav-item.nav-user {
+    position: relative !important;
+  }
+
+  /* Base style for the dropdown menu inside the header */
+  .dashboard-header .nav-user-dropdown {
+    position: absolute !important;
+    right: 0 !important;
+    left: auto !important;
+    top: 100% !important;
+    margin-top: 0.5rem;
+    min-width: 220px;
+    z-index: 2000 !important;
+    display: none;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+
+  /* When toggled, show the menu */
+  .dashboard-header .nav-user-dropdown.show {
+    display: block !important;
+  }
+
+  /* ===============================
+   *  React workflow node selection
+   *  Force visible border when a node is selected
+   * =============================== */
+
+  /* React Flow default class when a node is selected */
+  #project-widget-root .react-flow__node.selected,
+  #project-widget-root .react-flow__node:focus {
+    border: 4px solid #2563eb !important;
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.35) !important;
+    border-radius: 8px;
+  }
+
+  /* If your nodes use a custom class on top of React Flow */
+  #project-widget-root .workflow-node.selected {
+    border: 4px solid #2563eb !important;
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.35) !important;
+  }
+
+  /* Ensure search input has space for the icon on the left */
+  #project-widget-root input[placeholder="Search protocol..."] {
+    padding-left: 2.5rem !important;
+  }
+</style>
+
+<!-- Initial props -->
+{#<script id="initial-props" type="application/json">#}
+{#  {{ (props | default({})) | tojson }}#}
+{#</script>#}
+
+
+<!-- External ProjectsApiClient -->
+<script defer src="{{ url_for('static', filename='libs/js/projects-api-client.js') }}"></script>
+
+<!-- UMD bundles (adjust paths if needed) -->
+<script defer src="{{ url_for('static', filename='libs/js/projects-widget.js') }}"></script>
+<script defer src="{{ url_for('static', filename='libs/js/projectpage-widget.js') }}"></script>
+<script defer src="{{ url_for('static', filename='libs/js/protocoldetail-widget.js') }}"></script>
+
+
+<script>
+
+var projectDetails = {
+    43: {
+        "id": 43,
+        "name": "/home/yunior/ScipionUserData/projects/TestCryosparc3DClassification",
+        "shortName": "TestCryosparc3DClassification",
+        "createdAt": "2025-09-13 15:29:00.670242+02:00",
+        "status": "active",
+        "path": "/home/yunior/ScipionUserData/projects/TestCryosparc3DClassification",
+        "protocols": {
+            "2": {
+                "id": "2",
+                "children": ["134", "265", "406", "870"],
+                "parents": ["PROJECT"],
+                "label": "* pwem - import particles",
+                "status": "finished",
+                "parameter": [],
+                "inputs": [],
+                "outputs": [
+                    {
+                        "outputParticles": {
+                            "_class": "SetOfParticles",
+                            "info": "Particles (373 items, 140 x 140, 4.00 Å/px)",
+                            "_objValue": "pwem - import particles.outputParticles",
+                            "_parentId": 2,
+                        }
+                    }
+                ],
+                "cpuTime": "0",
+                "elapsedTime": "0",
+                "isInteractive": false,
+                "numberOfSteps": 1,
+                "stepsDone": 1,
+            },
+            "79": {
+                "id": "79",
+                "children": ["134", "265", "406"],
+                "parents": ["PROJECT"],
+                "label": "* pwem - import volumes",
+                "status": "finished",
+                "parameter": [],
+                "inputs": [],
+                "outputs": [
+                    {
+                        "outputVolume": {
+                            "_class": "Volume",
+                            "info": "Volume (64 x 64 x 64, 4.00 Å/px)",
+                            "_objValue": "pwem - import volumes.outputVolume",
+                            "_parentId": 79,
+                        }
+                    }
+                ],
+                "cpuTime": "0",
+                "elapsedTime": "0",
+                "isInteractive": false,
+                "numberOfSteps": 1,
+                "stepsDone": 1,
+            },
+            "134": {
+                "id": "134",
+                "children": ["547", "622"],
+                "parents": ["2", "79"],
+                "label": "protNonUniform3DRefinement_1",
+                "status": "finished",
+                "parameter": [],
+                "inputs": [
+                    {
+                        "inputParticles": {
+                            "_class": "SetOfParticles",
+                            "info": "Particles (373 items, 140 x 140, 4.00 Å/px)",
+                            "_objValue": "pwem - import particles.outputParticles",
+                            "_parentId": 2,
+                        }
+                    },
+                    {
+                        "referenceVolume": {
+                            "_class": "Volume",
+                            "info": "Volume (64 x 64 x 64, 4.00 Å/px)",
+                            "_objValue": "pwem - import volumes.outputVolume",
+                            "_parentId": 79,
+                        }
+                    },
+                ],
+                "outputs": [
+                    {
+                        "outputVolume": {
+                            "_class": "Volume",
+                            "info": "Volume (140 x 140 x 140, 4.00 Å/px) - w/halves",
+                            "_objValue": "protNonUniform3DRefinement_1.outputVolume",
+                            "_parentId": 134,
+                        }
+                    },
+                    {
+                        "outputParticles": {
+                            "_class": "SetOfParticles",
+                            "info": "Particles (373 items, 140 x 140, 4.00 Å/px)",
+                            "_objValue": "protNonUniform3DRefinement_1.outputParticles",
+                            "_parentId": 134,
+                        }
+                    },
+                    {
+                        "outputFSC": {
+                            "_class": "SetOfFSCs",
+                            "info": "SetOfFSCs            (5 items)",
+                            "_objValue": "protNonUniform3DRefinement_1.outputFSC",
+                            "_parentId": 134,
+                        }
+                    },
+                ],
+                "cpuTime": "91",
+                "elapsedTime": "95",
+                "isInteractive": false,
+                "numberOfSteps": 3,
+                "stepsDone": 3,
+            },
+            "265": {
+                "id": "265",
+                "children": ["547", "622"],
+                "parents": ["2", "79"],
+                "label": "protNonUniform3DRefinement_2",
+                "status": "finished",
+                "parameter": [],
+                "inputs": [
+                    {
+                        "inputParticles": {
+                            "_class": "SetOfParticles",
+                            "info": "Particles (373 items, 140 x 140, 4.00 Å/px)",
+                            "_objValue": "pwem - import particles.outputParticles",
+                            "_parentId": 2,
+                        }
+                    },
+                    {
+                        "referenceVolume": {
+                            "_class": "Volume",
+                            "info": "Volume (64 x 64 x 64, 4.00 Å/px)",
+                            "_objValue": "pwem - import volumes.outputVolume",
+                            "_parentId": 79,
+                        }
+                    },
+                ],
+                "outputs": [
+                    {
+                        "outputVolume": {
+                            "_class": "Volume",
+                            "info": "Volume (140 x 140 x 140, 4.00 Å/px) - w/halves",
+                            "_objValue": "protNonUniform3DRefinement_2.outputVolume",
+                            "_parentId": 265,
+                        }
+                    },
+                    {
+                        "outputParticles": {
+                            "_class": "SetOfParticles",
+                            "info": "Particles (373 items, 140 x 140, 4.00 Å/px)",
+                            "_objValue": "protNonUniform3DRefinement_2.outputParticles",
+                            "_parentId": 265,
+                        }
+                    },
+                    {
+                        "outputFSC": {
+                            "_class": "SetOfFSCs",
+                            "info": "SetOfFSCs            (5 items)",
+                            "_objValue": "protNonUniform3DRefinement_2.outputFSC",
+                            "_parentId": 265,
+                        }
+                    },
+                ],
+                "cpuTime": "89",
+                "elapsedTime": "92",
+                "isInteractive": false,
+                "numberOfSteps": 3,
+                "stepsDone": 3,
+            },
+            "406": {
+                "id": "406",
+                "children": ["547", "622"],
+                "parents": ["2", "79"],
+                "label": "protNonUniform3DRefinement_3",
+                "status": "finished",
+                "parameter": [],
+                "inputs": [
+                    {
+                        "inputParticles": {
+                            "_class": "SetOfParticles",
+                            "info": "Particles (373 items, 140 x 140, 4.00 Å/px)",
+                            "_objValue": "pwem - import particles.outputParticles",
+                            "_parentId": 2,
+                        }
+                    },
+                    {
+                        "referenceVolume": {
+                            "_class": "Volume",
+                            "info": "Volume (64 x 64 x 64, 4.00 Å/px)",
+                            "_objValue": "pwem - import volumes.outputVolume",
+                            "_parentId": 79,
+                        }
+                    },
+                ],
+                "outputs": [
+                    {
+                        "outputVolume": {
+                            "_class": "Volume",
+                            "info": "Volume (140 x 140 x 140, 4.00 Å/px) - w/halves",
+                            "_objValue": "protNonUniform3DRefinement_3.outputVolume",
+                            "_parentId": 406,
+                        }
+                    },
+                    {
+                        "outputParticles": {
+                            "_class": "SetOfParticles",
+                            "info": "Particles (373 items, 140 x 140, 4.00 Å/px)",
+                            "_objValue": "protNonUniform3DRefinement_3.outputParticles",
+                            "_parentId": 406,
+                        }
+                    },
+                    {
+                        "outputFSC": {
+                            "_class": "SetOfFSCs",
+                            "info": "SetOfFSCs            (5 items)",
+                            "_objValue": "protNonUniform3DRefinement_3.outputFSC",
+                            "_parentId": 406,
+                        }
+                    },
+                ],
+                "cpuTime": "110",
+                "elapsedTime": "113",
+                "isInteractive": false,
+                "numberOfSteps": 3,
+                "stepsDone": 3,
+            },
+            "547": {
+                "id": "547",
+                "children": ["622"],
+                "parents": ["134", "265", "406"],
+                "label": "* Single particles union",
+                "status": "finished",
+                "parameter": [],
+                "inputs": [
+                    {
+                        "inputSets": {
+                            "_class": "SetOfParticles",
+                            "info": "Particles (373 items, 140 x 140, 4.00 Å/px)",
+                            "_objValue": "protNonUniform3DRefinement_1.outputParticles",
+                            "_parentId": 134,
+                        }
+                    },
+                    {
+                        "inputSets": {
+                            "_class": "SetOfParticles",
+                            "info": "Particles (373 items, 140 x 140, 4.00 Å/px)",
+                            "_objValue": "protNonUniform3DRefinement_2.outputParticles",
+                            "_parentId": 265,
+                        }
+                    },
+                    {
+                        "inputSets": {
+                            "_class": "SetOfParticles",
+                            "info": "Particles (373 items, 140 x 140, 4.00 Å/px)",
+                            "_objValue": "protNonUniform3DRefinement_3.outputParticles",
+                            "_parentId": 406,
+                        }
+                    },
+                ],
+                "outputs": [
+                    {
+                        "outputSet": {
+                            "_class": "SetOfParticles",
+                            "info": "Particles (1119 items, 140 x 140, 4.00 Å/px)",
+                            "_objValue": "Single particles union.outputSet",
+                            "_parentId": 547,
+                        }
+                    }
+                ],
+                "cpuTime": "0",
+                "elapsedTime": "0",
+                "isInteractive": false,
+                "numberOfSteps": 1,
+                "stepsDone": 1,
+            },
+            "622": {
+                "id": "622",
+                "children": [],
+                "parents": ["547", "406", "265", "134"],
+                "label": "cryosparc2 - 3D Classification6",
+                "status": "finished",
+                "parameter": [],
+                "inputs": [
+                    {
+                        "inputParticles": {
+                            "_class": "SetOfParticles",
+                            "info": "Particles (1119 items, 140 x 140, 4.00 Å/px)",
+                            "_objValue": "Single particles union.outputSet",
+                            "_parentId": 547,
+                        }
+                    },
+                    {
+                        "refVolumes": {
+                            "_class": "Volume",
+                            "info": "Volume (140 x 140 x 140, 4.00 Å/px) - w/halves",
+                            "_objValue": "protNonUniform3DRefinement_3.outputVolume",
+                            "_parentId": 406,
+                        }
+                    },
+                    {
+                        "refVolumes": {
+                            "_class": "Volume",
+                            "info": "Volume (140 x 140 x 140, 4.00 Å/px) - w/halves",
+                            "_objValue": "protNonUniform3DRefinement_2.outputVolume",
+                            "_parentId": 265,
+                        }
+                    },
+                    {
+                        "refVolumes": {
+                            "_class": "Volume",
+                            "info": "Volume (140 x 140 x 140, 4.00 Å/px) - w/halves",
+                            "_objValue": "protNonUniform3DRefinement_1.outputVolume",
+                            "_parentId": 134,
+                        }
+                    },
+                ],
+                "outputs": [
+                    {
+                        "outputClasses": {
+                            "_class": "SetOfClasses3D",
+                            "info": "SetOfClasses3D       (3 items)",
+                            "_objValue": "cryosparc2 - 3D Classification6.outputClasses",
+                            "_parentId": 622,
+                        }
+                    },
+                    {
+                        "outputVolumes": {
+                            "_class": "SetOfVolumes",
+                            "info": "Volumes (3 items, 140 x 140 x 140, 4.00 Å/px)",
+                            "_objValue": "cryosparc2 - 3D Classification6.outputVolumes",
+                            "_parentId": 622,
+                        }
+                    },
+                    {
+                        "solventMask": {
+                            "_class": "VolumeMask",
+                            "info": "VolumeMask (140 x 140 x 140, 4.00 Å/px)",
+                            "_objValue": "cryosparc2 - 3D Classification6.solventMask",
+                            "_parentId": 622,
+                        }
+                    },
+                ],
+                "cpuTime": "98",
+                "elapsedTime": "99",
+                "isInteractive": false,
+                "numberOfSteps": 3,
+                "stepsDone": 3,
+            },
+            "870": {
+                "id": "870",
+                "children": [],
+                "parents": ["2"],
+                "label": "cryosparc2 - 2D classification",
+                "status": "finished",
+                "parameter": [],
+                "inputs": [
+                    {
+                        "inputParticles": {
+                            "_class": "SetOfParticles",
+                            "info": "Particles (373 items, 140 x 140, 4.00 Å/px)",
+                            "_objValue": "pwem - import particles.outputParticles",
+                            "_parentId": 2,
+                        }
+                    }
+                ],
+                "outputs": [
+                    {
+                        "outputClasses": {
+                            "_class": "SetOfClasses2D",
+                            "info": "SetOfClasses2D       (5 items)",
+                            "_objValue": "cryosparc2 - 2D classification.outputClasses",
+                            "_parentId": 870,
+                        }
+                    }
+                ],
+                "cpuTime": "47",
+                "elapsedTime": "48",
+                "isInteractive": false,
+                "numberOfSteps": 3,
+                "stepsDone": 3,
+            },
+            "PROJECT": {
+                "id": "PROJECT",
+                "children": ["2", "79"],
+                "parents": [],
+                "label": "PROJECT",
+                "status": "",
+                "parameter": [],
+                "inputs": [],
+                "outputs": [],
+                "cpuTime": "",
+                "elapsedTime": "",
+                "isInteractive": false,
+                "numberOfSteps": 0,
+                "stepsDone": 0,
+            },
+        },
+    }
+};
+
+var project_id = {{ project_id|tojson }};
+
+
+class TestClientApi {
+
+    constructor() {
+        this.project_details = {{ project_details|tojson }};
+    }
+
+    listProjects() {
+      return [];
+    }
+
+    getProject(projectId) {
+      return this.project_details;
+    }
+
+    listProtocols(projectId) {
+      return this.project_details.protocols;
+    }
+
+    getProtocolDetails(projectId, protocolId) {
+      return {};
+    }
+
+    executeProtocol(protocolId, protocolClassName, params) {
+        return null;
+    }
+
+    saveProtocol(protocolId, protocolClassName, params) {
+      return null;
+    }
+
+    createProject({ name, description }) {
+      return {};
+    }
+
+    renameProject(id, newName, newDescription = "") {
+      return {};
+    }
+
+    deleteProject(id) {
+     return {};
+    }
+  }
+
+</script>
+
+<script>
+
+
+  (function () {
+    "use strict";
+
+    function showBootstrapError(err) {
+      var host = document.querySelector("#projects-host") || document.body;
+      host.innerHTML =
+        '<pre class="error">Host bootstrap error:\n' +
+        String(err && (err.stack || err)) +
+        "</pre>";
+      console.error(err);
+    }
+
+    try {
+      // ---------- Utils ----------
+      function $(sel) {
+        return document.querySelector(sel);
+      }
+
+      var grid = null;
+      var listHostSel = "#projects-host";
+      var projectPageHostSel = "#project-page-host";
+      var protocolDetailHostSel = "#protocol-detail-host";
+
+      /*
+      function ensureDomRoots() {
+        var ids = ["modal-root", "drawer-root", "toast-root", "portal-root", "app", "root"];
+        ids.forEach(function (id) {
+          if (!document.getElementById(id)) {
+            var d = document.createElement("div");
+            d.id = id;
+            document.body.appendChild(d);
+          }
+        });
+      }
+
+
+
+      function readInitialProps() {
+        try {
+          var el = document.getElementById("initial-props");
+          var txt = (el && el.textContent ? el.textContent : "").trim();
+          return txt ? JSON.parse(txt) : {};
+        } catch (e) {
+          return {};
+        }
+      }
+
+      // Get initial project id (if any) from props
+      function getInitialProjectId() {
+        try {
+          var props = readInitialProps();
+          if (!props || typeof props !== "object") return null;
+          return (
+            props.initialProjectId ||
+            props.projectId ||
+            props.projectName ||
+            null
+          );
+        } catch (e) {
+          return null;
+        }
+      }
+      */
+
+
+      // ---------- API client instance ----------
+      var apiClient = new TestClientApi();
+
+      {#function ensureApiClient(callback) {#}
+      {#  if (apiClient) {#}
+      {#    if (callback) callback();#}
+      {#    return;#}
+      {#  }#}
+      {##}
+      {#  if (!window.ProjectsApiClient) {#}
+      {#    console.warn("[host] ProjectsApiClient not ready yet. Retrying...");#}
+      {#    setTimeout(function () {#}
+      {#      ensureApiClient(callback);#}
+      {#    }, 60);#}
+      {#    return;#}
+      {#  }#}
+      {##}
+      {#  try {#}
+      {#    apiClient = new window.ProjectsApiClient({ baseUrl: "/api" });#}
+      {#    console.log("[host] ProjectsApiClient created");#}
+      {#    if (callback) callback();#}
+      {#  } catch (err) {#}
+      {#    showBootstrapError(err);#}
+      {#  }#}
+      {# }#}
+
+      // Helper to normalize protocols list
+      function normalizeProtocols(data) {
+        if (Array.isArray(data)) {
+          return data;
+        }
+        if (data && typeof data === "object") {
+          return Object.keys(data).map(function (k) {
+            return data[k];
+          });
+        }
+        return [];
+      }
+
+      // ---------- Widgets services ----------
+      var svc = {
+        fetchList() {
+          return apiClient.listProjects();
+        },
+        fetchProject(id) {
+          return apiClient.getProject(id);
+        },
+        loadProtocols(projId) {
+          return apiClient.listProtocols(projId).then(normalizeProtocols);
+        },
+        fetchProtocolDetails(projectId, protocolId) {
+          return apiClient.getProtocolDetails(projectId, protocolId);
+        },
+        executeProtocol(protocolId, protocolClassName, params) {
+          return apiClient.executeProtocol(protocolId, protocolClassName, params);
+        },
+        saveProtocol(protocolId, protocolClassName, params) {
+          return apiClient.saveProtocol(protocolId, protocolClassName, params);
+        },
+        createProject(data) {
+          return apiClient.createProject(data);
+        },
+        renameProject(id, newName, newDescription) {
+          if (typeof newDescription === "undefined") newDescription = "";
+          return apiClient.renameProject(id, newName, newDescription);
+        },
+        deleteProject(id) {
+          return apiClient.deleteProject(id);
+        },
+      };
+
+      // ---------- Mount state ----------
+      var listRoot = null;
+      var pageRoot = null;
+      var detailRoot = null;
+      var currentProjectId = null;
+      var currentDetailKey = null; // proj:prot
+
+      // ---------- Layout helpers ----------
+        /*
+      function showListOnly() {
+        var listHost = $(listHostSel);
+        var pageHost = $(projectPageHostSel);
+        var detailHost = $(protocolDetailHostSel);
+        if (listHost) listHost.classList.remove("hidden");
+        if (pageHost) pageHost.classList.add("hidden");
+        if (detailHost) detailHost.classList.add("hidden");
+        if (grid) grid.classList.remove("two-cols");
+      }
+
+         */
+
+      function showPageOnly() {
+        var listHost = $(listHostSel);
+        var pageHost = $(projectPageHostSel);
+        var detailHost = $(protocolDetailHostSel);
+        if (pageHost) pageHost.classList.remove("hidden");
+        if (listHost) listHost.classList.add("hidden");
+        if (detailHost) detailHost.classList.add("hidden");
+        if (grid) grid.classList.remove("two-cols");
+      }
+
+      function showPageWithDetail() {
+        var listHost = $(listHostSel);
+        var pageHost = $(projectPageHostSel);
+        var detailHost = $(protocolDetailHostSel);
+        if (pageHost) pageHost.classList.remove("hidden");
+        if (listHost) listHost.classList.add("hidden");
+        if (detailHost) detailHost.classList.remove("hidden");
+        if (grid) grid.classList.add("two-cols");
+      }
+
+      function unmountList() {
+        if (listRoot && listRoot.unmount) {
+          try {
+            listRoot.unmount();
+          } catch (e) {}
+        }
+        listRoot = null;
+        var host = $(listHostSel);
+        if (host) host.innerHTML = "";
+      }
+
+      /*
+      function unmountPage() {
+        if (pageRoot && pageRoot.unmount) {
+          try {
+            pageRoot.unmount();
+          } catch (e) {}
+        }
+        pageRoot = null;
+        var host = $(projectPageHostSel);
+        if (host) host.innerHTML = "";
+        currentProjectId = null;
+      }
+
+       */
+
+      function unmountDetail() {
+        if (detailRoot && detailRoot.unmount) {
+          try {
+            detailRoot.unmount();
+          } catch (e) {}
+        }
+        detailRoot = null;
+        var host = $(protocolDetailHostSel);
+        if (host) host.innerHTML = "";
+        currentDetailKey = null;
+      }
+
+      // ---------- Mount list ----------
+
+        /*
+      function mountList() {
+        var target = $(listHostSel);
+        if (!target) {
+          console.error("[host] missing list host");
+          return;
+        }
+
+        function tryMount() {
+          var api =
+            window.MyProjectsWidget ||
+            window.ProjectsWidget ||
+            window.ProjectListWidget ||
+            window.MyWidgets;
+          var mountFn = api && (api.mount || api.mountProjectsWidget || api.mountList);
+          if (!mountFn) {
+            console.warn("[host] Projects list widget not ready, retrying...");
+            setTimeout(tryMount, 40);
+            return;
+          }
+
+          try {
+            unmountPage();
+            unmountDetail();
+            // ensureDomRoots();
+            showListOnly();
+
+            var initialProps = {initialProjectId: project_id};
+            listRoot = mountFn({ container: target, service: svc, props: initialProps });
+            console.log("[host] list mounted");
+          } catch (err) {
+            target.innerHTML =
+              '<pre class="error">ProjectsWidget error:\n' +
+              String(err && (err.stack || err)) +
+              "</pre>";
+            console.error(err);
+          }
+        }
+
+        tryMount();
+      }
+
+         */
+
+      // ---------- Mount project page ----------
+      function mountProjectPage(projectId) {
+        var target = $(projectPageHostSel);
+        if (!target) {
+          console.error("[host] missing project page host");
+          return;
+        }
+
+        function tryMount() {
+          var api = window.MyProjectsWidget || window.ProjectPageWidget || window.MyWidgets;
+          var mountFn =
+            api && (api.mountProjectPageWidget || api.mountProjectPage || api.mountPage);
+          if (!mountFn) {
+            console.warn("[host] Project page widget not ready, retrying...");
+            setTimeout(tryMount, 50);
+            return;
+          }
+
+          try {
+            if (currentProjectId !== projectId) {
+              unmountList();
+             // ensureDomRoots();
+              showPageOnly();
+            }
+
+            var pageProps = {
+              onOpenProtocol: function (protocolId) {
+                openProtocolDetail(projectId, protocolId);
+              },
+              onProtocolOpen: function (protocolId) {
+                openProtocolDetail(projectId, protocolId);
+              },
+            };
+
+            if (currentProjectId !== projectId) {
+              pageRoot = mountFn({
+                container: target,
+                service: svc,
+                projectName: String(projectId),
+                props: pageProps,
+              });
+              currentProjectId = String(projectId);
+            }
+
+            showPageOnly();
+            console.log("[host] project page mounted:", projectId);
+          } catch (err) {
+            target.innerHTML =
+              '<pre class="error">ProjectPageWidget error:\n' +
+              String(err && (err.stack || err)) +
+              "</pre>";
+            console.error(err);
+          }
+        }
+
+        tryMount();
+      }
+
+      // ---------- Protocol detail ----------
+      function closeDetailPanel() {
+        unmountDetail();
+        showPageOnly();
+        try {
+          var proj = currentProjectId || "";
+          history.pushState(null, "", "/project/load/" + encodeURIComponent(proj));
+        } catch (e) {}
+      }
+
+      function openProtocolDetail(projectId, protocolId, prefetchedDetail) {
+       // ensureDomRoots();
+
+        var api = null;
+        if (window.MyProjectsWidget && window.MyProjectsWidget.mountProtocolDetailWidget) {
+          api = { mountProtocolDetailWidget: window.MyProjectsWidget.mountProtocolDetailWidget };
+        } else if (window.ProtocolDetailWidget) {
+          api = window.ProtocolDetailWidget;
+        }
+
+        var target = $(protocolDetailHostSel);
+        if (!api || !api.mountProtocolDetailWidget) {
+          console.warn("[host] ProtocolDetailWidget is not ready yet. Retrying...");
+          setTimeout(function () {
+            openProtocolDetail(projectId, protocolId, prefetchedDetail);
+          }, 60);
+          return;
+        }
+        if (!target) {
+          console.error("[host] missing protocol detail host");
+          return;
+        }
+
+        var key = String(projectId) + ":" + String(protocolId);
+        if (currentDetailKey === key && detailRoot) {
+          showPageWithDetail();
+          return;
+        }
+
+        unmountDetail();
+        showPageWithDetail();
+
+        try {
+          detailRoot = api.mountProtocolDetailWidget({
+            container: target,
+            service: svc,
+            projectId: String(projectId),
+            protocolId: String(protocolId),
+            props: {
+              initialProtocol: prefetchedDetail,
+              onClose: closeDetailPanel,
+              variant: "docked",
+            },
+          });
+
+          currentDetailKey = key;
+          try {
+            history.pushState(null, "", "/project/" +  encodeURIComponent(projectId) + "/protocol/" + encodeURIComponent(protocolId));
+          } catch (e) {}
+          console.log("[host] protocol detail mounted:", key);
+        } catch (err) {
+          target.innerHTML = '<pre class="error">ProtocolDetailWidget error:\n' + String(err && (err.stack || err)) +  "</pre>";
+          console.error(err);
+        }
+      }
+
+      // ---------- Router ----------
+      function handleRoute() {
+          mountProjectPage(project_id);
+
+          /*
+
+        var p = location.pathname;
+        var m;
+
+        m = p.match(/^\/project\/load\/([^/]+)\/?$/);
+        if (m) {
+          var projId = decodeURIComponent(m[1]);
+          mountProjectPage(projId);
+          return;
+        }
+
+        m = p.match(/^\/project\/([^/]+)\/protocol\/([^/]+)\/?$/);
+        if (m) {
+          var projId2 = decodeURIComponent(m[1]);
+          var protId = decodeURIComponent(m[2]);
+          if (currentProjectId !== String(projId2) || !pageRoot) {
+            mountProjectPage(projId2);
+            setTimeout(function () {
+              openProtocolDetail(projId2, protId);
+            }, 50);
+          } else {
+            openProtocolDetail(projId2, protId);
+          }
+          return;
+        }
+
+        // If no explicit route matches, try initial project from props
+        var initialProjectId = getInitialProjectId();
+        if (initialProjectId) {
+          mountProjectPage(initialProjectId);
+          return;
+        }
+
+        // Default: projects list
+        mountList();
+
+           */
+      }
+
+      /*
+      function interceptHistory() {
+        var origPush = history.pushState;
+        var origReplace = history.replaceState;
+
+        history.pushState = function (state, title, url) {
+          var r = origPush.apply(this, arguments);
+          handleRoute();
+          return r;
+        };
+
+        history.replaceState = function (state, title, url) {
+          var r = origReplace.apply(this, arguments);
+          handleRoute();
+          return r;
+        };
+
+        window.addEventListener("popstate", handleRoute);
+      }
+
+
+      // ---------- Boot ----------
+      function startWhenReady() {
+        grid = document.getElementById("grid");
+        // ensureDomRoots();
+        //interceptHistory();
+        handleRoute();
+      }
+
+     function boot() {
+        ensureApiClient(function () {
+          if (document.readyState === "loading") {
+            document.addEventListener("DOMContentLoaded", startWhenReady);
+          } else {
+            startWhenReady();
+          }
+        });
+      }
+
+       boot();
+
+       */
+      // startWhenReady();
+        handleRoute();
+
+    } catch (err) {
+      showBootstrapError(err);
+    }
+  })();
+</script>
+
