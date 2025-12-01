@@ -134,6 +134,7 @@ def register_content(dc):
         tomo_session = json.loads(kwargs['tomo_session'])
         session_path = tomo_session['path']
         s = FolderManager(session_path)
+        table = None
         data = {
             'tomograms': [],
             'session_path': session_path,
@@ -145,6 +146,7 @@ def register_content(dc):
         if s.exists(tomograms_star):
             table = _load_table_from_star(session_path, tomograms_star)
 
+        if table:
             # It is possible to load the table from folder, but better to explicitly
             # generate the tomograms.star
             # table = _load_table_from_folders(session_path, tomo_session)
@@ -276,7 +278,6 @@ def register_content(dc):
         data = dc.get_data('processing_content', **kwargs)
         data['menu'] = ProcessingConfig.get_menu()
         return data
-
 
     # FIXME: More benchmark_ functions to a separate place
     def get_benchmarks():
