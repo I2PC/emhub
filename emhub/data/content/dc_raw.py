@@ -240,4 +240,81 @@ def register_content(dc):
             "props": props
         }
 
+    def get_protocols(workflow):
+        from emhub.data.processing import RelionRun
+
+        root = {
+            "id": "PROJECT",
+            "children": [],
+            "parents": [],
+            "label": "PROJECT",
+            "status": "",
+            "parameter": [],
+            "inputs": [],
+            "outputs": [],
+            "cpuTime": "",
+            "elapsedTime": "",
+            "isInteractive": False,
+            "numberOfSteps": 0,
+            "stepsDone": 0,
+        }
+        protocols = {
+            "PROJECT": root
+        }
+        status_map = {
+            'Succeeded': 'finished',
+            'Running': 'running',
+            'Aborted': 'aborted',
+            'Failed': 'failed'
+        }
+
+        for job in workflow.jobs():
+            parents = [i.parent.id for i in job.inputs]
+            children = []
+            for o in job.outputs:
+                for c in o.childs:
+                    children.append(c.id)
+
+            prot = {
+                'id': job.id,
+                'label': RelionRun.jobAlias(job),
+                'parents': parents,
+                'children': children,
+                'inputs': [],
+                'outputs': [],
+                'status': status_map.get(job['status'], job['status']),
+                'type': job['jobtype'],
+                "cpuTime": "0",
+                "elapsedTime": "0",
+                "isInteractive": False,
+                "numberOfSteps": 1,
+                "stepsDone": 1,
+            }
+
+            if not parents:
+                prot['parents'].append(root['id'])
+                root['children'].append(job.id)
+
+            protocols[job.id] = prot
+
+        return protocols
+
+    @dc.content
+    def project_widget2(**kwargs):
+        from emwrap.base import ProcessingConfig
+        project_id = int(kwargs['entry_id'])
+        data = dc.get_data('processing_content', **kwargs)
+        pp = data['processing_project']
+        data['menu'] = ProcessingConfig.get_menu()
+        data['project_id'] = project_id  # 43  # FIXME: Test project
+        data['project_details'] = {
+            'id': project_id,
+            "name": "/home/yunior/ScipionUserData/projects/TestCryosparc3DClassification",
+            "shortName": "TestCryosparc3DClassification",
+            "createdAt": "2025-09-13 15:29:00.670242+02:00",
+            "status": "active",
+            "path": "/home/yunior/ScipionUserData/projects/TestCryosparc3DClassification",
+            'protocols': get_protocols(pp.workflow)
+        }
+        return data
 
