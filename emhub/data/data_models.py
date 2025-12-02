@@ -161,7 +161,7 @@ def create_data_models(dm):
 
         @daily_cost.setter
         def daily_cost(self, value):
-            self.__setExtra('daily_cost', int(value))
+            self.__setExtra('daily_cost', float(value))
 
     ApplicationUser = Table('application_user', Base.metadata,
                             Column('application_id', Integer,
