@@ -602,7 +602,7 @@ def register_content(dc):
 
         for k, v in entries_down.items():
             v['total_days'] = calendar_max.get(k, 0) * 2
-        total_usage = calendar_max.get('used') * 2
+        total_usage = (calendar_max.get('used') if calendar_max.get('used') else 0) * 2
 
         other_total = sum(e['total_days'] for e in entries_down.values())
         unused_total = period_units - total_usage - other_total
