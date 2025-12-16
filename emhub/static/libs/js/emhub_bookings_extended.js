@@ -319,6 +319,20 @@ function showImageDialog(ajaxContent) {
 
 /*------------  Calendar related functions --------------- */
 
+function adjustBookingEndBy9h(e) {
+    const start = new Date(e.start);
+    const end = new Date(e.end);
+
+    // If the event finishes before 09:00 we do not paint it at calendar
+    if (end.getHours() < 9 || (end.getHours() === 9 && end.getMinutes() === 0)) {
+        end.setDate(end.getDate() - 1);
+        end.setHours(23, 59, 59, 999);
+        e.end = end.toISOString();
+    }
+
+    return e;
+}
+
 function createCalendar() {
     var Calendar = FullCalendar.Calendar;
     var calendarEl = document.getElementById('booking_calendar');
@@ -358,10 +372,12 @@ function createCalendar() {
             var all_ids = [];
             for (i = 0; i < all_events.length; i++) {
                 e = all_events[i];
+                e = adjustBookingEndBy9h(e);
                 if (all_ids.indexOf(e.id) == -1){
                     all_ids.push(e.id);
-                    if (is_visible(e))
+                    if (is_visible(e)) {
                         visible_events.push(e);
+                    }
                     else {
                         e.extendedProps = {resource: e.resource};
                         hidden_events.push(e);
@@ -469,6 +485,7 @@ function remove_bookings(deleted) {
 /** Add new bookings to the calendar and to the list */
 function add_bookings(added) {
     for (var booking of added) {
+        booking = adjustBookingEndBy9h(booking);
         event = calendar.addEvent(booking);
     }
 }
