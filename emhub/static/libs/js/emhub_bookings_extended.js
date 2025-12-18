@@ -10,14 +10,26 @@ function getBookingDays(booking) {
      return days_difference + 1;
 }
 
-function setDateAndTime(idPrefix, dateIso){
+function setDateAndTime(idPrefix, dateIso, bookingId){
     const dateId = '#' + idPrefix + '-date';
     const timeId = '#' + idPrefix + '-time';
     var d = new Date(Date.parse(dateIso));
+    if (bookingId === 0) { // is a new booking
+        if (idPrefix === 'booking-start') {
+            $(timeId).val('09:00');
+        }
+        else if (idPrefix === 'booking-end') {
+            d.setDate(d.getDate() + 1);
+            $(timeId).val('08:59');
+        }
+    }
+    else { // an existing booking
+        $(timeId).val(timeStr(d));
+    }
     $(dateId).datetimepicker({format: 'YYYY/MM/DD'});
     $(dateId).val(dateStr(d));
-    $(timeId).val(timeStr(d));
 }
+
 
 function getDateAndTime(idPrefix) {
    return  dateFromValue('#' + idPrefix + '-date',
