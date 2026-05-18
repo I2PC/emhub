@@ -208,7 +208,7 @@ def register_content(dc):
     @dc.content
     def sessions_list(**kwargs):
         show_extra = 'extra' in kwargs and dc.app.user.is_admin
-        days = int(kwargs.get('days', 30))
+        days = int(kwargs.get('days', 180))
         dm = dc.app.dm  # shortcut
         all_sessions = dm.get_sessions()
         sessions = []
