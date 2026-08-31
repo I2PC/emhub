@@ -1224,8 +1224,9 @@ def _handle_item(handle_func, result_key):
 
 def handle_booking(result_key, booking_func, booking_transform=None):
     def handle(**attrs):
-        attrs['extra'] = {'applications': [app for app in attrs.get('application')]}
-        attrs.pop('application')
+        if 'application' in attrs:
+            attrs['extra'] = {'applications': attrs.get('application') or []}
+            attrs.pop('application', None)
         dates = ['start', 'end']
 
         if attrs.get('repeat_value', 'no') != 'no':
