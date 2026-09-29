@@ -155,7 +155,21 @@ function onOkButtonClick(is_new) {
 
     try {
         booking = getBookingParams(!is_new);
-        booking.extra = booking_extra;
+        booking.extra = booking_extra || {};
+
+        var applications = $('#booking-application-admin').selectpicker('val') || [];
+        booking.extra.applications = applications;
+
+        var visit_id = $('#booking-visitid').val();
+
+        if (visit_id) {
+            booking.extra.visit_id = visit_id;
+        } else {
+            delete booking.extra.visit_id;
+        }
+
+        delete booking.visit_id;
+        delete booking.application;
 
         if (experiment_mode === 'embedded'){
             last_experiment = getFormAsJson('dynamic-form');
