@@ -237,7 +237,7 @@ class Worker:
         self.logFile = kwargs.get('logFile', 'worker.log')
         self.logsFolder = os.path.expanduser('~/.emhub/sessions/logs')
         self.dc = DataClient(server_url=config.EMHUB_SERVER_URL)
-        self.dc.timeout = 60
+        self.dc.timeout = 130
         self.dc.login(config.EMHUB_USER, config.EMHUB_PASSWORD)
         self.tasks = {}
         self._tasksLock = threading.Lock()
